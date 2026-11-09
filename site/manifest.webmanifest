@@ -1,0 +1,33 @@
+{
+  "name": "Dewclaw",
+  "short_name": "Dewclaw",
+  "description": "Your dog's care plan, built from their breed, age and weight: feeding, walks, reminders, training, first aid and DewclawMD. Free, no account, works offline.",
+  "id": "/",
+  "start_url": "./index.html#/app",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F1F4F0",
+  "theme_color": "#1F4A33",
+  "lang": "en-US",
+  "dir": "ltr",
+  "categories": ["lifestyle", "health", "utilities"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "screenshots": [
+    { "src": "screenshots/phone-1-chart.png", "sizes": "1080x1920", "type": "image/png", "form_factor": "narrow", "label": "Your pet's chart" },
+    { "src": "screenshots/phone-2-care.png", "sizes": "1080x1920", "type": "image/png", "form_factor": "narrow", "label": "Care, today" },
+    { "src": "screenshots/phone-3-dewclawmd.png", "sizes": "1080x1920", "type": "image/png", "form_factor": "narrow", "label": "DewclawMD" },
+    { "src": "screenshots/phone-4-geopet.png", "sizes": "1080x1920", "type": "image/png", "form_factor": "narrow", "label": "Geopet" }
+  ],
+  "shortcuts": [
+    { "name": "Care today", "url": "./index.html#/care", "description": "Reminders, walks and training for today" },
+    { "name": "Ask DewclawMD", "url": "./index.html#/vetmd", "description": "Ask anything about your pet" },
+    { "name": "First aid", "url": "./index.html#/care/firstaid", "description": "Emergency cards and poison lines" }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false
+}
