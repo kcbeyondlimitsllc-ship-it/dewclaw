@@ -311,17 +311,116 @@ async function handleStripeClaim(env, deps, req) {
     const token = await signToken(env, { k: "s", c: customer, s: subId, sku, t: deps.now() });
     const st = await webCheck(env, deps, token, true);
     out = { kind: "plus", sku, token, active: st.active, until: st.until, code: await saveCode(env, token, sku) };
-  } else if (w && w.plus === "lifetime") {
-    const token = await signToken(env, { k: "l", c: customer, s: session, sku, t: deps.now() });
+  } else out = await oneTimeGrant(env, deps, sku, session, customer);
+  await env.DEWCLAW.put(key, JSON.stringify(out), { expirationTtl: 400 * 86400 });
+  return { ...out, already: false };
+}
+/* what a paid one-time purchase is worth, whichever processor took the money:
+   Plus for life, a gift year (as a code), or a Pocket Pup grant */
+async function oneTimeGrant(env, deps, sku, ref, customer) {
+  const w = WEB_PRODUCTS[sku], g = PP_GRANTS[sku];
+  if (w && w.plus === "lifetime") {
+    const token = await signToken(env, { k: "l", c: customer, s: ref, sku, t: deps.now() });
     await env.DEWCLAW.put("web:" + await sha256(token), JSON.stringify({ until: FAR, sku }));
-    out = { kind: "plus", sku, token, active: true, until: FAR, code: await saveCode(env, token, sku) };
-  } else if (w && w.plus === "gift") {
-    const token = await signToken(env, { k: "g", c: customer, s: session, sku, t: deps.now() });
+    return { kind: "plus", sku, token, active: true, until: FAR, code: await saveCode(env, token, sku) };
+  }
+  if (w && w.plus === "gift") {
+    const token = await signToken(env, { k: "g", c: customer, s: ref, sku, t: deps.now() });
     await env.DEWCLAW.put("web:" + await sha256(token), JSON.stringify({ until: 0, days: w.days, sku }));
-    out = { kind: "gift", sku, days: w.days, code: await saveCode(env, token, sku) };
-  } else if (g) {
-    out = { kind: "grant", sku, grant: { bones: g.bones || 0, items: g.items || [] }, consumable: g.consumable };
-  } else throw new HttpError(400, "That checkout isn't for a Dewclaw product.");
+    return { kind: "gift", sku, days: w.days, code: await saveCode(env, token, sku) };
+  }
+  if (g) return { kind: "grant", sku, grant: { bones: g.bones || 0, items: g.items || [] }, consumable: g.consumable };
+  throw new HttpError(400, "That checkout isn't for a Dewclaw product.");
+}
+
+/* ---------------------------------------------------------------- PayPal
+   One-time purchases only (bone and item packs, Plus for life, a gift year);
+   Plus subscriptions stay on Stripe. The buyer approves on PayPal, comes back
+   with ?pp=1&token=<order id>, and /paypal/claim captures the order, checks the
+   amount against this server's own price list, then grants exactly like Stripe.
+
+   Secrets: PAYPAL_CLIENT_ID, PAYPAL_SECRET. PAYPAL_ENV = "live" for real money
+   (anything else is the PayPal sandbox). Optional PAYPAL_PRICES (JSON: sku ->
+   "0.99") overrides the price list below. */
+const PAYPAL_PRICES = {
+  pp_bones_500: "0.99", pp_bones_1300: "1.99", pp_bones_3600: "4.99", pp_bones_8000: "9.99",
+  pp_starter: "2.99", pp_forever: "1.99", pp_slot2: "2.99", pp_kc_pack: "3.99", pp_halloween: "2.99",
+  pp_palettes: "1.99", pp_boost7: "1.99", pp_revive: "0.99",
+  dewclaw_plus_lifetime: "29.99", dewclaw_plus_gift_year: "11.99"
+};
+const PAYPAL_NAMES = { dewclaw_plus_lifetime: "Dewclaw Plus for life", dewclaw_plus_gift_year: "A year of Dewclaw Plus (gift)" };
+const paypalOn = env => !!(env.PAYPAL_CLIENT_ID && env.PAYPAL_SECRET);
+const paypalLive = env => String(env.PAYPAL_ENV || "").toLowerCase() === "live";
+const paypalBase = env => paypalLive(env) ? "https://api-m.paypal.com" : "https://api-m.sandbox.paypal.com";
+const paypalPrices = env => { let o = {}; try { o = JSON.parse(env.PAYPAL_PRICES || "{}") || {}; } catch {} return { ...PAYPAL_PRICES, ...o }; };
+const paypalSkus = env => paypalOn(env) ? Object.keys(paypalPrices(env)).filter(k => PP_GRANTS[k] || (WEB_PRODUCTS[k] && WEB_PRODUCTS[k].mode === "payment")) : [];
+async function paypalToken(env, deps) {
+  const ck = "pptoken:" + (paypalLive(env) ? "live" : "sandbox");
+  const cached = await env.DEWCLAW.get(ck, "json");
+  if (cached && cached.exp > deps.now() + 60e3) return cached.token;
+  const r = await deps.fetch(paypalBase(env) + "/v1/oauth2/token", { method: "POST",
+    headers: { authorization: "Basic " + btoa(env.PAYPAL_CLIENT_ID + ":" + env.PAYPAL_SECRET), "content-type": "application/x-www-form-urlencoded" },
+    body: "grant_type=client_credentials" });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || !j.access_token) throw new HttpError(502, "PayPal didn't accept the server's credentials. Check PAYPAL_CLIENT_ID, PAYPAL_SECRET and PAYPAL_ENV.");
+  await env.DEWCLAW.put(ck, JSON.stringify({ token: j.access_token, exp: deps.now() + (num(j.expires_in, 3600) - 120) * 1000 }), { expirationTtl: 3600 });
+  return j.access_token;
+}
+async function paypal(env, deps, method, path, body, requestId) {
+  if (!paypalOn(env)) throw new HttpError(503, "PayPal isn't switched on yet.");
+  const headers = { authorization: "Bearer " + await paypalToken(env, deps), "content-type": "application/json", prefer: "return=representation" };
+  if (requestId) headers["paypal-request-id"] = requestId;
+  const r = await deps.fetch(paypalBase(env) + path, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  const j = await r.json().catch(() => ({}));
+  return { ok: r.ok, status: r.status, j };
+}
+async function handlePaypalCheckout(env, deps, req) {
+  if (!paypalOn(env)) throw new HttpError(503, "PayPal isn't switched on yet.");
+  const { sku, back } = await readJson(req);
+  const value = paypalPrices(env)[sku];
+  if (!value || !paypalSkus(env).includes(sku)) throw new HttpError(400, "That can't be bought with PayPal. Plus subscriptions are paid by card.");
+  const origin = String(env.APP_ORIGIN || "").replace(/\/+$/, "");
+  if (!origin) throw new HttpError(503, "APP_ORIGIN isn't set on the server.");
+  const path = RETURN_PATHS.includes(back) ? back : "/plus";
+  const name = PAYPAL_NAMES[sku] || "Pocket Pup: " + sku.replace(/^pp_/, "").replace(/_/g, " ");
+  const r = await paypal(env, deps, "POST", "/v2/checkout/orders", {
+    intent: "CAPTURE",
+    purchase_units: [{ reference_id: sku, custom_id: sku, description: name.slice(0, 127), amount: { currency_code: "USD", value } }],
+    payment_source: { paypal: { experience_context: { brand_name: "Dewclaw", user_action: "PAY_NOW", shipping_preference: "NO_SHIPPING",
+      return_url: `${origin}/?pp=1#${path}`, cancel_url: `${origin}/#${path}` } } }
+  }, "dc-" + crypto.randomUUID());
+  if (!r.ok) throw new HttpError(502, r.j?.message ? `PayPal: ${r.j.message}` : "PayPal didn't answer.");
+  const link = (r.j.links || []).find(l => l.rel === "payer-action" || l.rel === "approve");
+  if (!link) throw new HttpError(502, "PayPal didn't return a checkout link.");
+  return { url: link.href, order: r.j.id };
+}
+async function handlePaypalClaim(env, deps, req) {
+  const { order } = await readJson(req);
+  if (typeof order !== "string" || !/^[A-Z0-9]{8,40}$/.test(order)) throw new HttpError(400, "A PayPal order is required.");
+  const key = "claim:pp:" + await sha256(order);
+  const seen = await env.DEWCLAW.get(key, "json");
+  if (seen) return { ...seen, already: true };
+  let o = await paypal(env, deps, "GET", `/v2/checkout/orders/${encodeURIComponent(order)}`);
+  if (o.status === 404) throw new HttpError(402, "PayPal doesn't know that order.");
+  if (!o.ok) throw new HttpError(502, "PayPal couldn't confirm the payment yet. Try again in a minute.");
+  if (o.j.status === "APPROVED") {
+    const c = await paypal(env, deps, "POST", `/v2/checkout/orders/${encodeURIComponent(order)}/capture`, {}, "cap-" + order);
+    const issue = c.j?.details?.[0]?.issue;
+    if (c.ok) o = c;
+    else if (issue === "ORDER_ALREADY_CAPTURED") o = await paypal(env, deps, "GET", `/v2/checkout/orders/${encodeURIComponent(order)}`);
+    else throw new HttpError(402, issue === "INSTRUMENT_DECLINED" ? "PayPal declined that payment method. Try another one in PayPal, or pay by card." : "PayPal couldn't take the payment. Try again, or pay by card.");
+  }
+  if (o.j.status !== "COMPLETED") throw new HttpError(402, o.j.status === "PAYER_ACTION_REQUIRED" || o.j.status === "CREATED" ? "That PayPal payment hasn't been approved yet." : "That PayPal payment didn't go through.");
+  const pu = (o.j.purchase_units || [])[0] || {};
+  const cap = ((pu.payments || {}).captures || [])[0] || {};
+  if (cap.status === "PENDING") throw new HttpError(402, "PayPal is still processing that payment. Come back to this page once PayPal emails you that it cleared.");
+  if (cap.status !== "COMPLETED") throw new HttpError(402, "That PayPal payment didn't go through.");
+  const sku = pu.custom_id || cap.custom_id || pu.reference_id;
+  const want = paypalPrices(env)[sku];
+  const amt = cap.amount || pu.amount || {};
+  if (!want || amt.currency_code !== "USD" || Math.round(Number(amt.value) * 100) < Math.round(Number(want) * 100)) throw new HttpError(402, "That PayPal payment doesn't match a Dewclaw product.");
+  const customer = "pp:" + ((o.j.payer || {}).payer_id || "");
+  const out = { ...(await oneTimeGrant(env, deps, sku, "pp:" + order, customer)), via: "paypal" };
   await env.DEWCLAW.put(key, JSON.stringify(out), { expirationTtl: 400 * 86400 });
   return { ...out, already: false };
 }
@@ -344,9 +443,9 @@ async function handleStripePortal(env, deps, req) {
 }
 /* the web price list the app shows; read from Stripe once an hour */
 async function handleStripePrices(env, deps) {
-  if (!stripeOn(env)) return { on: false, prices: [] };
+  if (!stripeOn(env)) return { on: false, prices: [], paypal: paypalSkus(env) };
   const cached = await env.DEWCLAW.get("prices", "json");
-  if (cached && cached.at > deps.now() - 36e5) return { on: true, prices: cached.prices };
+  if (cached && cached.at > deps.now() - 36e5) return { on: true, prices: cached.prices, paypal: paypalSkus(env) };
   const prices = [];
   for (const [sku, id] of Object.entries(stripePrices(env))) {
     if (!(WEB_PRODUCTS[sku] || PP_GRANTS[sku])) continue;
@@ -357,7 +456,7 @@ async function handleStripePrices(env, deps) {
     } catch {}
   }
   if (prices.length) await env.DEWCLAW.put("prices", JSON.stringify({ at: deps.now(), prices }), { expirationTtl: 86400 });
-  return { on: true, prices };
+  return { on: true, prices, paypal: paypalSkus(env) };
 }
 
 /* ------------------------------------------------------------- Anthropic */
@@ -481,7 +580,7 @@ export async function handle(req, env, deps = { fetch: globalThis.fetch.bind(glo
     if (req.method === "GET" && (path === "/" || path === "/health")) {
       const c = cfg(env);
       return json({ ok: true, model: c.MODEL, play: !!(env.GOOGLE_SA_EMAIL && env.GOOGLE_SA_KEY && env.PLAY_PACKAGE), claude: !!env.ANTHROPIC_API_KEY,
-                    stripe: stripeOn(env), tax: ["auto", "managed"].includes(String(env.STRIPE_TAX || "").toLowerCase()) ? String(env.STRIPE_TAX).toLowerCase() : "off", monthlyAsks: c.MONTHLY_ASKS, dailyAsksTotal: c.DAILY_ASKS_TOTAL }, 200, h);
+                    stripe: stripeOn(env), tax: ["auto", "managed"].includes(String(env.STRIPE_TAX || "").toLowerCase()) ? String(env.STRIPE_TAX).toLowerCase() : "off", paypal: paypalOn(env) ? (paypalLive(env) ? "live" : "sandbox") : false, monthlyAsks: c.MONTHLY_ASKS, dailyAsksTotal: c.DAILY_ASKS_TOTAL }, 200, h);
     }
     if (req.method === "GET" && path === "/stripe/prices") return json(await handleStripePrices(env, deps), 200, { ...h, "cache-control": "public, max-age=300" });
     if (req.method !== "POST") throw new HttpError(404, "Not found.");
@@ -492,6 +591,8 @@ export async function handle(req, env, deps = { fetch: globalThis.fetch.bind(glo
     if (path === "/stripe/claim") return json(await handleStripeClaim(env, deps, req), 200, h);
     if (path === "/stripe/restore") return json(await handleStripeRestore(env, deps, req), 200, h);
     if (path === "/stripe/portal") return json(await handleStripePortal(env, deps, req), 200, h);
+    if (path === "/paypal/checkout") return json(await handlePaypalCheckout(env, deps, req), 200, h);
+    if (path === "/paypal/claim") return json(await handlePaypalClaim(env, deps, req), 200, h);
     throw new HttpError(404, "Not found.");
   } catch (e) {
     const status = e instanceof HttpError ? e.status : 500;

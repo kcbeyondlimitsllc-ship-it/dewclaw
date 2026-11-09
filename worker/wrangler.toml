@@ -14,4 +14,6 @@ PLAY_PACKAGE = "com.kcbeyondlimits.dewclaw"
 PLAY_SKUS = "dewclaw_plus_monthly,dewclaw_plus_yearly"
 STRIPE_TAX = "auto"
 STRIPE_PRICES = '{"dewclaw_plus_monthly":"price_1UZdqWCIuRQoMGMSUflqkxN1","dewclaw_plus_yearly":"price_1UZdqqCIuRQoMGMSLfeaqcNP","dewclaw_plus_lifetime":"price_1UZdqrCIuRQoMGMSMz34Pj9k","dewclaw_plus_gift_year":"price_1UZdqsCIuRQoMGMSxwNdyy81","pp_bones_500":"price_1UZdqtCIuRQoMGMSX00mx6a6","pp_bones_1300":"price_1UZdquCIuRQoMGMSfmQyqLSu","pp_bones_3600":"price_1UZdquCIuRQoMGMSTorrSxzN","pp_bones_8000":"price_1UZdqvCIuRQoMGMSCfEWgQBt","pp_starter":"price_1UZdqwCIuRQoMGMSp8W95QZb","pp_forever":"price_1UZdqxCIuRQoMGMS1mwieefk","pp_slot2":"price_1UZdqyCIuRQoMGMSgMgNlwuw","pp_kc_pack":"price_1UZhUmCIuRQoMGMSgpNNcRWp","pp_halloween":"price_1UZhUtCIuRQoMGMSV7oIk0o9","pp_palettes":"price_1UZhUzCIuRQoMGMSCHz24aVA","pp_boost7":"price_1UZhV5CIuRQoMGMSR1Khcyw4","pp_revive":"price_1UZhVCCIuRQoMGMSwDyWHhD5"}'
-# STRIPE_SECRET_KEY stays a dashboard secret; never put it in this file.
+PAYPAL_ENV = "sandbox"
+# Secrets (set in the Cloudflare dashboard, never in this file):
+#   STRIPE_SECRET_KEY, PAYPAL_CLIENT_ID, PAYPAL_SECRET

@@ -52,8 +52,35 @@ async function fetch(url, init = {}) {
     if (path === "/billing_portal/sessions") { stripe.lastForm = form; return ok({ url: "https://billing.stripe.com/p/session/x" }); }
     if (path.startsWith("/prices/")) { const id = path.split("/")[2]; const P = { price_m: { unit_amount: 299, currency: "usd", recurring: { interval: "month" } }, price_y: { unit_amount: 1199, currency: "usd", recurring: { interval: "year" } }, price_life: { unit_amount: 2999, currency: "usd" }, price_b500: { unit_amount: 99, currency: "usd" } }; return P[id] ? ok(P[id]) : new Response("{}", { status: 404 }); }
   }
+  /* ---- PayPal */
+  if (u.startsWith("https://api-m.sandbox.paypal.com") || u.startsWith("https://api-m.paypal.com")) {
+    paypalFake.calls++; paypalFake.lastBase = u.startsWith("https://api-m.paypal.com") ? "live" : "sandbox";
+    const path = u.replace(/^https:\/\/api-m\.(sandbox\.)?paypal\.com/, "");
+    const ok = (b, st = 200) => new Response(JSON.stringify(b), { status: st });
+    if (path === "/v1/oauth2/token") { paypalFake.tokenCalls++; paypalFake.lastBasic = init.headers.authorization; return paypalFake.badCreds ? ok({ error: "invalid_client" }, 401) : ok({ access_token: "A21.test", expires_in: 32400 }); }
+    if (path === "/v2/checkout/orders" && init.method === "POST") {
+      const b = JSON.parse(init.body); paypalFake.lastOrder = b; paypalFake.lastRequestId = init.headers["paypal-request-id"];
+      const id = "5O190127TN" + String(++paypalFake.n).padStart(6, "0");
+      paypalFake.orders[id] = { id, status: "PAYER_ACTION_REQUIRED", sku: b.purchase_units[0].custom_id, value: b.purchase_units[0].amount.value };
+      return ok({ id, status: "PAYER_ACTION_REQUIRED", links: [{ rel: "self", href: "x" }, { rel: "payer-action", href: "https://www.sandbox.paypal.com/checkoutnow?token=" + id }] });
+    }
+    const m = path.match(/^\/v2\/checkout\/orders\/([A-Z0-9]+)(\/capture)?$/);
+    if (m) {
+      const o = paypalFake.orders[m[1]];
+      if (!o) return ok({ name: "RESOURCE_NOT_FOUND" }, 404);
+      const view = () => ({ id: o.id, status: o.status, payer: { payer_id: "PAYERX" }, purchase_units: [{ reference_id: o.sku, custom_id: o.sku, amount: { currency_code: "USD", value: o.paidValue || o.value },
+        payments: o.status === "COMPLETED" ? { captures: [{ id: "CAP1", status: o.capStatus || "COMPLETED", amount: { currency_code: o.currency || "USD", value: o.paidValue || o.value } }] } : undefined }] });
+      if (m[2]) { paypalFake.captures++; if (o.status === "COMPLETED") return ok({ name: "UNPROCESSABLE_ENTITY", details: [{ issue: "ORDER_ALREADY_CAPTURED" }] }, 422);
+        if (o.decline) return ok({ name: "UNPROCESSABLE_ENTITY", details: [{ issue: "INSTRUMENT_DECLINED" }] }, 422);
+        o.status = "COMPLETED"; return ok(view(), 201); }
+      return ok(view());
+    }
+  }
   throw new Error("unexpected fetch " + u);
 }
+const paypalFake = { calls: 0, n: 0, tokenCalls: 0, captures: 0, orders: {}, lastOrder: null, lastBase: "", lastBasic: "", badCreds: false };
+const ppEnv = (extra = {}) => ({ ...stripeEnv(), PAYPAL_CLIENT_ID: "cid", PAYPAL_SECRET: "sec", ...extra });
+const approve = id => { paypalFake.orders[id].status = "APPROVED"; };
 const stripe = { calls: 0, n: 0, sessions: {}, override: {}, subStatus: "trialing", periodEnd: Date.now() + 7 * 86400e3, subChecks: 0, lastForm: null, lastAuth: "" };
 const stripeEnv = () => ({ ...env(), STRIPE_SECRET_KEY: "sk_test_123", APP_ORIGIN: "https://dewclaw-app.netlify.app/",
   STRIPE_PRICES: JSON.stringify({ dewclaw_plus_monthly: "price_m", dewclaw_plus_yearly: "price_y", dewclaw_plus_lifetime: "price_life", dewclaw_plus_gift_year: "price_gift", pp_bones_500: "price_b500", pp_kc_pack: "price_kc", pp_boost7: "price_boost", pp_revive: "price_revive" }) });
@@ -352,6 +379,86 @@ await test("tax: STRIPE_TAX=managed uses Managed Payments and sends no automatic
   const c = await (await handle(req("/stripe/checkout", { sku: "dewclaw_plus_monthly", back: "/plus" }), e, deps)).json();
   const j = await (await handle(req("/stripe/claim", { session: c.url.split("/").pop() }), e, deps)).json();
   assert.equal(j.kind, "plus"); assert.equal(j.active, true);
+});
+
+await test("paypal: checkout makes an order at this server's price and sends the buyer to PayPal", async () => {
+  const e = ppEnv();
+  const r = await handle(req("/paypal/checkout", { sku: "pp_kc_pack", back: "/pocket" }), e, deps); const j = await r.json();
+  assert.equal(r.status, 200); assert.match(j.url, /sandbox\.paypal\.com\/checkoutnow\?token=/);
+  const pu = paypalFake.lastOrder.purchase_units[0];
+  assert.equal(pu.amount.value, "3.99"); assert.equal(pu.amount.currency_code, "USD"); assert.equal(pu.custom_id, "pp_kc_pack");
+  assert.equal(paypalFake.lastOrder.intent, "CAPTURE");
+  assert.equal(paypalFake.lastOrder.payment_source.paypal.experience_context.return_url, "https://dewclaw-app.netlify.app/?pp=1#/pocket");
+  assert.equal(paypalFake.lastBase, "sandbox"); assert.equal(paypalFake.lastBasic, "Basic " + btoa("cid:sec"));
+  assert.ok(paypalFake.lastRequestId.startsWith("dc-"));
+});
+await test("paypal: subscriptions, unknown products and a server without PayPal are refused", async () => {
+  assert.equal((await handle(req("/paypal/checkout", { sku: "dewclaw_plus_monthly" }), ppEnv(), deps)).status, 400);
+  assert.equal((await handle(req("/paypal/checkout", { sku: "pp_free_money" }), ppEnv(), deps)).status, 400);
+  assert.equal((await handle(req("/paypal/checkout", { sku: "pp_bones_500" }), stripeEnv(), deps)).status, 503);
+});
+await test("paypal: an approved order is captured and granted once", async () => {
+  const e = ppEnv();
+  const { url } = await (await handle(req("/paypal/checkout", { sku: "pp_bones_500", back: "/pocket" }), e, deps)).json();
+  const id = url.split("token=")[1]; approve(id);
+  const n = paypalFake.captures;
+  const j = await (await handle(req("/paypal/claim", { order: id }), e, deps)).json();
+  assert.equal(j.kind, "grant"); assert.equal(j.grant.bones, 500); assert.equal(j.already, false); assert.equal(j.via, "paypal");
+  assert.equal(paypalFake.captures, n + 1);
+  const k = await (await handle(req("/paypal/claim", { order: id }), e, deps)).json();
+  assert.equal(k.already, true); assert.equal(paypalFake.captures, n + 1, "no second capture");
+});
+await test("paypal: an order the buyer never approved grants nothing and isn't captured", async () => {
+  const e = ppEnv();
+  const { url } = await (await handle(req("/paypal/checkout", { sku: "pp_bones_500" }), e, deps)).json();
+  const id = url.split("token=")[1]; const n = paypalFake.captures;
+  const r = await handle(req("/paypal/claim", { order: id }), e, deps);
+  assert.equal(r.status, 402); assert.equal(paypalFake.captures, n);
+  assert.equal((await handle(req("/paypal/claim", { order: "NOSUCHORDER1" }), e, deps)).status, 402);
+  assert.equal((await handle(req("/paypal/claim", { order: "bad id!" }), e, deps)).status, 400);
+});
+await test("paypal: a declined card, a pending capture and a short payment are refused", async () => {
+  const e = ppEnv();
+  let id = (await (await handle(req("/paypal/checkout", { sku: "pp_bones_500" }), e, deps)).json()).url.split("token=")[1];
+  approve(id); paypalFake.orders[id].decline = true;
+  let r = await handle(req("/paypal/claim", { order: id }), e, deps); assert.equal(r.status, 402); assert.match((await r.json()).error, /declined/);
+  id = (await (await handle(req("/paypal/checkout", { sku: "pp_bones_500" }), e, deps)).json()).url.split("token=")[1];
+  approve(id); paypalFake.orders[id].capStatus = "PENDING";
+  r = await handle(req("/paypal/claim", { order: id }), e, deps); assert.equal(r.status, 402); assert.match((await r.json()).error, /processing/);
+  id = (await (await handle(req("/paypal/checkout", { sku: "pp_bones_8000" }), e, deps)).json()).url.split("token=")[1];
+  approve(id); paypalFake.orders[id].paidValue = "0.99";
+  r = await handle(req("/paypal/claim", { order: id }), e, deps); assert.equal(r.status, 402); assert.match((await r.json()).error, /match/);
+});
+await test("paypal: an order already captured (a retry after a timeout) still grants", async () => {
+  const e = ppEnv();
+  const id = (await (await handle(req("/paypal/checkout", { sku: "pp_revive" }), e, deps)).json()).url.split("token=")[1];
+  paypalFake.orders[id].status = "COMPLETED";
+  const j = await (await handle(req("/paypal/claim", { order: id }), e, deps)).json();
+  assert.equal(j.kind, "grant"); assert.deepEqual(j.grant.items, ["revive:1"]);
+});
+await test("paypal: lifetime Plus bought with PayPal gives a working token and a restore code", async () => {
+  const e = ppEnv();
+  const id = (await (await handle(req("/paypal/checkout", { sku: "dewclaw_plus_lifetime", back: "/plus" }), e, deps)).json()).url.split("token=")[1];
+  assert.equal(paypalFake.lastOrder.purchase_units[0].amount.value, "29.99");
+  approve(id);
+  const j = await (await handle(req("/paypal/claim", { order: id }), e, deps)).json();
+  assert.equal(j.kind, "plus"); assert.equal(j.active, true); assert.match(j.code, /^[A-Z2-9]{4}-[A-Z2-9]{4}$/);
+  const v = await (await handle(req("/verify", { sku: j.sku, token: j.token }), e, deps)).json(); assert.equal(v.active, true);
+  const rs = await (await handle(req("/stripe/restore", { code: j.code }), e, deps)).json(); assert.equal(rs.active, true);
+});
+await test("paypal: PAYPAL_ENV=live talks to the live API; health and the price list report PayPal", async () => {
+  const e = ppEnv({ PAYPAL_ENV: "live" });
+  await handle(req("/paypal/checkout", { sku: "pp_bones_500" }), e, deps); assert.equal(paypalFake.lastBase, "live");
+  const h = await (await handle(req("/health", null, "GET"), e, deps)).json(); assert.equal(h.paypal, "live");
+  const h2 = await (await handle(req("/health", null, "GET"), stripeEnv(), deps)).json(); assert.equal(h2.paypal, false);
+  const p = await (await handle(req("/stripe/prices", null, "GET"), e, deps)).json();
+  assert.ok(p.paypal.includes("pp_bones_500") && p.paypal.includes("dewclaw_plus_lifetime")); assert.ok(!p.paypal.includes("dewclaw_plus_monthly"));
+});
+await test("paypal: bad credentials give a clear error", async () => {
+  paypalFake.badCreds = true;
+  const r = await handle(req("/paypal/checkout", { sku: "pp_bones_500" }), ppEnv({ PAYPAL_CLIENT_ID: "other" }), deps);
+  paypalFake.badCreds = false;
+  assert.equal(r.status, 502); assert.match((await r.json()).error, /credentials/);
 });
 
 console.log(`\n${passed} passed${process.exitCode ? ", with failures" : ""}`);

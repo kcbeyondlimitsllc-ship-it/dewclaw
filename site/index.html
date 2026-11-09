@@ -2012,6 +2012,14 @@ section.card:hover .sec-ic{ transform:rotate(-7deg) scale(1.06) }
 .plus-code small{color:var(--ink-3)}
 .plus-row{display:flex; gap:8px; flex-wrap:wrap; margin-top:6px}
 .plus-gift{margin-top:12px}
+.pay-choose{position:fixed; inset:0; z-index:200; display:grid; place-items:end center; background:rgba(10,20,14,.45); padding:16px}
+.pay-sheet{width:min(440px,100%); background:var(--bg,#fff); color:var(--ink,#111); border-radius:18px; padding:18px 16px 12px; display:grid; gap:10px; box-shadow:0 18px 60px rgba(0,0,0,.3)}
+.pay-sheet h3{margin:0 0 4px; font-size:18px}
+.pay-pp{background:#FFC439 !important; color:#003087 !important; border-color:#FFC439 !important; font-size:19px; letter-spacing:-.01em; gap:0 !important}
+.pay-pp i{font-style:italic}
+.pay-pp b{font-weight:800; font-style:italic}
+.pay-pp i{font-weight:800; color:#009CDE}
+@media (min-width:700px){.pay-choose{place-items:center}}
 .plus-free{margin-top:18px; padding-top:14px; border-top:1px solid var(--line); font-size:15px; color:var(--ink-2)}
 .care-gate .card-body{display:flex; flex-direction:column; align-items:flex-start; gap:6px}
 .care-gate .code{font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--brass)}
@@ -4897,12 +4905,37 @@ async function cloudPost(path, body) {
 }
 let webPricesP = null;
 /* the web price list: an array from the server, null when the server sells on Google Play only, [] when it couldn't be reached */
-const webPrices = () => webPricesP || (webPricesP = fetch(plusCloud() + "/stripe/prices").then(r => r.ok ? r.json().then(j => (j && j.on && j.prices) || null) : null)
+let paypalSkus = [];
+const webPrices = () => webPricesP || (webPricesP = fetch(plusCloud() + "/stripe/prices").then(r => r.ok ? r.json().then(j => { paypalSkus = (j && Array.isArray(j.paypal)) ? j.paypal : []; return (j && j.on && j.prices) || null; }) : null)
   .catch(() => { webPricesP = null; return []; }));
 const webPriceText = (p, per) => { let t; try { t = new Intl.NumberFormat(undefined, { style: "currency", currency: p.currency }).format(p.amount); } catch { t = `$${p.amount}`; } return per && p.interval ? `${t} / ${p.interval}` : t; };
-/* hands the buyer to Stripe; the page leaves, so this never resolves */
+/* asks card or PayPal; resolves "stripe", "paypal" or "" (cancelled) */
+function payChooser() {
+  return new Promise(res => {
+    const el = document.createElement("div");
+    el.className = "pay-choose";
+    el.innerHTML = `<div class="pay-sheet" role="dialog" aria-modal="true" aria-labelledby="payChooseH">
+      <h3 id="payChooseH">How would you like to pay?</h3>
+      <button class="btn primary lg block" data-pay="stripe">Card, Apple Pay or Google Pay</button>
+      <button class="btn lg block pay-pp" data-pay="paypal"><b>Pay</b><i>Pal</i></button>
+      <button class="btn ghost sm" data-pay="">Cancel</button></div>`;
+    const done = v => { el.remove(); document.removeEventListener("keydown", key); res(v); };
+    const key = e => { if (e.key === "Escape") done(""); };
+    el.addEventListener("click", e => { const b = e.target.closest("[data-pay]"); if (b) done(b.dataset.pay); else if (e.target === el) done(""); });
+    document.addEventListener("keydown", key);
+    document.body.appendChild(el);
+    setTimeout(() => { const f = el.querySelector("[data-pay=stripe]"); f && f.focus(); }, 0);
+  });
+}
+/* hands the buyer to Stripe or PayPal; the page leaves, so this never resolves */
 async function webCheckout(sku, back) {
-  const j = await cloudPost("/stripe/checkout", { sku, back });
+  try { await webPrices(); } catch {}
+  let via = "stripe";
+  if (paypalSkus.includes(sku)) {
+    via = await payChooser();
+    if (!via) { const e = new Error("Checkout cancelled."); e.name = "AbortError"; throw e; }
+  }
+  const j = await cloudPost(via === "paypal" ? "/paypal/checkout" : "/stripe/checkout", { sku, back });
   if (!j.url) throw new Error("Couldn't open checkout.");
   location.assign(j.url);
   return new Promise(() => {});
@@ -4914,11 +4947,12 @@ function setWebPlus(j) {
 const WEB_GRANTS = "dewclaw.webgrants", GIFT_KEY = "dewclaw.gift";
 /* Back from Stripe Checkout with ?cs=<session> on the address: claim it once, then clean the address. */
 async function webReturn() {
-  let cs = ""; try { cs = new URLSearchParams(location.search).get("cs") || ""; } catch {}
-  if (!cs || !plusCloud()) return null;
+  let cs = "", pp = ""; try { const q = new URLSearchParams(location.search); cs = q.get("cs") || ""; if (q.get("pp")) pp = q.get("token") || ""; } catch {}
+  if ((!cs && !pp) || !plusCloud()) return null;
   try { history.replaceState(history.state, "", location.pathname + location.hash); } catch {}
+  if (pp) cs = "pp:" + pp;
   try {
-    const j = await cloudPost("/stripe/claim", { session: cs });
+    const j = pp ? await cloudPost("/paypal/claim", { order: pp }) : await cloudPost("/stripe/claim", { session: cs });
     if (j.kind === "plus") { setWebPlus(j); toast("Welcome to Dewclaw Plus!"); }
     else if (j.kind === "gift") { LS.set(GIFT_KEY, JSON.stringify({ code: j.code, days: j.days, at: Date.now() })); toast("Your gift code is ready on the Plus screen."); }
     else if (j.kind === "grant") {
@@ -10285,7 +10319,7 @@ async function plusBodyHtml() {
           ${yr ? `<button class="plus-plan" data-plus-web="dewclaw_plus_yearly"><b>${esc(P.priceText(yr, true))}</b><span>${save >= 5 ? `Save ${save}%` : "Best value"}</span></button>` : ""}
           ${life ? `<button class="plus-plan" data-plus-web="dewclaw_plus_lifetime"><b>${esc(P.priceText(life))}<small> once</small></b><span>Plus for life, no renewal</span></button>` : ""}
           <div class="plus-row"><button class="btn sm" data-plus-code>I have a Plus code</button>${gift ? `<button class="btn sm" data-plus-web="dewclaw_plus_gift_year">Gift a year (${esc(P.priceText(gift))})</button>` : ""}</div>
-          <p class="gp-fine">Paid securely through Stripe; Dewclaw never sees your card. Subscriptions renew until you cancel, which you can do here any time. In the Google Play app, Plus is billed by Google instead. <a href="terms.html" target="_blank" rel="noopener noreferrer">Terms</a> · <a href="privacy.html" target="_blank" rel="noopener noreferrer">Privacy</a></p></div>`
+          <p class="gp-fine">Paid securely through Stripe or PayPal; Dewclaw never sees your card. Subscriptions are paid by card and renew until you cancel, which you can do here any time. In the Google Play app, Plus is billed by Google instead. <a href="terms.html" target="_blank" rel="noopener noreferrer">Terms</a> · <a href="privacy.html" target="_blank" rel="noopener noreferrer">Privacy</a></p></div>`
         : `<div class="plus-plans"><p>The Plus plans couldn't load. Check your connection, then try again.</p><button class="btn" data-plus-retry>Try again</button>
           ${P.config.playUrl ? `<p class="gp-fine">Or get Dewclaw on <a href="${esc(P.config.playUrl)}" target="_blank" rel="noopener noreferrer">Google Play</a>, where Plus is billed by Google.</p>` : ""}</div>`;
       const gk = P.gift();
@@ -10330,7 +10364,7 @@ async function plusClick(e) {
     P.reset(); P.pricesReset(); A.render();
   } else if (d.plusWeb) {
     t.disabled = true;
-    try { await P.webCheckout(d.plusWeb, "/plus"); } catch (ex) { toast(ex?.message || "Couldn't open checkout."); t.disabled = false; }
+    try { await P.webCheckout(d.plusWeb, "/plus"); } catch (ex) { if (ex?.name !== "AbortError") toast(ex?.message || "Couldn't open checkout."); t.disabled = false; }
   } else if (d.plusCode != null) {
     const code = prompt("Enter your Plus code (8 letters, like ABCD-EFGH):");
     if (!code) return;
@@ -12198,7 +12232,7 @@ function mount(root, host = {}) {
       const money = host.realMoney();
       body = `${money ? `<div class="pp-grid">${PRODUCTS.filter(productVisible).filter(p => p.consumable || p.bones || !(p.items || []).some(id => has(id))).map(moneyCard).join("")}</div>
           <div class="pp-row"><button class="pp-buy ghost" data-restore>Restore purchases</button></div>
-          <p class="pp-fine">Paid securely through Stripe on the web, or by Google Play in the Android app. Bones are for Pocket Pup only and have no cash value. <a href="terms.html" target="_blank" rel="noopener noreferrer">Terms</a> · <a href="privacy.html" target="_blank" rel="noopener noreferrer">Privacy</a></p>` : `<p>Bone packs come with the Dewclaw app on Google Play. Until then, every item can be earned.</p>`}
+          <p class="pp-fine">Paid securely by card or PayPal on the web, or by Google Play in the Android app. Bones are for Pocket Pup only and have no cash value. <a href="terms.html" target="_blank" rel="noopener noreferrer">Terms</a> · <a href="privacy.html" target="_blank" rel="noopener noreferrer">Privacy</a></p>` : `<p>Bone packs come with the Dewclaw app on Google Play. Until then, every item can be earned.</p>`}
         <h3 style="font-size:15px; margin-top:14px">Free ways to earn bones</h3>
         <ul class="pp-earn">
           <li><span>Daily check-in</span><b>${EARN.login}, ${EARN.streak7} on day 7</b></li>
