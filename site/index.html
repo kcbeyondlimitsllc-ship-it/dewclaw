@@ -4753,6 +4753,7 @@ function settingsHtml() {
       <div class="acct-body">
         <ul class="plain">
           <li><a href="privacy.html" target="_blank" rel="noopener noreferrer">Privacy policy</a></li>
+          <li><a href="terms.html" target="_blank" rel="noopener noreferrer">Terms of service</a></li>
           <li>Support: <a href="mailto:support@kcbeyondlimits.com">support@kcbeyondlimits.com</a></li>
           <li>Made by <a href="https://www.kcbeyondlimits.com" target="_blank" rel="noopener noreferrer">KC Beyond Limits LLC</a>, St. Helens, Oregon. Version ${esc(self.DEWCLAW_VERSION || "2026.10")}</li>
         </ul>
@@ -10284,7 +10285,7 @@ async function plusBodyHtml() {
           ${yr ? `<button class="plus-plan" data-plus-web="dewclaw_plus_yearly"><b>${esc(P.priceText(yr, true))}</b><span>${save >= 5 ? `Save ${save}%` : "Best value"}</span></button>` : ""}
           ${life ? `<button class="plus-plan" data-plus-web="dewclaw_plus_lifetime"><b>${esc(P.priceText(life))}<small> once</small></b><span>Plus for life, no renewal</span></button>` : ""}
           <div class="plus-row"><button class="btn sm" data-plus-code>I have a Plus code</button>${gift ? `<button class="btn sm" data-plus-web="dewclaw_plus_gift_year">Gift a year (${esc(P.priceText(gift))})</button>` : ""}</div>
-          <p class="gp-fine">Paid securely through Stripe; Dewclaw never sees your card. Subscriptions renew until you cancel, which you can do here any time. In the Google Play app, Plus is billed by Google instead.</p></div>`
+          <p class="gp-fine">Paid securely through Stripe; Dewclaw never sees your card. Subscriptions renew until you cancel, which you can do here any time. In the Google Play app, Plus is billed by Google instead. <a href="terms.html" target="_blank" rel="noopener noreferrer">Terms</a> · <a href="privacy.html" target="_blank" rel="noopener noreferrer">Privacy</a></p></div>`
         : `<div class="plus-plans"><p>The Plus plans couldn't load. Check your connection, then try again.</p><button class="btn" data-plus-retry>Try again</button>
           ${P.config.playUrl ? `<p class="gp-fine">Or get Dewclaw on <a href="${esc(P.config.playUrl)}" target="_blank" rel="noopener noreferrer">Google Play</a>, where Plus is billed by Google.</p>` : ""}</div>`;
       const gk = P.gift();
@@ -12197,7 +12198,7 @@ function mount(root, host = {}) {
       const money = host.realMoney();
       body = `${money ? `<div class="pp-grid">${PRODUCTS.filter(productVisible).filter(p => p.consumable || p.bones || !(p.items || []).some(id => has(id))).map(moneyCard).join("")}</div>
           <div class="pp-row"><button class="pp-buy ghost" data-restore>Restore purchases</button></div>
-          <p class="pp-fine">Purchases are billed by Google Play in your currency. Bones are for Pocket Pup only and have no cash value.</p>` : `<p>Bone packs come with the Dewclaw app on Google Play. Until then, every item can be earned.</p>`}
+          <p class="pp-fine">Paid securely through Stripe on the web, or by Google Play in the Android app. Bones are for Pocket Pup only and have no cash value. <a href="terms.html" target="_blank" rel="noopener noreferrer">Terms</a> · <a href="privacy.html" target="_blank" rel="noopener noreferrer">Privacy</a></p>` : `<p>Bone packs come with the Dewclaw app on Google Play. Until then, every item can be earned.</p>`}
         <h3 style="font-size:15px; margin-top:14px">Free ways to earn bones</h3>
         <ul class="pp-earn">
           <li><span>Daily check-in</span><b>${EARN.login}, ${EARN.streak7} on day 7</b></li>
