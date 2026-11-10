@@ -36,6 +36,10 @@ self.DEWCLAW_CONFIG = {
               url: "https://kcbeyondlimits.com/products/pnw-adventure-dog-bandana-kc-beyond-limits", for: ["today", "walks"] }]
      `for` is any of "today", "walks", "training". */
 
+  /* Hidden while the KC Beyond Limits store is offline. Delete the next
+     line to show the gear card again. */
+  gear: false,
+
   /* KC's social links, shown as "Follow KC" buttons in Settings and on the
      KC's story screen. Any link left as "" is hidden. Paste the Facebook
      Page address (https://www.facebook.com/...) to add that button.
