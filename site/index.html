@@ -15,6 +15,15 @@
 <meta property="og:title" content="Dewclaw — your pet's care plan">
 <meta property="og:description" content="Your pet's care plan, built from their breed, age and weight: feeding, a daily walk target, vaccine reminders, walk and potty tracking, training, first aid and DewclawMD. Free, no account, works offline.">
 <meta property="og:type" content="website">
+<link rel="canonical" href="https://dewclaw-app.netlify.app/">
+<meta property="og:site_name" content="Dewclaw">
+<meta property="og:url" content="https://dewclaw-app.netlify.app/">
+<meta property="og:image" content="https://dewclaw-app.netlify.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Dewclaw: your pet's care plan, built from their breed, age and weight">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Dewclaw","url":"https://dewclaw-app.netlify.app/","description":"A care plan for your pet, built from their breed, age and weight: feeding, a daily walk target, vaccine reminders, walk and potty tracking, training and first aid. No account, works offline.","applicationCategory":"LifestyleApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"publisher":{"@type":"Organization","name":"KC Beyond Limits LLC","url":"https://www.kcbeyondlimits.com"}}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;600;700&family=Figtree:ital,wght@0,400..800;1,400&display=swap">
@@ -615,6 +624,8 @@ footer.foot{border-top:1px solid var(--line); background:var(--surface); padding
 .foot-inner{display:flex; gap:30px; justify-content:space-between; flex-wrap:wrap; align-items:flex-start}
 .disclaimer{max-width:62ch; font-size:14.5px; color:var(--ink-2); line-height:1.65}
 .disclaimer strong{color:var(--ink)}
+.guide-links{flex-basis:100%; margin-top:14px; font-size:13.5px; line-height:1.9; color:var(--ink-3)}
+.guide-links a{color:var(--ink-2)}
 .colophon{font-family:var(--mono); font-size:10.5px; letter-spacing:.06em; text-transform:uppercase;
   color:var(--ink-3); line-height:2}
 
@@ -638,7 +649,7 @@ dialog::backdrop{background:rgba(8,18,16,.55)}
 @media (prefers-reduced-motion:reduce){ *{transition:none !important; animation:none !important} }
 
 @media print{
-  header.top, .intake, .upsell, .lock-body, .btn, #toast, footer.foot .colophon{display:none !important}
+  header.top, .intake, .upsell, .lock-body, .btn, #toast, footer.foot .colophon, footer.foot .guide-links{display:none !important}
   .grid{grid-template-columns:1fr; padding:0}
   body{background:#fff; color:#000}
   section.card, .hero, figure.fig{break-inside:avoid; box-shadow:none}
@@ -2260,6 +2271,13 @@ section.card{border-radius:var(--r-lg); box-shadow:var(--shadow-1); border-color
       Life stage &mdash; AAHA canine &amp; feline guidelines<br>
       Weight targets &mdash; breed standard ranges
     </div>
+    <nav class="guide-links" aria-label="Guides">
+      <a href="dogs/">Dog breed guides</a> &middot; <a href="cats/">Cat breed guides</a> &middot;
+      <a href="dog-calorie-calculator/">Dog calorie calculator</a> &middot;
+      <a href="cat-calorie-calculator/">Cat calorie calculator</a> &middot;
+      <a href="body-condition-score/">Body condition chart</a> &middot;
+      <a href="how-we-calculate/">How we calculate</a>
+    </nav>
   </div>
 </footer>
 
@@ -8315,6 +8333,20 @@ self.PetLifeApp = {
   }
   if (APP.user) { try { APP.pets = (await call("GET", "/api/pets")).pets; APP.activePet = APP.pets[0]?.id || null; } catch {} }
   if (APP.pets.length) S = { ...PET_DEFAULT, ...APP.pets[0] };
+  else {
+    /* A breed guide page hands its visitor to the chart with the breed (and
+       the weight and age they typed there) filled in:
+       index.html?species=dog&breed=labrador&w=65&unit=lb&age=4#/app
+       Only for someone with no saved pet: a link never overwrites a chart. */
+    const qSp = qparam("species") || "dog", qBreed = qparam("breed");
+    if (qBreed && APP.catalog[qSp]?.breeds.some(o => o.value === qBreed)) {
+      const qW = Number(qparam("w")), qAge = Number(qparam("age"));
+      S = { ...PET_DEFAULT, name: "", species: qSp, breed: qBreed, bcs: 5,
+            unit: qparam("unit") === "kg" ? "kg" : "lb" };
+      if (qW > 0 && qW < 400) S.weight = qW;
+      if (qAge >= 0 && qAge <= 30 && qparam("age") !== null) { S.ageY = Math.floor(qAge); S.ageM = Math.round((qAge % 1) * 12) % 12; }
+    }
+  }
   APP.cart = LS.json("pl.cart", {}) || {};
 
   await handleCheckoutReturn();

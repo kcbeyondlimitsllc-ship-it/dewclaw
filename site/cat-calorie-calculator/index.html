@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cat Calorie Calculator: Calories and Cups a Day by Breed | Dewclaw</title>
+<meta name="description" content="How many calories your cat needs a day, and how many cups that is of your food. Free calculator by breed, weight, age, neuter status and activity, with the formula shown.">
+<link rel="canonical" href="https://dewclaw-app.netlify.app/cat-calorie-calculator/">
+<meta name="theme-color" content="#1F4A33">
+<link rel="icon" href="/icons/icon-192.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Dewclaw">
+<meta property="og:title" content="Cat Calorie Calculator: Calories and Cups a Day by Breed">
+<meta property="og:description" content="How many calories your cat needs a day, and how many cups that is of your food. Free calculator by breed, weight, age, neuter status and activity, with the formula shown.">
+<meta property="og:url" content="https://dewclaw-app.netlify.app/cat-calorie-calculator/">
+<meta property="og:image" content="https://dewclaw-app.netlify.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@600;700&family=Figtree:wght@400..700&display=swap">
+<link rel="stylesheet" href="/guide.css">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Dewclaw","item":"https://dewclaw-app.netlify.app/"},{"@type":"ListItem","position":2,"name":"Cat calorie calculator","item":"https://dewclaw-app.netlify.app/cat-calorie-calculator/"}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Dewclaw cat calorie calculator","url":"https://dewclaw-app.netlify.app/cat-calorie-calculator/","applicationCategory":"HealthApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}</script>
+</head>
+<body>
+<header class="top"><div class="wrap topbar">
+  <a class="brand" href="/"><img src="/icons/icon-192.png" alt="" width="30" height="30">Dewclaw</a>
+  <nav class="topnav" aria-label="Guides"><a href="/dogs/">Dog breeds</a><a href="/cats/">Cat breeds</a><a href="/dog-calorie-calculator/">Calorie calculator</a></nav>
+  <a class="btn sm" href="/index.html?utm_source=guide&amp;utm_medium=header#/app">Open the app</a>
+</div></header>
+<main class="wrap">
+<nav class="crumbs" aria-label="Breadcrumb"><a href="/">Dewclaw</a> › Cat calorie calculator</nav>
+<h1>Cat calorie calculator</h1>
+
+<p class="lede">Enter your cat's healthy weight, age and lifestyle to get daily calories, cups of your own food, a treat budget and a play target. It is the same engine that builds a full chart in the Dewclaw app.</p>
+<p class="meta">Last reviewed November 10, 2026 · <a href="/how-we-calculate/">How we calculate</a></p>
+<section class="card calc" aria-labelledby="calcH">
+<h2 id="calcH">Cat calorie calculator</h2>
+<form id="calc" data-species="cat" data-breed="dsh">
+  <div class="full"><label for="cBreed">Breed</label><select id="cBreed"></select></div>
+  <div><label for="cWeight">Healthy weight</label><div class="pair"><input id="cWeight" type="number" inputmode="decimal" min="0.5" max="300" step="0.5" value="10"><select id="cUnit" aria-label="Unit"><option value="lb">lb</option><option value="kg">kg</option></select></div></div>
+  <div><label for="cAge">Age in years</label><input id="cAge" type="number" inputmode="decimal" min="0" max="30" step="0.25" value="4"></div>
+  <div><label for="cFixed">Spayed or neutered</label><select id="cFixed"><option value="1">Yes</option><option value="0">No</option></select></div>
+  <div><label for="cAct">Lifestyle</label><select id="cAct"><option value="low">Indoor, low-key, sleeps a lot</option><option value="normal" selected>Indoor with daily play</option><option value="active">Very playful or indoor-outdoor</option><option value="working">Outdoor most of the day</option></select></div>
+  <div class="full"><label for="cKcal">Calories per cup of your food (it is printed on the bag)</label><input id="cKcal" type="number" inputmode="numeric" min="100" max="900" step="5" value="360"></div>
+</form>
+<div class="out" aria-live="polite">
+  <div><span>Calories a day</span><b id="oKcal">–</b><small id="oKcalNote"></small></div>
+  <div><span>Cups a day</span><b id="oCups">–</b><small id="oMeals"></small></div>
+  <div><span>Treat budget</span><b id="oTreat">–</b><small>kcal, taken out of meals</small></div>
+  <div><span>Play</span><b id="oMove">–</b><small>a day · <span id="oStage" style="display:inline"></span></small></div>
+</div>
+<p class="note">Enter the weight your cat should be, not the weight they are, if they are carrying extra. For a growing kitten, enter today's weight and age.</p>
+<div class="go"><a class="btn" id="cGo" data-base="/" href="/index.html?species=cat&amp;breed=dsh&amp;w=10&amp;unit=lb&amp;utm_source=guide&amp;utm_medium=calc#/app">Build the full care plan, free</a><span class="note">No account. Works offline.</span></div>
+</section>
+
+<h2>How many calories does a cat need?</h2>
+<p>Start from the resting energy requirement, <b>RER = 70 × (weight in kg)<sup>0.75</sup></b>, then multiply by a factor for life stage: about 1.2 for a neutered adult cat and 1.4 for an intact one, more for a growing kitten, less for weight loss. Breed energy and activity move it from there.</p>
+<div class="tablewrap"><table>
+<thead><tr><th>Healthy weight</th><th>Neutered adult</th><th>Intact adult</th><th>Cups a day (neutered)</th></tr></thead>
+<tbody>
+<tr><td>6 lb (2.7 kg)</td><td><b>190</b> kcal</td><td>222 kcal</td><td>0.53</td></tr>
+<tr><td>8 lb (3.6 kg)</td><td><b>221</b> kcal</td><td>258 kcal</td><td>0.61</td></tr>
+<tr><td>10 lb (4.5 kg)</td><td><b>261</b> kcal</td><td>305 kcal</td><td>0.73</td></tr>
+<tr><td>12 lb (5.4 kg)</td><td><b>299</b> kcal</td><td>349 kcal</td><td>0.83</td></tr>
+<tr><td>14 lb (6.4 kg)</td><td><b>335</b> kcal</td><td>391 kcal</td><td>0.93</td></tr>
+<tr><td>16 lb (7.3 kg)</td><td><b>335</b> kcal</td><td>391 kcal</td><td>0.93</td></tr>
+<tr><td>18 lb (8.2 kg)</td><td><b>335</b> kcal</td><td>391 kcal</td><td>0.93</td></tr>
+</tbody>
+</table></div>
+<p class="meta">A domestic shorthair adult, indoor with daily play. Cups assume 360 kcal per cup. Pick your breed in the calculator for its own figures.</p>
+
+<h2>Getting the portion right</h2>
+<dl class="rows">
+<div><dt>Feed the target weight</dt><dd>Calculate from the weight your cat should be. Feeding an overweight cat for its current weight keeps it overweight.</dd></div>
+<div><dt>Read the bag</dt><dd>Calories per cup range from under 300 to over 450 between foods. The figure is on the label as kcal/cup or kcal/kg.</dd></div>
+<div><dt>Weigh, do not scoop</dt><dd>Cup measures run 20–30% off. A kitchen scale and the kcal/kg figure are more accurate.</dd></div>
+<div><dt>Count the treats</dt><dd>Keep treats to 10% of the day and take them out of the meal total.</dd></div>
+<div><dt>Re-check monthly</dt><dd>A calculator gives a starting point. Adjust by <a href="/body-condition-score/">body condition score</a>, about 10% at a time.</dd></div>
+</dl>
+
+<h2>By breed</h2>
+<p>Each breed has its own page with a feeding chart across its healthy weight range.</p>
+<ul class="grid">
+<li><a href="/cats/maine-coon/">Maine Coon<small>12–24 lb</small></a></li>
+<li><a href="/cats/ragdoll/">Ragdoll<small>10–20 lb</small></a></li>
+<li><a href="/cats/siamese/">Siamese<small>8–12 lb</small></a></li>
+<li><a href="/cats/bengal/">Bengal<small>9–15 lb</small></a></li>
+<li><a href="/cats/persian/">Persian<small>7–12 lb</small></a></li>
+<li><a href="/cats/british-shorthair/">British Shorthair<small>9–18 lb</small></a></li>
+</ul>
+<p><a href="/cats/">All 41 cat breeds</a> · <a href="/dog-calorie-calculator/">Dog calorie calculator</a></p>
+<p class="disclaimer"><b>Dewclaw is not a veterinarian.</b> These figures are computed from published general-population formulas and breed tendencies. They are a starting point for a conversation with your vet, not a diagnosis or a treatment plan. Health conditions, medication, pregnancy and nursing all change them. If something seems wrong with your pet, call your veterinarian or an emergency clinic.</p>
+</main>
+<footer class="foot"><div class="wrap">
+  <p><a href="/dogs/">Dog breeds</a><a href="/cats/">Cat breeds</a><a href="/dog-calorie-calculator/">Dog calorie calculator</a><a href="/cat-calorie-calculator/">Cat calorie calculator</a><a href="/body-condition-score/">Body condition chart</a><a href="/how-we-calculate/">How we calculate</a><a href="/for-shelters/">For shelters</a></p>
+  <p><a href="/privacy.html">Privacy</a><a href="/terms.html">Terms</a><a href="https://www.kcbeyondlimits.com">KC Beyond Limits</a></p>
+  <p>Dewclaw is made by KC Beyond Limits LLC in Oregon. It is not a veterinarian.</p>
+</div></footer>
+<script src="/engine.js" defer></script>
+<script src="/guide.js" defer></script>
+</body>
+</html>
