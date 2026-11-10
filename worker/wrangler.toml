@@ -7,6 +7,10 @@ workers_dev = true
 binding = "DEWCLAW"
 id = "6a2ea4a5764442cabc3139a389c464f4"
 
+# Workers AI: DewclawMD's free model (no key needed)
+[ai]
+binding = "AI"
+
 [vars]
 ALLOWED_ORIGIN = "https://dewclaw-app.netlify.app"
 APP_ORIGIN = "https://dewclaw-app.netlify.app"

@@ -3,7 +3,8 @@
    1. /verify  confirms a Dewclaw Plus purchase with Google Play and
                acknowledges it (Google refunds unacknowledged purchases
                after three days), so Plus switches on in the app.
-   2. /ask     answers a DewclawMD question with Claude, for active Plus
+   2. /ask     answers a DewclawMD question (Claude if an Anthropic key is
+               set, otherwise Cloudflare Workers AI), for active Plus
                subscribers only, inside a monthly allowance per subscriber
                and a daily cap across everyone. A failed answer is refunded.
 
@@ -14,6 +15,12 @@
 
 const DEFAULTS = {
   MODEL: "claude-haiku-5-5",
+  /* Without an Anthropic key, DewclawMD answers with Cloudflare Workers AI
+     (the AI binding): no key, and free inside Cloudflare's daily allowance. */
+  AI_MODEL: "@cf/google/gemma-4-26b-a4b-it",
+  AI_FALLBACK: "@cf/meta/llama-3.2-3b-instruct",
+  AI_MAX_TOKENS: 900,
+  AI_DAILY_ASKS: 250,          /* keeps a day's answers inside the free Workers AI allowance */
   MONTHLY_ASKS: 40,            /* answers per subscriber per calendar month */
   DAILY_ASKS_TOTAL: 400,       /* answers per day across every subscriber */
   SEARCH_USES: 2,              /* web searches Claude may run per answer */
@@ -77,6 +84,10 @@ const dayKey = (t = Date.now()) => new Date(t).toISOString().slice(0, 10);
 const num = (v, d) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : d; };
 const cfg = env => ({
   MODEL: env.MODEL || DEFAULTS.MODEL,
+  AI_MODEL: env.AI_MODEL || DEFAULTS.AI_MODEL,
+  AI_FALLBACK: env.AI_FALLBACK || DEFAULTS.AI_FALLBACK,
+  AI_MAX_TOKENS: num(env.AI_MAX_TOKENS, DEFAULTS.AI_MAX_TOKENS),
+  AI_DAILY_ASKS: num(env.AI_DAILY_ASKS, DEFAULTS.AI_DAILY_ASKS),
   MONTHLY_ASKS: num(env.MONTHLY_ASKS, DEFAULTS.MONTHLY_ASKS),
   DAILY_ASKS_TOTAL: num(env.DAILY_ASKS_TOTAL, DEFAULTS.DAILY_ASKS_TOTAL),
   SEARCH_USES: env.SEARCH_USES === "0" ? 0 : num(env.SEARCH_USES, DEFAULTS.SEARCH_USES),
@@ -499,6 +510,43 @@ async function askClaude(env, deps, question, pet) {
   return out;
 }
 
+/* ------------------------------------------------------------ Workers AI */
+/* Pulls the answer text out of either reply shape Workers AI uses and drops
+   any reasoning the model wrote before it. */
+function aiText(j) {
+  let t = j?.choices?.[0]?.message?.content ?? j?.response ?? j?.result?.response ?? "";
+  if (Array.isArray(t)) t = t.map(x => (typeof x === "string" ? x : x?.text || "")).join("");
+  t = String(t).replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+  const at = t.search(/\[urgency:\s*(emergency|today|soon|routine|info)\]/i);
+  if (at > 0) t = t.slice(at);
+  return t;
+}
+
+async function askWorkersAI(env, question, pet) {
+  const c = cfg(env);
+  const user = (pet ? `Pet profile:\n${pet}\n\n` : "") + `Owner's question: ${question}`;
+  const input = { messages: [{ role: "system", content: RULES_OFFLINE }, { role: "user", content: user }],
+                  max_completion_tokens: c.AI_MAX_TOKENS, max_tokens: c.AI_MAX_TOKENS, temperature: 0.3 };
+  let lastErr = null;
+  for (const model of [c.AI_MODEL, c.AI_FALLBACK].filter(Boolean)) {
+    try {
+      const text = aiText(await env.AI.run(model, input));
+      if (text) return { text, sources: [], model };
+    } catch (e) { lastErr = e; }
+  }
+  if (lastErr && /4006|daily free allocation|neurons/i.test(String(lastErr.message || lastErr))) {
+    throw new HttpError(503, "DewclawMD has used today's free answers. The built-in guide still works; answers return tomorrow.");
+  }
+  throw new HttpError(502, "DewclawMD couldn't write an answer just now. Try again in a minute.");
+}
+
+/* Claude when an Anthropic key is set, otherwise the free Workers AI model. */
+async function answer(env, deps, question, pet) {
+  if (env.ANTHROPIC_API_KEY) return askClaude(env, deps, question, pet);
+  if (env.AI && typeof env.AI.run === "function") return askWorkersAI(env, question, pet);
+  throw new HttpError(503, "DewclawMD isn't connected to an AI model yet.");
+}
+
 /* ----------------------------------------------------------------- routes */
 async function readJson(req, limit = 20000) {
   const raw = await req.text();
@@ -549,20 +597,21 @@ async function handleAsk(env, deps, req) {
   const { token, sku, question, pet } = await readJson(req);
   if (typeof question !== "string" || !question.trim()) throw new HttpError(400, "Ask a question first.");
   if (question.length > 1500) throw new HttpError(400, "Keep the question under 1,500 characters.");
-  if (typeof token !== "string" || token.length < 10 || token.length > 4000 || typeof sku !== "string") throw new HttpError(402, "Dewclaw Plus is needed for answers from Claude. Open Plus to subscribe or restore a purchase.");
+  if (typeof token !== "string" || token.length < 10 || token.length > 4000 || typeof sku !== "string") throw new HttpError(402, "Dewclaw Plus is needed for DewclawMD's written answers. Open Plus to subscribe or restore a purchase.");
   const s = await subscription(env, deps, sku, token, false);
   if (!s.active) throw new HttpError(402, s.web ? "Your Plus subscription isn't active. Open Plus to renew it." : "Plus isn't active on this Google account. Open Plus and tap Restore purchase.");
 
   const dKey = "daily:" + dayKey(deps.now()), mKey = `quota:${s.key.slice(4)}:${monthKey(deps.now())}`;
   const daily = Number(await env.DEWCLAW.get(dKey)) || 0;
-  if (daily >= c.DAILY_ASKS_TOTAL) throw new HttpError(429, "DewclawMD has answered everything it can today. The built-in guide still works; Claude answers return tomorrow.");
+  const dayCap = env.ANTHROPIC_API_KEY ? c.DAILY_ASKS_TOTAL : Math.min(c.DAILY_ASKS_TOTAL, c.AI_DAILY_ASKS);
+  if (daily >= dayCap) throw new HttpError(429, "DewclawMD has answered everything it can today. The built-in guide still works; written answers return tomorrow.");
   const used = Number(await env.DEWCLAW.get(mKey)) || 0;
-  if (used >= c.MONTHLY_ASKS) throw new HttpError(429, `You've used this month's ${c.MONTHLY_ASKS} answers from Claude. Your allowance resets on the 1st; the built-in guide still works.`);
+  if (used >= c.MONTHLY_ASKS) throw new HttpError(429, `You've used this month's ${c.MONTHLY_ASKS} written answers. Your allowance resets on the 1st; the built-in guide still works.`);
 
   await env.DEWCLAW.put(mKey, String(used + 1), { expirationTtl: 40 * 86400 });
   await env.DEWCLAW.put(dKey, String(daily + 1), { expirationTtl: 2 * 86400 });
   try {
-    const out = await askClaude(env, deps, question.trim(), typeof pet === "string" ? pet.slice(0, 6000) : "");
+    const out = await answer(env, deps, question.trim(), typeof pet === "string" ? pet.slice(0, 6000) : "");
     return { text: out.text, sources: out.sources, remaining: Math.max(0, c.MONTHLY_ASKS - used - 1) };
   } catch (e) {
     /* a failed answer doesn't count against anyone */
@@ -579,7 +628,7 @@ export async function handle(req, env, deps = { fetch: globalThis.fetch.bind(glo
   try {
     if (req.method === "GET" && (path === "/" || path === "/health")) {
       const c = cfg(env);
-      return json({ ok: true, model: c.MODEL, play: !!(env.GOOGLE_SA_EMAIL && env.GOOGLE_SA_KEY && env.PLAY_PACKAGE), claude: !!env.ANTHROPIC_API_KEY,
+      return json({ ok: true, model: env.ANTHROPIC_API_KEY ? c.MODEL : (env.AI ? c.AI_MODEL : null), ai: env.ANTHROPIC_API_KEY ? "claude" : (env.AI ? "workers-ai" : false), play: !!(env.GOOGLE_SA_EMAIL && env.GOOGLE_SA_KEY && env.PLAY_PACKAGE), claude: !!env.ANTHROPIC_API_KEY,
                     stripe: stripeOn(env), tax: ["auto", "managed"].includes(String(env.STRIPE_TAX || "").toLowerCase()) ? String(env.STRIPE_TAX).toLowerCase() : "off", paypal: paypalOn(env) ? (paypalLive(env) ? "live" : "sandbox") : false, monthlyAsks: c.MONTHLY_ASKS, dailyAsksTotal: c.DAILY_ASKS_TOTAL }, 200, h);
     }
     if (req.method === "GET" && path === "/stripe/prices") return json(await handleStripePrices(env, deps), 200, { ...h, "cache-control": "public, max-age=300" });

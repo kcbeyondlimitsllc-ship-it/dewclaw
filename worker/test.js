@@ -161,7 +161,7 @@ await test("ask: the monthly allowance stops at the cap", async () => {
   const e = env();
   for (let i = 0; i < 3; i++) assert.equal((await handle(req("/ask", { question: "q" + i, token: TOKEN, sku: "dewclaw_plus_monthly" }), e, deps)).status, 200);
   const r = await handle(req("/ask", { question: "q4", token: TOKEN, sku: "dewclaw_plus_monthly" }), e, deps);
-  assert.equal(r.status, 429); assert.match((await r.json()).error, /this month's 3 answers/);
+  assert.equal(r.status, 429); assert.match((await r.json()).error, /this month's 3 written answers/);
 });
 await test("ask: the daily cap across everyone holds", async () => {
   const e = env();
@@ -459,6 +459,58 @@ await test("paypal: bad credentials give a clear error", async () => {
   const r = await handle(req("/paypal/checkout", { sku: "pp_bones_500" }), ppEnv({ PAYPAL_CLIENT_ID: "other" }), deps);
   paypalFake.badCreds = false;
   assert.equal(r.status, 502); assert.match((await r.json()).error, /credentials/);
+});
+
+/* ---- Workers AI (no Anthropic key) */
+const aiFake = { calls: [], fail: {}, reply: null };
+const AI = { async run(model, input) {
+  aiFake.calls.push({ model, input });
+  if (aiFake.fail[model]) throw new Error(aiFake.fail[model]);
+  return aiFake.reply ? aiFake.reply(model) : { choices: [{ message: { content: "<think>checking</think>[urgency: today]\nCall your vet today. Chocolate is toxic to dogs." } }] };
+} };
+const aiEnv = (x = {}) => { const e = env(); delete e.ANTHROPIC_API_KEY; return { ...e, AI, ...x }; };
+const askBody = { token: "gp-token-ai-123456", sku: "dewclaw_plus_monthly", question: "My dog ate chocolate", pet: "Dog, Labrador" };
+await test("workers ai: answers with Gemma when there is no Anthropic key, reasoning stripped", async () => {
+  aiFake.calls = []; aiFake.fail = {}; aiFake.reply = null; const c0 = claude.calls;
+  const e = aiEnv();
+  const r = await handle(req("/ask", askBody), e, deps); const j = await r.json();
+  assert.equal(r.status, 200, JSON.stringify(j));
+  assert.match(j.text, /^\[urgency: today\]/); assert.ok(!/think/.test(j.text));
+  assert.equal(aiFake.calls[0].model, "@cf/google/gemma-4-26b-a4b-it");
+  assert.match(aiFake.calls[0].input.messages[0].content, /DewclawMD/);
+  assert.match(aiFake.calls[0].input.messages[1].content, /Pet profile:\nDog, Labrador/);
+  assert.equal(claude.calls, c0);
+});
+await test("workers ai: falls back to the small model, and a plain 'response' shape works", async () => {
+  aiFake.calls = []; aiFake.fail = { "@cf/google/gemma-4-26b-a4b-it": "boom" };
+  aiFake.reply = () => ({ response: "[urgency: info]\nDogs sleep a lot." });
+  const j = await (await handle(req("/ask", { ...askBody, token: "gp-token-ai-223456" }), aiEnv(), deps)).json();
+  assert.equal(aiFake.calls.length, 2); assert.equal(aiFake.calls[1].model, "@cf/meta/llama-3.2-3b-instruct");
+  assert.match(j.text, /^\[urgency: info\]/);
+});
+await test("workers ai: both models failing refunds the allowance and says so plainly", async () => {
+  aiFake.calls = []; aiFake.reply = null;
+  aiFake.fail = { "@cf/google/gemma-4-26b-a4b-it": "4006: you have used up your daily free allocation of 10,000 neurons", "@cf/meta/llama-3.2-3b-instruct": "4006: daily free allocation" };
+  const e = aiEnv();
+  const r = await handle(req("/ask", { ...askBody, token: "gp-token-ai-323456" }), e, deps);
+  assert.equal(r.status, 503); assert.match((await r.json()).error, /free answers/);
+  const used = [...e.DEWCLAW.m.entries()].filter(([k]) => k.startsWith("quota:")).map(([, v]) => v);
+  assert.ok(used.every(v => v === "0"), JSON.stringify(used));
+  aiFake.fail = {};
+});
+await test("workers ai: health reports the free model; no AI at all is a clear 503", async () => {
+  const h = await (await handle(req("/health", null, "GET"), aiEnv(), deps)).json();
+  assert.equal(h.ai, "workers-ai"); assert.equal(h.model, "@cf/google/gemma-4-26b-a4b-it");
+  const e = env(); delete e.ANTHROPIC_API_KEY;
+  const r = await handle(req("/ask", { ...askBody, token: "gp-token-ai-423456" }), e, deps);
+  assert.equal(r.status, 503); assert.match((await r.json()).error, /isn't connected/);
+});
+await test("workers ai: the daily cap is lower than Claude's so the free allowance holds", async () => {
+  aiFake.fail = {}; aiFake.reply = null;
+  const e = aiEnv({ DAILY_ASKS_TOTAL: "400", AI_DAILY_ASKS: "1", MONTHLY_ASKS: "40" });
+  assert.equal((await handle(req("/ask", { ...askBody, token: "gp-token-ai-523456" }), e, deps)).status, 200);
+  const r = await handle(req("/ask", { ...askBody, token: "gp-token-ai-623456" }), e, deps);
+  assert.equal(r.status, 429);
 });
 
 console.log(`\n${passed} passed${process.exitCode ? ", with failures" : ""}`);

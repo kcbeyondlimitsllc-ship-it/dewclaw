@@ -7000,7 +7000,7 @@ function upsellHtml(tierKey, chart) {
         <p class="fineprint">${NATIVE ? esc(PLUS_CFG.offerCopy || "Cancel anytime.") : "Cancel anytime."}<br>The emergency-signs card stays free, always.</p>
         <div style="margin-top:18px"><button class="btn lg ${top ? "brass" : "primary"}" data-buy="${tierKey}">Choose ${esc(t.name)}</button></div>
       </div>
-      <div class="upsell-right"><ul>${[...(plan?.features || []), ...(NATIVE && plusCloud() ? [`DewclawMD answers written by Claude, up to ${PLUS_CFG.monthlyAsks} a month`] : [])].map(f =>
+      <div class="upsell-right"><ul>${[...(plan?.features || []), ...(NATIVE && plusCloud() ? [`DewclawMD written answers for your pet, up to ${PLUS_CFG.monthlyAsks} a month`] : [])].map(f =>
         `<li>${tick(top ? "var(--brass)" : "var(--accent)")}<span>${esc(f)}</span></li>`).join("")}</ul></div>
     </div></div>`;
 }
@@ -9217,7 +9217,7 @@ function quotaLine() {
   if (self.PETLIFE_SANDBOX) return VET.sample === null
     ? "Free — answered by the built-in guide on this page."
     : "Each question uses your own Claude account.";
-  if (NATIVE && A.plus.cloudReady()) return `Plus: answers written by Claude for your pet${typeof VET.remaining === "number" ? `, ${VET.remaining} left this month` : ""}.`;
+  if (NATIVE && A.plus.cloudReady()) return `Plus: AI-written answers for your pet${typeof VET.remaining === "number" ? `, ${VET.remaining} left this month` : ""}.`;
   if (NATIVE) return self.PetLifeNative.researchOn()
     ? "Free and unlimited — researched from public databases."
     : "Free and unlimited — answered on this device.";
@@ -11254,7 +11254,7 @@ function plusPerks() {
     ["paw", "GPS walk tracker", "Time, distance and potty taps on every walk, plus the 7-day potty pattern."],
     ["sparkle", "All 12 training skills", "Including stay, wait at the door, loose-leash walking and drop it."],
     ["clipboard", "Sitter sheet and vet printouts", "Feeding, walks, medications and contacts, ready to hand over."],
-    ...(A.plus.cloud() ? [["stethoscope", "DewclawMD answers from Claude", `Written for your pet's own chart, up to ${A.plus.config.monthlyAsks} a month.`]] : [])
+    ...(A.plus.cloud() ? [["stethoscope", "DewclawMD written answers", `AI-written for your pet's own chart, up to ${A.plus.config.monthlyAsks} a month.`]] : [])
   ];
 }
 function plusPrice(d) {
@@ -11404,7 +11404,7 @@ async function askCloud(question, choice) {
     body: JSON.stringify({ token: A.plus.token(), sku: A.plus.sku(), question, pet: P.petContext(choice.pet, chart) || "" })
   });
   const j = await res.json().catch(() => ({}));
-  if (!res.ok) { const e = new Error(j.error || "DewclawMD couldn't reach Claude just now."); e.status = res.status; throw e; }
+  if (!res.ok) { const e = new Error(j.error || "DewclawMD couldn't answer just now."); e.status = res.status; throw e; }
   const { urgency, body } = splitUrgency(j.text || "");
   updateLast({ pending: false, content: body, urgency });
   if (typeof j.remaining === "number") VET.remaining = j.remaining;
