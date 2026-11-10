@@ -1,6 +1,6 @@
 /* Dewclaw service worker: the app shell works with no signal, and settings
    changes still reach the phone. Bump VERSION whenever index.html changes. */
-const VERSION = "dewclaw-2026.11.09e";
+const VERSION = "dewclaw-2026.11.10";
 const SHELL = ["./", "./index.html", "./config.js", "./manifest.webmanifest", "./privacy.html", "./terms.html",
                "./icons/icon-192.png", "./icons/icon-512.png", "./icons/maskable-512.png", "./vendor/three.min.js"];
 

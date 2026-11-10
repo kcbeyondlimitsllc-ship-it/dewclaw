@@ -17,12 +17,6 @@
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
-  "screenshots": [
-    { "src": "screenshots/phone-1-chart.png", "sizes": "1080x1920", "type": "image/png", "form_factor": "narrow", "label": "Your pet's chart" },
-    { "src": "screenshots/phone-2-care.png", "sizes": "1080x1920", "type": "image/png", "form_factor": "narrow", "label": "Care, today" },
-    { "src": "screenshots/phone-3-dewclawmd.png", "sizes": "1080x1920", "type": "image/png", "form_factor": "narrow", "label": "DewclawMD" },
-    { "src": "screenshots/phone-4-geopet.png", "sizes": "1080x1920", "type": "image/png", "form_factor": "narrow", "label": "Geopet" }
-  ],
   "shortcuts": [
     { "name": "Care today", "url": "./index.html#/care", "description": "Reminders, walks and training for today" },
     { "name": "Ask DewclawMD", "url": "./index.html#/vetmd", "description": "Ask anything about your pet" },

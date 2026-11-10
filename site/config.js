@@ -2,7 +2,7 @@
    Edit this file, save it, and upload the website folder again. The installed
    app picks the change up the next time it opens — no new app version.
    While `cloud` is empty the paywall is off and everything in Dewclaw is free. */
-self.DEWCLAW_VERSION = "2026.10.28";
+self.DEWCLAW_VERSION = "2026.11.10";
 /* the 3D library for Geopet World, shipped with the app so it works offline */
 self.DEWCLAW_THREE_URL = "vendor/three.min.js";
 self.DEWCLAW_CONFIG = {
@@ -35,6 +35,19 @@ self.DEWCLAW_CONFIG = {
      gear: [{ name: "PNW Adventure Dog Bandana", price: "from $30", note: "KC's own bandana.",
               url: "https://kcbeyondlimits.com/products/pnw-adventure-dog-bandana-kc-beyond-limits", for: ["today", "walks"] }]
      `for` is any of "today", "walks", "training". */
+
+  /* KC's social links, shown as "Follow KC" buttons in Settings and on the
+     KC's story screen. Any link left as "" is hidden. Paste the Facebook
+     Page address (https://www.facebook.com/...) to add that button.
+     Set `socials: false` to hide them all, or `story: false` to hide
+     the KC's story screen. */
+  socials: {
+    instagram: "https://www.instagram.com/kcbeyondlimits/",
+    tiktok: "https://www.tiktok.com/@kcbeyondlimits",
+    youtube: "https://www.youtube.com/@KCBeyondLimits",
+    facebook: "",
+    x: "https://x.com/KCBeyondLimits"
+  },
 
   /* DewclawMD answers from Claude per subscriber per month. Keep this the
      same as MONTHLY_ASKS on the server; the app only uses it for its copy. */
