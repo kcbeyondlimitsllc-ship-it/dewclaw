@@ -1667,6 +1667,11 @@ section.card:hover .sec-ic{ transform:rotate(-7deg) scale(1.06) }
 .gp-grid{display:grid; gap:18px; margin-top:22px}
 @media (min-width:900px){ .gp-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:start} }
 .gp-col{display:flex; flex-direction:column; gap:18px; min-width:0}
+.gp-switch{display:inline-flex; gap:4px; padding:4px; margin:4px 0 18px; border:1px solid var(--line-2); border-radius:999px; background:var(--paper)}
+.gp-switch a{display:inline-flex; align-items:center; gap:7px; padding:9px 18px; border-radius:999px; font-weight:700; color:var(--ink-2); text-decoration:none; min-height:40px}
+.gp-switch a:hover{background:var(--surface-2)}
+.gp-switch a[aria-current="page"]{background:var(--accent); color:var(--on-accent)}
+.gp-switch a:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
 .gp-adopt{margin-top:22px; max-width:760px}
 .gp-adopt-body{display:grid; gap:20px; align-items:center}
 @media (min-width:640px){ .gp-adopt-body{grid-template-columns:200px minmax(0,1fr)} }
@@ -6467,23 +6472,21 @@ function renderChrome() {
     { p: "/app", label: "Chart", ic: "clipboard" },
     { p: "/vetmd", label: "DewclawMD", ic: "stethoscope" },
     { p: "/nearby", label: "Nearby", match: "/nearby", ic: "pin" },
-    { p: "/geopet", label: "Geopet", ic: "pawHeart" },
-    { p: "/pocket", label: "Pocket Pup", ic: "ball" },
+    { p: "/geopet", label: "Geopet", ic: "pawHeart", also: "/pocket" },
     { p: "/settings", label: "Settings", ic: "shield" }
   ] : [
     { p: "/care", label: "Care", match: "/care", ic: "heart" },
     { p: "/app", label: "Chart", ic: "clipboard" },
     { p: "/vetmd", label: "DewclawMD", ic: "stethoscope" },
     { p: "/nearby", label: "Nearby", match: "/nearby", ic: "pin" },
-    { p: "/geopet", label: "Geopet", ic: "pawHeart" },
-    { p: "/pocket", label: "Pocket Pup", ic: "ball" },
+    { p: "/geopet", label: "Geopet", ic: "pawHeart", also: "/pocket" },
     { p: "/community", label: "Community", lock: !can("community"), ic: "users" },
     { p: "/shop", label: "Shop", ic: "bag" },
     { p: "/pricing", label: "Plans", ic: "crown" }
   ];
   if (!NATIVE && APP.user?.admin) items.push({ p: "/admin", label: "Desk", ic: "shield" });
   $("#nav").innerHTML = items.map(i =>
-    `<a href="#" data-go="${i.p}" ${path === i.p || (i.match && path.startsWith(i.match)) ? 'aria-current="page"' : ""}>${IC(i.ic, 16)}<span>${esc(i.label)}</span>${i.lock ? LOCK : ""}</a>`).join("");
+    `<a href="#" data-go="${i.p}" ${path === i.p || (i.match && path.startsWith(i.match)) || (i.also && path === i.also) ? 'aria-current="page"' : ""}>${IC(i.ic, 16)}<span>${esc(i.label)}</span>${i.lock ? LOCK : ""}</a>`).join("");
 
   const st = $("#status");
   st.className = "status" + (t === "plus" ? " t-plus" : t === "beyond" ? " t-beyond" : "");
@@ -9693,7 +9696,17 @@ const gpDist = m => m < 1000 ? `${Math.round(m / 10) * 10} m` : `${(m / 1000).to
 function gpLoad() { const s = LS.json(GP_KEY, null); return s && s.v === 1 ? s : null; }
 function gpSave(s) { LS.set(GP_KEY, JSON.stringify(s)); }
 const gpMeter = (m, rate, now = Date.now()) => Math.max(0, Math.min(100, m.v - (now - m.t) / 36e5 * rate));
-function gpBump(s, key, add) { const now = Date.now(); s[key] = { v: Math.min(100, gpMeter(s[key], GP_RATES[key], now) + add), t: now }; }
+function gpBump(s, key, add) {
+  const now = Date.now(); s[key] = { v: Math.min(100, gpMeter(s[key], GP_RATES[key], now) + add), t: now };
+  const P = gpPP(); if (P) { try { P.care(GP_CARE[key], add / 25, gpPlusOn()); } catch {} }
+}
+/* an away pup or a fresh egg can't be fed from the town */
+function gpBlocked(s) {
+  const m = gpMood(s);
+  if (m.away) { toast(`${s.name} is out exploring. Open Pocket to bring them home.`); return true; }
+  if (m.egg) { toast("Your new pup is still in its egg on the Pocket screen."); return true; }
+  return false;
+}
 function gpRoll(s) { const d = gpDay(); if (s.day !== d) { s.day = d; s.dayWalkM = 0; s.dayPlays = 0; } }
 function gpNew(name, coat) {
   const now = Date.now();
@@ -9723,11 +9736,24 @@ function gpAward(s, xp, why) {
     toast(why + (xp || bonus ? ` +${xp + bonus} XP` : "") + (bonus ? " with today's first-adventure bonus." : ""));
   }
 }
+/* The same pup lives on the Pocket screen: its hearts (0-4) are the needs
+   shown here as 0-100, and caring for it here fills the hearts there. */
+const gpPP = () => (self.PocketPup && self.PocketPup.pet) || null;
+const gpPlusOn = () => { try { return A.plus.on() && A.plus.active(); } catch { return false; } };
+function gpShared() { const P = gpPP(); if (!P) return null; try { return P.read(gpPlusOn()); } catch { return null; } }
+const GP_CARE = { food: "feed", water: "water", fun: "play" };
 function gpMood(s) {
-  const now = Date.now();
-  const food = gpMeter(s.food, GP_RATES.food, now), water = gpMeter(s.water, GP_RATES.water, now),
-        fun = gpMeter(s.fun, GP_RATES.fun, now), low = Math.min(food, water, fun);
-  const line = food < 30 ? `${s.name} is hungry.`
+  const now = Date.now(), sh = gpShared();
+  if (sh && (sh.gone || sh.stage === "egg")) {
+    const away = sh.gone;
+    return { food: sh.hunger * 25, water: sh.thirst * 25, fun: sh.happy * 25, face: away ? "low" : "happy", away, egg: !away,
+      line: away ? `${s.name} went exploring. Open Pocket to bring them home.` : `A new egg is on the Pocket screen. It hatches in a few minutes.` };
+  }
+  const food = sh ? sh.hunger * 25 : gpMeter(s.food, GP_RATES.food, now), water = sh ? sh.thirst * 25 : gpMeter(s.water, GP_RATES.water, now),
+        fun = sh ? sh.happy * 25 : gpMeter(s.fun, GP_RATES.fun, now), low = Math.min(food, water, fun);
+  const line = sh && sh.sick ? `${s.name} feels sick. Give medicine on the Pocket screen.`
+    : sh && sh.poop >= 2 ? `${s.name} needs a clean-up on the Pocket screen.`
+    : food < 30 ? `${s.name} is hungry.`
     : water < 30 ? `${s.name} is thirsty.`
     : fun < 30 ? `${s.name} is restless. A walk would help.`
     : low >= 70 ? `${s.name} is happy and ready for an adventure.`
@@ -9737,18 +9763,24 @@ function gpMood(s) {
 const gpBand = s => GP_BANDANAS.find(b => b.id === s.bandana) || GP_BANDANAS[0];
 
 /* ---------------------------------------------------------------- views */
+const gpSwitch = here => `<nav class="gp-switch" aria-label="Geopet places">
+  <a href="#" data-go="/geopet"${here === "town" ? ' aria-current="page"' : ""}>${IC("pin", 15)}Town</a>
+  <a href="#" data-go="/pocket"${here === "pocket" ? ' aria-current="page"' : ""}>${IC("ball", 15)}Pocket</a></nav>`;
+self.DewclawGpSwitch = gpSwitch;
 function gpShell() {
   return `<div class="wrap gp">
     <div class="member-head"><div>
       <h1 class="h-ic"><span class="ic-tile">${IC("pawHeart", 22)}</span>Geopet</h1>
-      <p>No dog yet? Adopt a pup that lives on your map. Walk, visit real dog spots, and watch it grow.</p>
+      <p>One pup, two places. In Town you walk your real streets and visit dog spots. In Pocket you feed, clean, play and shop. Care in either place counts in both.</p>
     </div></div>
+    ${gpSwitch("town")}
     <div id="gpRoot"></div>
   </div>`;
 }
 
 function gpAdoptHtml() {
   const d = gpState.draft;
+  if (!d.name && !d.touched) { const sh = gpShared(); if (sh && sh.name) d.name = sh.name; }
   return `<section class="card gp-adopt">
     <div class="card-head"><div><span class="code">Adoption</span><h2>Meet your Geopet</h2></div></div>
     <div class="card-body gp-adopt-body">
@@ -9841,6 +9873,8 @@ function gpRender() {
   if (!root) return;
   const s = gpLoad();
   if (!s) { gpWorldStop(); root.innerHTML = gpAdoptHtml(); return; }
+  /* a Geopet adopted before Town and Pocket were one: its Pocket pup takes its name and hatches */
+  { const P = gpPP(); if (P) { try { const sh = P.read(gpPlusOn()); if (!sh.gone && (sh.stage === "egg" || !sh.name)) P.adopt(sh.name || s.name); } catch {} } }
   gpWorldStop();
   root.innerHTML = `<section class="card gp-world-card"><div id="gpWorld"></div>
       <p class="gp-world-note">${SAMPLE ? (self.DEWCLAW_SAMPLE_TOWN ? "Old Town St. Helens, built from the real map: real streets, real buildings, the river. In the app it's your own town." : "A sample town. In the app, the streets, buildings and dog spots are the real ones around you.") : "Your real streets and buildings, from OpenStreetMap, with the dog spots in their real places. Real walk mode moves your pet along the street you're walking. Check-ins still need you to be there."}</p></section>
@@ -9875,10 +9909,12 @@ function gpWorldAct(kind) {
   const s = gpLoad(); if (!s) return false;
   if (kind === "feed" || kind === "treat" || kind === "water") {
     const key = kind === "water" ? "water" : "food";
-    if (gpMeter(s[key], GP_RATES[key]) >= (kind === "treat" ? 95 : 70)) { toast(key === "food" ? `${s.name} isn't hungry yet.` : `${s.name} has plenty of water.`); return false; }
+    if (gpBlocked(s)) return false;
+    if (gpMood(s)[key] >= (kind === "treat" ? 95 : 70)) { toast(key === "food" ? `${s.name} isn't hungry yet.` : `${s.name} has plenty of water.`); return false; }
     gpBump(s, key, 100);
     gpAward(s, kind === "treat" ? 8 : 5, kind === "water" ? `${s.name} had a long drink.` : `${s.name} ate every bite.`);
   } else if (kind === "play") {
+    if (gpBlocked(s)) return false;
     gpRoll(s); gpBump(s, "fun", 20); const xp = s.dayPlays < 3 ? 5 : 0; s.dayPlays++;
     if (xp) gpAward(s, xp, `Fetch with ${s.name}!`); else gpSave(s);
   } else if (kind === "walk-start") gpStartWalk();
@@ -10039,6 +10075,7 @@ function gpCreditWalk(s, m, why) {
   const counted = Math.max(0, Math.min(m, GP_WALK_CAP - s.dayWalkM));
   s.dayWalkM += m; s.walkedM += m;
   gpBump(s, "fun", Math.min(60, m / 20));
+  { const P = gpPP(); if (P) { try { P.care("walk", m / 1000, gpPlusOn()); } catch {} } }
   gpAward(s, Math.floor(counted / 10), counted < m ? `${why} Today's walk XP is maxed out, but ${s.name} still loved it.` : why);
 }
 
@@ -10119,6 +10156,7 @@ function gpClick(e) {
     case "adopt": {
       const name = ($("#gpName").value.trim() || "Biscuit").slice(0, 20);
       gpSave(gpNew(name, gpState.draft.coat));
+      { const P = gpPP(); if (P) { try { P.adopt(name); } catch {} } }
       gpState.draft = { name: "", coat: "golden" };
       gpRender();
       toast(`Welcome home, ${name}!`);
@@ -10128,7 +10166,8 @@ function gpClick(e) {
     case "feed": case "water": {
       if (!s) return;
       const key = t.dataset.gp === "feed" ? "food" : "water";
-      if (gpMeter(s[key], GP_RATES[key]) >= 70) return toast(key === "food" ? `${s.name} isn't hungry yet.` : `${s.name} has plenty of water.`);
+      if (gpBlocked(s)) return;
+      if (gpMood(s)[key] >= 70) return toast(key === "food" ? `${s.name} isn't hungry yet.` : `${s.name} has plenty of water.`);
       gpBump(s, key, 100);
       gpAward(s, 5, key === "food" ? `${s.name} ate every bite.` : `${s.name} had a long drink.`);
       gpPaintMeters(s);
@@ -10136,7 +10175,7 @@ function gpClick(e) {
       return;
     }
     case "play": {
-      if (!s) return;
+      if (!s || gpBlocked(s)) return;
       gpRoll(s);
       gpBump(s, "fun", 20);
       const xp = s.dayPlays < 3 ? 5 : 0;
@@ -10164,7 +10203,7 @@ function gpClick(e) {
 }
 function gpInput(e) {
   if (e.target.id !== "gpName") return;
-  gpState.draft.name = e.target.value.slice(0, 20);
+  gpState.draft.name = e.target.value.slice(0, 20); gpState.draft.touched = true;
   const b = $("#gpAdopt"); if (b) b.textContent = `Adopt ${gpState.draft.name.trim() || "your pup"}`;
 }
 
@@ -12809,6 +12848,88 @@ function load() {
   return w;
 }
 
+/* The pup's needs over time. Lives outside mount() so the same pup can be
+   read and cared for from Geopet without the device on screen. */
+const night = h => h >= 21 || h < 7;
+function simulateWith(p, hours, startT, has) {
+  /* run in one-hour steps so an overnight gap behaves like a night */
+  let t = startT;
+  const step = 1;
+  for (let left = hours; left > 0; left -= step) {
+    const dt = Math.min(step, left); t += dt * H;
+    if (p.gone) return;
+    const h = new Date(t).getHours();
+    const asleep = p.stage !== "egg" && night(h);
+    if (p.stage === "egg") continue;
+    const rate = asleep ? 0.3 : 1;
+    p.hunger = Math.max(0, p.hunger - dt * rate / 4);
+    p.thirst = Math.max(0, p.thirst - dt * rate / 3);
+    p.happy = Math.max(0, p.happy - dt * rate / (asleep && has("up:bed") ? 10 : 5));
+    if (!asleep && Math.random() < dt / 6) p.poop = Math.min(3, p.poop + 1);
+    /* upgrades work while you're away */
+    if (has("up:feeder") && p.hunger < 1) { if (p.feeds.day !== dayKey(t)) p.feeds = { day: dayKey(t), n: 0 }; if (p.feeds.n < 3) { p.hunger = 2.5; p.feeds.n++; } }
+    if (has("up:waterer") && p.thirst < 1.5) p.thirst = 3;
+    if (has("up:scooper") && p.poop) p.poop = 0;
+    if (!p.sick && (p.poop >= 2 || p.hunger === 0 || p.thirst === 0) && Math.random() < dt / 8) { p.sick = true; p.sickAt = t; }
+    if (p.sick && has("up:vet") && t - p.sickAt > H) p.sick = false;
+    const neglected = p.hunger === 0 || p.thirst === 0 || p.happy === 0 || p.sick;
+    if (neglected) { p.misses += dt; p.bad += dt; } else { p.misses = Math.max(0, p.misses - dt / 2); p.good += dt; }
+    if (!has("up:forever") && p.misses > 36) { p.gone = true; }
+  }
+}
+
+/* ------------------------------------------------------------ shared pet */
+/* One pup, two places: Geopet (the real town, walks, check-ins) reads and
+   cares for the same active pup the device shows. Needs are 0-4 hearts here;
+   Geopet shows them as 0-100. Every write tells an open device to reload. */
+const hasIn = (W, plus) => id => W.owned.includes(id) || !!(plus && itemById(id) && itemById(id).plus);
+function catchUp(W, plus) {
+  const has = hasIn(W, plus);
+  for (const p of W.pups) {
+    const hrs = (Date.now() - p.last) / H;
+    if (hrs >= 0.02) { simulateWith(p, hrs, p.last, has); p.last = Date.now(); }
+  }
+}
+const changed = () => { try { window.dispatchEvent(new CustomEvent("pocketpup:change")); } catch {} };
+const petView = (W, p) => ({ name: p.name || "", stage: p.stage, form: p.form || "", hunger: p.hunger, thirst: p.thirst, happy: p.happy,
+  sick: !!p.sick, poop: p.poop || 0, gone: !!p.gone, born: p.born, bones: Math.round(W.bones || 0), equip: Object.assign({}, W.equip) });
+const Pet = {
+  /* the active pup, brought up to date */
+  read(plus) {
+    const W = load(); catchUp(W, plus); LS.set(KEY, JSON.stringify(W));
+    return petView(W, W.pups[W.active] || W.pups[0]);
+  },
+  /* kind: feed | water | play | treat | walk ; amount in hearts (walk: km) */
+  care(kind, amount, plus) {
+    const W = load(); catchUp(W, plus);
+    const p = W.pups[W.active] || W.pups[0];
+    if (p.gone) return { ok: false, why: "away" };
+    if (p.stage === "egg") return { ok: false, why: "egg" };
+    const n = Math.max(0, Number(amount) || 0);
+    if (kind === "feed") p.hunger = clamp(p.hunger + (n || 1), 0, 4);
+    else if (kind === "water") p.thirst = clamp(p.thirst + (n || 1), 0, 4);
+    else if (kind === "play") p.happy = clamp(p.happy + (n || 1), 0, 4);
+    else if (kind === "treat") { p.hunger = clamp(p.hunger + 0.5, 0, 4); p.happy = clamp(p.happy + (n || 1), 0, 4); }
+    else if (kind === "walk") { p.happy = clamp(p.happy + Math.min(4, n * 2), 0, 4); p.misses = Math.max(0, (p.misses || 0) - n * 4); p.good = (p.good || 0) + n; }
+    else return { ok: false, why: "kind" };
+    p.last = Date.now();
+    LS.set(KEY, JSON.stringify(W)); changed();
+    return { ok: true, pet: petView(W, p) };
+  },
+  /* adopting in Geopet names the pup and hatches it if it is still an egg */
+  adopt(name) {
+    const W = load(); catchUp(W, false);
+    let p = W.pups[W.active] || W.pups[0];
+    if (p.gone) { p = W.pups[W.active] = newPup(); }
+    p.name = String(name || "").slice(0, 20);
+    if (p.stage === "egg") { p.stage = "baby"; p.born = Math.min(p.born, Date.now() - 6 * 60e3); }
+    p.last = Date.now();
+    LS.set(KEY, JSON.stringify(W)); changed();
+    return petView(W, p);
+  },
+  rename(name) { const W = load(); const p = W.pups[W.active] || W.pups[0]; p.name = String(name || "").slice(0, 20); LS.set(KEY, JSON.stringify(W)); changed(); }
+};
+
 /* ================================================================== mount */
 function mount(root, host = {}) {
   host = Object.assign({ buy: null, restore: null, prices: null, realMoney: () => false, plusActive: () => false, walks: () => [], geopetMetres: () => null, go: null, toast: null }, host);
@@ -12859,33 +12980,7 @@ function mount(root, host = {}) {
   }
 
   /* ---------------------------------------------------------- simulation */
-  const night = h => h >= 21 || h < 7;
-  function simulate(p, hours, startT) {
-    /* run in one-hour steps so an overnight gap behaves like a night */
-    let t = startT;
-    const step = 1;
-    for (let left = hours; left > 0; left -= step) {
-      const dt = Math.min(step, left); t += dt * H;
-      if (p.gone) return;
-      const h = new Date(t).getHours();
-      const asleep = p.stage !== "egg" && night(h);
-      if (p.stage === "egg") continue;
-      const rate = asleep ? 0.3 : 1;
-      p.hunger = Math.max(0, p.hunger - dt * rate / 4);
-      p.thirst = Math.max(0, p.thirst - dt * rate / 3);
-      p.happy = Math.max(0, p.happy - dt * rate / (asleep && has("up:bed") ? 10 : 5));
-      if (!asleep && Math.random() < dt / 6) p.poop = Math.min(3, p.poop + 1);
-      /* upgrades work while you're away */
-      if (has("up:feeder") && p.hunger < 1) { if (p.feeds.day !== dayKey(t)) p.feeds = { day: dayKey(t), n: 0 }; if (p.feeds.n < 3) { p.hunger = 2.5; p.feeds.n++; } }
-      if (has("up:waterer") && p.thirst < 1.5) p.thirst = 3;
-      if (has("up:scooper") && p.poop) p.poop = 0;
-      if (!p.sick && (p.poop >= 2 || p.hunger === 0 || p.thirst === 0) && Math.random() < dt / 8) { p.sick = true; p.sickAt = t; }
-      if (p.sick && has("up:vet") && t - p.sickAt > H) p.sick = false;
-      const neglected = p.hunger === 0 || p.thirst === 0 || p.happy === 0 || p.sick;
-      if (neglected) { p.misses += dt; p.bad += dt; } else { p.misses = Math.max(0, p.misses - dt / 2); p.good += dt; }
-      if (!has("up:forever") && p.misses > 36) { p.gone = true; }
-    }
-  }
+  const simulate = (p, hours, startT) => simulateWith(p, hours, startT, has);
   function grow(p) {
     for (let i = STAGES.length - 1; i > 0; i--) {
       if (age(p) >= STAGE_AT[i] && STAGES.indexOf(p.stage) < i) {
@@ -12958,7 +13053,7 @@ function mount(root, host = {}) {
   const CALL_ICON = ["...##...","...##...","...##...","...##...","...##...","........","...##...","...##..."];
   const needsCall = p => !p.gone && p.stage !== "egg" && (p.hunger < 1 || p.thirst < 1 || p.happy < 1 || p.sick || p.poop > 0);
 
-  function pupName(p) { return p.gone ? "AWAY" : p.stage === "adult" ? (p.form || "TRAIL DOG") : STAGE_NAMES[p.stage]; }
+  function pupName(p) { return p.gone ? "AWAY" : p.stage === "egg" ? "EGG" : p.name ? p.name.toUpperCase().slice(0, 10) : p.stage === "adult" ? (p.form || "TRAIL DOG") : STAGE_NAMES[p.stage]; }
   function sceneParts() {
     const sc = W.equip.scene;
     if (sc === "scene:forest") return [pix(ART.tree, 0, 7, .35), pix(ART.tree, 25, 6, .35)];
@@ -13334,13 +13429,15 @@ function mount(root, host = {}) {
     try { ui.prices = await host.prices(PRODUCTS.map(p => p.sku)) || {}; if (ui.tab === "shop") paintPanel(); } catch {}
   }
 
+  const onShared = () => { W = load(); applyLooks(); draw(); paintPanel(); paintWallet(); };
+  window.addEventListener("pocketpup:change", onShared);
   applyLooks();
   tick(); dailyAndHost(); draw(); paintPanel();
   const loop = setInterval(() => { ui.frame++; tick(); if (needsCall(pup()) && ui.frame % 30 === 0 && ui.mode === "home") SFX.call(); draw(); }, 1000);
   timers.push(loop);
 
   const api = {
-    unmount() { timers.forEach(clearInterval); clearTimeout(ui.modeT); if (ui.game) clearInterval(ui.game.t); root.removeEventListener("click", onClick); root.innerHTML = ""; confirmEl.hidden = true; },
+    unmount() { window.removeEventListener("pocketpup:change", onShared); timers.forEach(clearInterval); clearTimeout(ui.modeT); if (ui.game) clearInterval(ui.game.t); root.removeEventListener("click", onClick); root.innerHTML = ""; confirmEl.hidden = true; },
     /* for tests */
     get state() { return W; }, set state(v) { W = v; save(); applyLooks(); draw(); paintPanel(); paintWallet(); },
     tick, draw, act, earn, buyItem, buySku, refresh: () => { dailyAndHost(); paintPanel(); }
@@ -13348,7 +13445,7 @@ function mount(root, host = {}) {
   return api;
 }
 
-self.PocketPup = { mount, PRODUCTS, SHOP, EARN, KEY };
+self.PocketPup = { mount, pet: Pet, PRODUCTS, SHOP, EARN, KEY };
 })();
 
 </script>
@@ -13456,9 +13553,10 @@ let inst = null;
 A.registerView("/pocket", {
   html: () => `<div class="wrap" style="padding:24px 16px 64px">
     <div class="member-head"><div>
-      <h1 class="h-ic"><span class="ic-tile">${A.IC("ball", 22)}</span>Pocket Pup</h1>
-      <p>A 90s pocket pet. Feed it, play with it, and every real walk with your dog earns it bones.</p>
+      <h1 class="h-ic"><span class="ic-tile">${A.IC("pawHeart", 22)}</span>Geopet</h1>
+      <p>Your pup at home, on a 90s pocket device. Feed it, clean up, play games and shop. Walks in Town and real walks with your dog earn bones here.</p>
     </div></div>
+    ${self.DewclawGpSwitch ? self.DewclawGpSwitch("pocket") : ""}
     <div id="ppRoot"></div></div>`,
   mount() {
     const root = $("#ppRoot");
