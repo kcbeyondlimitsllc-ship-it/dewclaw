@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KCBeyond AI</title>
+<meta name="description" content="Small, useful apps and games from the family behind KC Beyond Limits.">
+<style>
+  :root { --bg:#f6f4ef; --card:#fff; --ink:#1c2420; --mute:#5c6b63; --line:#dcd8cd; --accent:#1f7a4d; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#121815; --card:#1b2420; --ink:#eef3ef; --mute:#a3b3aa; --line:#2f3b35; --accent:#4cc38a; } }
+  :root[data-theme="dark"] { --bg:#121815; --card:#1b2420; --ink:#eef3ef; --mute:#a3b3aa; --line:#2f3b35; --accent:#4cc38a; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:17px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  main { max-width:760px; margin:0 auto; padding:40px 16px 60px; }
+  h1 { margin:0; font-size:36px; letter-spacing:-.5px; } .lead { color:var(--mute); margin:6px 0 26px; }
+  .apps { display:grid; gap:14px; }
+  a.app { display:grid; grid-template-columns:56px 1fr; gap:14px; align-items:center; background:var(--card); border:1px solid var(--line);
+    border-radius:18px; padding:16px; color:inherit; text-decoration:none; }
+  a.app:hover, a.app:focus-visible { border-color:var(--accent); outline:none; }
+  .ico { font-size:34px; width:56px; height:56px; display:grid; place-items:center; background:var(--bg); border-radius:14px; }
+  .app h2 { margin:0; font-size:20px; } .app p { margin:2px 0 0; color:var(--mute); font-size:15px; }
+  .tag { font-size:12px; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:.06em; }
+  footer { color:var(--mute); font-size:14px; margin-top:28px; }
+  footer a { color:var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <h1>KCBeyond AI</h1>
+  <p class="lead">Small, useful apps and games from the family behind KC Beyond Limits.</p>
+  <div class="apps">
+    <a class="app" href="kc-dash/">
+      <div class="ico" aria-hidden="true">🐕</div>
+      <div><span class="tag">Game</span><h2>KC Trail Dash</h2><p>Run the Pacific Northwest with KC. Catch tennis balls, hop the logs, get the zoomies.</p></div>
+    </a>
+    <a class="app" href="rainfort/">
+      <div class="ico" aria-hidden="true">🌧️</div>
+      <div><span class="tag">Sleep and focus</span><h2>Rainfort</h2><p>Mix rain, river, ocean and campfire sounds. Works offline.</p></div>
+    </a>
+    <a class="app" href="print-profit/">
+      <div class="ico" aria-hidden="true">🧮</div>
+      <div><span class="tag">For sellers</span><h2>PrintProfit</h2><p>Real profit per print-on-demand order on Shopify and Etsy, and how much you can spend on ads.</p></div>
+    </a>
+  </div>
+  <footer>Made by KC Beyond Limits LLC in the Pacific Northwest. <a href="https://www.youtube.com/@KCBeyondLimits" rel="noopener noreferrer">Follow KC</a></footer>
+</main>
+</body>
+</html>
