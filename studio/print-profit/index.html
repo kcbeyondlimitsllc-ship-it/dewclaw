@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PrintProfit</title>
+<meta name="description" content="Free print-on-demand profit calculator for Shopify and Etsy sellers. See real profit per order, break-even ad spend, and the price you need.">
+<style>
+  :root { --bg:#f6f4ef; --card:#fff; --ink:#1c2420; --mute:#5c6b63; --line:#dcd8cd; --accent:#1f7a4d; --accent-ink:#fff;
+          --good:#14683f; --bad:#b3261e; --soft:#eef5f0; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --bg:#121815; --card:#1b2420; --ink:#eef3ef; --mute:#a3b3aa; --line:#2f3b35; --accent:#4cc38a; --accent-ink:#08130d;
+    --good:#6ddba4; --bad:#ff8a80; --soft:#22302a; } }
+  :root[data-theme="dark"] { --bg:#121815; --card:#1b2420; --ink:#eef3ef; --mute:#a3b3aa; --line:#2f3b35; --accent:#4cc38a;
+    --accent-ink:#08130d; --good:#6ddba4; --bad:#ff8a80; --soft:#22302a; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  main { max-width:980px; margin:0 auto; padding:20px 16px 60px; }
+  header h1 { margin:0; font-size:28px; }
+  header p { margin:4px 0 18px; color:var(--mute); }
+  .grid { display:grid; gap:16px; grid-template-columns:1fr; }
+  @media (min-width:820px) { .grid { grid-template-columns:1.1fr .9fr; align-items:start; } }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px; }
+  .card h2 { margin:0 0 10px; font-size:18px; }
+  .fields { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  label { display:block; font-size:13px; font-weight:600; color:var(--mute); }
+  input, select { width:100%; margin-top:4px; font:inherit; color:var(--ink); background:var(--bg); border:1px solid var(--line);
+    border-radius:10px; padding:10px; min-height:44px; }
+  input:focus-visible, select:focus-visible, button:focus-visible { outline:3px solid var(--accent); outline-offset:1px; }
+  .full { grid-column:1 / -1; }
+  .check { display:flex; gap:8px; align-items:center; font-size:14px; color:var(--ink); font-weight:500; }
+  .check input { width:20px; height:20px; min-height:0; margin:0; }
+  details { margin-top:12px; } summary { cursor:pointer; font-weight:600; padding:6px 0; }
+  .hero { text-align:center; padding:6px 0 12px; border-bottom:1px solid var(--line); margin-bottom:12px; }
+  .hero .num { font-size:44px; font-weight:800; line-height:1.1; }
+  .hero .sub { color:var(--mute); }
+  .pos { color:var(--good); } .neg { color:var(--bad); }
+  dl { display:grid; grid-template-columns:1fr auto; gap:6px 12px; margin:0; }
+  dt { color:var(--mute); } dd { margin:0; font-weight:700; text-align:right; font-variant-numeric:tabular-nums; }
+  .tip { background:var(--soft); border-radius:12px; padding:12px; margin-top:12px; font-size:15px; }
+  button { font:inherit; font-weight:700; border-radius:12px; border:1px solid var(--line); background:var(--card); color:var(--ink);
+    padding:10px 14px; min-height:44px; cursor:pointer; }
+  button.primary { background:var(--accent); color:var(--accent-ink); border-color:transparent; }
+  .actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+  .scroll { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; font-size:14px; min-width:520px; }
+  th, td { text-align:right; padding:8px 6px; border-bottom:1px solid var(--line); font-variant-numeric:tabular-nums; }
+  th:first-child, td:first-child { text-align:left; }
+  th { color:var(--mute); font-size:12px; text-transform:uppercase; letter-spacing:.04em; }
+  .fine { color:var(--mute); font-size:13px; margin-top:16px; }
+  .empty { color:var(--mute); padding:8px 0; }
+  textarea { width:100%; margin-top:4px; font:inherit; color:var(--ink); background:var(--bg); border:1px solid var(--line); border-radius:10px; padding:10px; min-height:88px; resize:vertical; }
+  textarea:focus-visible { outline:3px solid var(--accent); outline-offset:1px; }
+  .out { border:1px solid var(--line); border-radius:12px; padding:12px; margin-top:12px; }
+  .out h3 { margin:0 0 6px; font-size:13px; color:var(--mute); text-transform:uppercase; letter-spacing:.04em; display:flex; justify-content:space-between; align-items:center; }
+  .out h3 button { min-height:36px; padding:4px 10px; font-size:13px; }
+  .out p { margin:0; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .tags { display:flex; flex-wrap:wrap; gap:6px; } .tags span { background:var(--soft); border-radius:999px; padding:3px 10px; font-size:14px; }
+  .msg { color:var(--mute); font-size:14px; margin:10px 0 0; min-height:1em; } .msg.err { color:var(--bad); }
+  .rowin { display:flex; gap:8px; margin-top:10px; } .rowin input { margin-top:0; }
+  code.k { font-weight:700; word-break:break-all; }
+  [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>PrintProfit</h1>
+    <p>What you really keep on each print-on-demand order, and how much you can spend on ads.</p>
+  </header>
+
+  <div class="grid">
+    <section class="card" aria-label="Your product">
+      <h2>Your product</h2>
+      <div class="fields">
+        <label class="full">Product name
+          <input id="name" type="text" placeholder="PNW Adventure Dog Bandana" autocomplete="off"></label>
+        <label>Where you sell
+          <select id="channel">
+            <option value="shopify">Shopify</option>
+            <option value="etsy">Etsy</option>
+            <option value="custom">Other / custom</option>
+          </select></label>
+        <label>Sale price ($)<input id="price" type="number" inputmode="decimal" min="0" step="0.01" value="30"></label>
+        <label>Shipping you charge ($)<input id="shipCharged" type="number" inputmode="decimal" min="0" step="0.01" value="4.99"></label>
+        <label>Discount (%)<input id="discount" type="number" inputmode="decimal" min="0" max="100" step="1" value="0"></label>
+        <label>Product cost ($)<input id="cost" type="number" inputmode="decimal" min="0" step="0.01" value="11.5"></label>
+        <label>Shipping you pay ($)<input id="shipCost" type="number" inputmode="decimal" min="0" step="0.01" value="4.75"></label>
+        <label>Ad spend per order ($)<input id="ad" type="number" inputmode="decimal" min="0" step="0.01" value="0"></label>
+        <label>Monthly profit goal ($)<input id="goal" type="number" inputmode="decimal" min="0" step="100" value="5000"></label>
+        <label class="check full" id="offsiteRow" hidden><input id="offsite" type="checkbox"> This order came from Etsy Offsite Ads</label>
+      </div>
+      <details>
+        <summary>Fee settings</summary>
+        <div class="fields">
+          <label>Payment fee (%)<input id="payPct" type="number" inputmode="decimal" min="0" step="0.01"></label>
+          <label>Payment fee, fixed ($)<input id="payFixed" type="number" inputmode="decimal" min="0" step="0.01"></label>
+          <label>Marketplace fee (%)<input id="mktPct" type="number" inputmode="decimal" min="0" step="0.01"></label>
+          <label>Listing fee per sale ($)<input id="listFee" type="number" inputmode="decimal" min="0" step="0.01"></label>
+          <label>Offsite Ads fee (%)<input id="offPct" type="number" inputmode="decimal" min="0" step="0.1"></label>
+        </div>
+        <p class="fine">Starting values are typical US rates (Shopify Basic card rate; Etsy transaction, processing and listing fees) and can change. Check your own plan and edit them here. Sales tax is not included.</p>
+      </details>
+    </section>
+
+    <section class="card" aria-label="Results" aria-live="polite">
+      <div class="hero">
+        <div class="sub">Profit per order</div>
+        <div class="num" id="profit">$0.00</div>
+        <div class="sub" id="margin">0% margin</div>
+      </div>
+      <dl>
+        <dt>Customer pays</dt><dd id="gross"></dd>
+        <dt>Selling fees</dt><dd id="fees"></dd>
+        <dt>Product + shipping cost</dt><dd id="cogs"></dd>
+        <dt>Ad spend</dt><dd id="adOut"></dd>
+        <dt>Most you can pay for a sale</dt><dd id="maxCpa"></dd>
+        <dt>Break-even ROAS</dt><dd id="roas"></dd>
+        <dt>Orders a month for your goal</dt><dd id="units"></dd>
+      </dl>
+      <div class="tip" id="tip"></div>
+      <label style="margin-top:12px">Margin you want (%)
+        <input id="target" type="number" inputmode="decimal" min="0" max="90" step="1" value="35"></label>
+      <div class="tip" id="priceTip"></div>
+      <div class="actions">
+        <button class="primary" id="save">Save product</button>
+      </div>
+    </section>
+  </div>
+
+  <section class="card" style="margin-top:16px" aria-label="Saved products">
+    <h2>Saved products</h2>
+    <div id="savedWrap"></div>
+    <div class="actions">
+      <button id="csv">Download CSV</button>
+      <button id="clear">Clear list</button>
+    </div>
+  </section>
+
+  <section class="card" style="margin-top:16px" id="writer" hidden aria-label="Listing writer">
+    <h2>Listing writer</h2>
+    <p style="margin:0 0 10px;color:var(--mute)">Describe the product and get a title, description and tags sized for <span id="wChan">Shopify</span>. It only uses the facts you give it.</p>
+    <div class="fields">
+      <label class="full">What is it?<input id="wProduct" type="text" maxlength="160" placeholder="Cotton dog bandana with a mountain sunrise print"></label>
+      <label class="full">Details worth mentioning
+        <textarea id="wDetails" maxlength="800" placeholder="Material, sizes, who it's for, what the design shows, care instructions"></textarea></label>
+      <label>Tone<select id="wTone"><option value="friendly">Friendly</option><option value="outdoorsy">Outdoorsy</option><option value="playful">Playful</option><option value="minimal">Minimal</option></select></label>
+    </div>
+    <div class="actions"><button class="primary" id="wGo">Write my listing</button></div>
+    <p class="msg" id="wMsg" aria-live="polite"></p>
+    <div id="wOut" hidden>
+      <div class="out"><h3>Title <button data-copy="oTitle">Copy</button></h3><p id="oTitle"></p></div>
+      <div class="out"><h3>Description <button data-copy="oDesc">Copy</button></h3><p id="oDesc"></p></div>
+      <div class="out"><h3>Tags <button data-copy="oTags">Copy</button></h3><div class="tags" id="oTags"></div></div>
+      <div class="out" id="oSeoWrap" hidden><h3>Search title and description <button data-copy="oSeo">Copy</button></h3><p id="oSeo"></p></div>
+      <p class="fine" style="margin-top:10px">Read it before you publish. Check every fact and that no brand names slipped in.</p>
+    </div>
+    <div class="tip" id="wPack">
+      <b id="wLeft"></b>
+      <div class="actions" style="margin-top:8px"><button id="wBuy">Get a listing pack</button></div>
+      <div class="rowin"><input id="wCode" type="text" autocomplete="off" placeholder="Have a code? KC-…" aria-label="Unlock code"><button id="wUse">Use code</button></div>
+      <p class="msg" id="wCodeLine" hidden>Your code: <code class="k" id="wMyCode"></code>. Keep it to use your listings on another device.</p>
+    </div>
+  </section>
+
+  <p class="fine">Your numbers stay in this browser. Only what you type into the listing writer is sent, to write your listing.</p>
+</main>
+
+<script src="../config.js"></script>
+<script src="../plus.js"></script>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const num = id => { const v = parseFloat($(id).value); return isFinite(v) && v > 0 ? v : 0; };
+const money = v => (v < 0 ? "-$" : "$") + Math.abs(v).toFixed(2);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+};
+
+/* Typical US rates. Editable in "Fee settings". */
+const PRESETS = {
+  shopify: { payPct: 2.9, payFixed: 0.30, mktPct: 0,   listFee: 0,    offPct: 0 },
+  etsy:    { payPct: 3.0, payFixed: 0.25, mktPct: 6.5, listFee: 0.20, offPct: 15 },
+  custom:  { payPct: 2.9, payFixed: 0.30, mktPct: 0,   listFee: 0,    offPct: 0 }
+};
+function applyPreset() {
+  const p = PRESETS[$("channel").value];
+  for (const k in p) $(k).value = p[k];
+  $("offsiteRow").hidden = $("channel").value !== "etsy";
+  if ($("channel").value !== "etsy") $("offsite").checked = false;
+}
+
+/* The maths, kept in one pure function so it can be checked. */
+function calc(i) {
+  const gross = i.price * (1 - i.discount / 100) + i.shipCharged;
+  const pct = (i.payPct + i.mktPct + (i.offsite ? i.offPct : 0)) / 100;
+  const fixed = gross > 0 ? i.payFixed + i.listFee : 0;
+  const fees = gross * pct + fixed;
+  const cogs = i.cost + i.shipCost;
+  const beforeAds = gross - fees - cogs;
+  const profit = beforeAds - i.ad;
+  const need = (fixed + cogs + i.ad) / (1 - pct - i.target / 100);
+  const priceFor = 1 - pct - i.target / 100 > 0 && i.discount < 100 ? (need - i.shipCharged) / (1 - i.discount / 100) : null;
+  return { gross, fees, cogs, beforeAds, profit,
+    margin: gross > 0 ? profit / gross * 100 : 0,
+    roas: beforeAds > 0 ? gross / beforeAds : null,
+    units: profit > 0 && i.goal > 0 ? Math.ceil(i.goal / profit) : null,
+    priceFor };
+}
+function inputs() {
+  return { name: $("name").value.trim(), channel: $("channel").value, price: num("price"), shipCharged: num("shipCharged"),
+    discount: Math.min(100, num("discount")), cost: num("cost"), shipCost: num("shipCost"), ad: num("ad"), goal: num("goal"),
+    offsite: $("offsite").checked, payPct: num("payPct"), payFixed: num("payFixed"), mktPct: num("mktPct"),
+    listFee: num("listFee"), offPct: num("offPct"), target: Math.min(90, num("target")) };
+}
+function update() {
+  const i = inputs(), r = calc(i);
+  $("profit").textContent = money(r.profit);
+  $("profit").className = "num " + (r.profit >= 0 ? "pos" : "neg");
+  $("margin").textContent = r.margin.toFixed(1) + "% margin";
+  $("gross").textContent = money(r.gross);
+  $("fees").textContent = money(r.fees);
+  $("cogs").textContent = money(r.cogs);
+  $("adOut").textContent = money(i.ad);
+  $("maxCpa").textContent = r.beforeAds > 0 ? money(r.beforeAds) : "$0.00";
+  $("roas").textContent = r.roas ? r.roas.toFixed(2) + "×" : "n/a";
+  $("units").textContent = r.units ? r.units.toLocaleString() : "n/a";
+  $("tip").textContent =
+    r.beforeAds <= 0 ? "You lose money on every order before any ads. Raise the price or lower your costs."
+    : r.profit < 0 ? `Ads cost more than this order earns. Keep ad spend under ${money(r.beforeAds)} a sale.`
+    : r.margin < 20 ? `Thin margin. Ads only pay off above a ${r.roas.toFixed(2)}× return, which is hard to hold.`
+    : `Healthy. Ads pay for themselves at anything above a ${r.roas.toFixed(2)}× return.`;
+  $("priceTip").textContent = r.priceFor === null ? "That margin isn't reachable with these fees."
+    : `For a ${i.target}% margin, charge ${money(Math.max(0, r.priceFor))}.`;
+  store.set("pp.form", i);
+}
+
+/* Saved products */
+let saved = store.get("pp.saved", []);
+function renderSaved() {
+  const w = $("savedWrap");
+  if (!saved.length) { w.innerHTML = '<p class="empty">Nothing saved yet. Save a product to compare them side by side.</p>'; return; }
+  const rows = saved.map((s, n) => { const r = calc(s);
+    return `<tr><td></td><td>${s.channel}</td><td>${money(s.price)}</td><td class="${r.profit >= 0 ? "pos" : "neg"}">${money(r.profit)}</td><td>${r.margin.toFixed(1)}%</td><td>${r.roas ? r.roas.toFixed(2) + "×" : "n/a"}</td><td><button data-del="${n}" aria-label="Remove">✕</button></td></tr>`; });
+  w.innerHTML = `<div class="scroll"><table><thead><tr><th>Product</th><th>Channel</th><th>Price</th><th>Profit</th><th>Margin</th><th>Break-even ROAS</th><th></th></tr></thead><tbody>${rows.join("")}</tbody></table></div>`;
+  w.querySelectorAll("tbody tr").forEach((tr, n) => tr.firstChild.textContent = saved[n].name || "Untitled");   /* textContent: no HTML from names */
+}
+$("savedWrap").addEventListener("click", e => { const d = e.target.dataset.del; if (d !== undefined) { saved.splice(+d, 1); store.set("pp.saved", saved); renderSaved(); } });
+$("save").onclick = () => { saved.push(inputs()); store.set("pp.saved", saved); renderSaved(); };
+$("clear").onclick = () => { if (saved.length && confirm("Remove every saved product?")) { saved = []; store.set("pp.saved", saved); renderSaved(); } };
+$("csv").onclick = () => {
+  if (!saved.length) return;
+  const q = v => '"' + String(v).replace(/"/g, '""').replace(/^([=+\-@])/, "'$1") + '"';
+  const lines = [["Product", "Channel", "Price", "Customer pays", "Fees", "Costs", "Ad spend", "Profit", "Margin %", "Break-even ROAS"].join(",")]
+    .concat(saved.map(s => { const r = calc(s); return [q(s.name || "Untitled"), s.channel, s.price, r.gross.toFixed(2), r.fees.toFixed(2), r.cogs.toFixed(2), s.ad.toFixed(2), r.profit.toFixed(2), r.margin.toFixed(1), r.roas ? r.roas.toFixed(2) : ""].join(","); }));
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/csv" })); a.download = "printprofit.csv"; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
+
+/* Start: restore the last form, else the Shopify preset */
+applyPreset();
+const prev = store.get("pp.form", null);
+if (prev) {
+  $("channel").value = prev.channel in PRESETS ? prev.channel : "shopify"; applyPreset();
+  for (const k of ["name", "price", "shipCharged", "discount", "cost", "shipCost", "ad", "goal", "payPct", "payFixed", "mktPct", "listFee", "offPct", "target"])
+    if (prev[k] !== undefined) $(k).value = prev[k];
+  $("offsite").checked = !!prev.offsite && prev.channel === "etsy";
+}
+$("channel").addEventListener("change", () => { applyPreset(); update(); });
+document.querySelectorAll("input").forEach(el => el.addEventListener("input", update));
+update(); renderSaved();
+
+/* ---------- listing writer (needs the studio server) ---------- */
+const wChannel = () => $("channel").value === "etsy" ? "etsy" : "shopify";
+function wMsg(text, err) { $("wMsg").textContent = text || ""; $("wMsg").classList.toggle("err", !!err); }
+function wLeft(free, credits) {
+  $("wLeft").textContent = credits > 0 ? `${credits} listings left on your code.` : free === null ? "A few free listings every day." : `${free} free listing${free === 1 ? "" : "s"} left today.`;
+  $("wCodeLine").hidden = !Studio.code(); $("wMyCode").textContent = Studio.code();
+}
+if (Studio.on) {
+  $("writer").hidden = false;
+  $("wBuy").textContent = "Get a listing pack" + (Studio.price("listing_pack") ? " · " + Studio.price("listing_pack") : "");
+  const syncChan = () => $("wChan").textContent = wChannel() === "etsy" ? "Etsy" : "Shopify";
+  $("channel").addEventListener("change", syncChan); syncChan();
+  $("name").addEventListener("change", () => { if (!$("wProduct").value) $("wProduct").value = $("name").value; });
+  $("wProduct").value = $("name").value;
+  wLeft(null, 0);
+  $("wGo").onclick = async () => {
+    const product = $("wProduct").value.trim();
+    if (product.length < 3) { wMsg("Say what the product is first.", true); $("wProduct").focus(); return; }
+    $("wGo").disabled = true; wMsg("Writing…");
+    try {
+      const j = await Studio.api("/listing", { channel: wChannel(), product, details: $("wDetails").value, tone: $("wTone").value, code: Studio.code() || undefined });
+      const L = j.listing;
+      $("oTitle").textContent = L.title; $("oDesc").textContent = L.description;
+      $("oTags").textContent = ""; L.tags.forEach(t => { const sp = document.createElement("span"); sp.textContent = t; $("oTags").appendChild(sp); });
+      $("oSeoWrap").hidden = !(L.seoTitle || L.metaDescription); $("oSeo").textContent = [L.seoTitle, L.metaDescription].filter(Boolean).join("\n\n");
+      $("wOut").hidden = false; wMsg(""); wLeft(j.left.free, j.left.credits);
+    } catch (e) { wMsg(e.message, true); }
+    $("wGo").disabled = false;
+  };
+  $("writer").addEventListener("click", async e => {
+    const id = e.target.dataset.copy; if (!id) return;
+    const text = id === "oTags" ? [...$("oTags").children].map(c => c.textContent).join(", ") : $(id).textContent;
+    try { await navigator.clipboard.writeText(text); e.target.textContent = "Copied"; setTimeout(() => e.target.textContent = "Copy", 1200); } catch (err) {}
+  });
+  $("wBuy").onclick = async () => { wMsg("Opening checkout…"); try { await Studio.buy("listing_pack"); } catch (e) { wMsg(e.message, true); } };
+  $("wUse").onclick = async () => {
+    const c = $("wCode").value.trim(); if (!c) return;
+    try { const l = await Studio.useCode(c); $("wCode").value = ""; wLeft(null, l.credits); wMsg(l.credits ? "Code added." : "That code has no listings left on it.", !l.credits); }
+    catch (e) { wMsg(e.message, true); }
+  };
+  (async () => {
+    try {
+      const paid = await Studio.finishPurchase();
+      if (paid) { wLeft(null, paid.credits); wMsg("Thank you! Your listings are ready."); $("writer").scrollIntoView({ block: "center" }); return; }
+      const l = await Studio.license(); if (l) wLeft(null, l.credits);
+    } catch (e) { wMsg(e.message, true); }
+  })();
+}
+window.__pp = { calc };
+</script>
+</body>
+</html>
