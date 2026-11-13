@@ -49,6 +49,17 @@
   th { color:var(--mute); font-size:12px; text-transform:uppercase; letter-spacing:.04em; }
   .fine { color:var(--mute); font-size:13px; margin-top:16px; }
   .empty { color:var(--mute); padding:8px 0; }
+  textarea { width:100%; margin-top:4px; font:inherit; color:var(--ink); background:var(--bg); border:1px solid var(--line); border-radius:10px; padding:10px; min-height:88px; resize:vertical; }
+  textarea:focus-visible { outline:3px solid var(--accent); outline-offset:1px; }
+  .out { border:1px solid var(--line); border-radius:12px; padding:12px; margin-top:12px; }
+  .out h3 { margin:0 0 6px; font-size:13px; color:var(--mute); text-transform:uppercase; letter-spacing:.04em; display:flex; justify-content:space-between; align-items:center; }
+  .out h3 button { min-height:36px; padding:4px 10px; font-size:13px; }
+  .out p { margin:0; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .tags { display:flex; flex-wrap:wrap; gap:6px; } .tags span { background:var(--soft); border-radius:999px; padding:3px 10px; font-size:14px; }
+  .msg { color:var(--mute); font-size:14px; margin:10px 0 0; min-height:1em; } .msg.err { color:var(--bad); }
+  .rowin { display:flex; gap:8px; margin-top:10px; } .rowin input { margin-top:0; }
+  code.k { font-weight:700; word-break:break-all; }
+  [hidden] { display:none !important; }
 </style>
 </head>
 <body>
@@ -126,9 +137,37 @@
     </div>
   </section>
 
-  <p class="fine">Your numbers stay in this browser. Nothing is uploaded.</p>
+  <section class="card" style="margin-top:16px" id="writer" hidden aria-label="Listing writer">
+    <h2>Listing writer</h2>
+    <p style="margin:0 0 10px;color:var(--mute)">Describe the product and get a title, description and tags sized for <span id="wChan">Shopify</span>. It only uses the facts you give it.</p>
+    <div class="fields">
+      <label class="full">What is it?<input id="wProduct" type="text" maxlength="160" placeholder="Cotton dog bandana with a mountain sunrise print"></label>
+      <label class="full">Details worth mentioning
+        <textarea id="wDetails" maxlength="800" placeholder="Material, sizes, who it's for, what the design shows, care instructions"></textarea></label>
+      <label>Tone<select id="wTone"><option value="friendly">Friendly</option><option value="outdoorsy">Outdoorsy</option><option value="playful">Playful</option><option value="minimal">Minimal</option></select></label>
+    </div>
+    <div class="actions"><button class="primary" id="wGo">Write my listing</button></div>
+    <p class="msg" id="wMsg" aria-live="polite"></p>
+    <div id="wOut" hidden>
+      <div class="out"><h3>Title <button data-copy="oTitle">Copy</button></h3><p id="oTitle"></p></div>
+      <div class="out"><h3>Description <button data-copy="oDesc">Copy</button></h3><p id="oDesc"></p></div>
+      <div class="out"><h3>Tags <button data-copy="oTags">Copy</button></h3><div class="tags" id="oTags"></div></div>
+      <div class="out" id="oSeoWrap" hidden><h3>Search title and description <button data-copy="oSeo">Copy</button></h3><p id="oSeo"></p></div>
+      <p class="fine" style="margin-top:10px">Read it before you publish. Check every fact and that no brand names slipped in.</p>
+    </div>
+    <div class="tip" id="wPack">
+      <b id="wLeft"></b>
+      <div class="actions" style="margin-top:8px"><button id="wBuy">Get a listing pack</button></div>
+      <div class="rowin"><input id="wCode" type="text" autocomplete="off" placeholder="Have a code? KC-…" aria-label="Unlock code"><button id="wUse">Use code</button></div>
+      <p class="msg" id="wCodeLine" hidden>Your code: <code class="k" id="wMyCode"></code>. Keep it to use your listings on another device.</p>
+    </div>
+  </section>
+
+  <p class="fine">Your numbers stay in this browser. Only what you type into the listing writer is sent, to write your listing.</p>
 </main>
 
+<script src="../config.js"></script>
+<script src="../plus.js"></script>
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
@@ -232,6 +271,55 @@ if (prev) {
 $("channel").addEventListener("change", () => { applyPreset(); update(); });
 document.querySelectorAll("input").forEach(el => el.addEventListener("input", update));
 update(); renderSaved();
+
+/* ---------- listing writer (needs the studio server) ---------- */
+const wChannel = () => $("channel").value === "etsy" ? "etsy" : "shopify";
+function wMsg(text, err) { $("wMsg").textContent = text || ""; $("wMsg").classList.toggle("err", !!err); }
+function wLeft(free, credits) {
+  $("wLeft").textContent = credits > 0 ? `${credits} listings left on your code.` : free === null ? "A few free listings every day." : `${free} free listing${free === 1 ? "" : "s"} left today.`;
+  $("wCodeLine").hidden = !Studio.code(); $("wMyCode").textContent = Studio.code();
+}
+if (Studio.on) {
+  $("writer").hidden = false;
+  $("wBuy").textContent = "Get a listing pack" + (Studio.price("listing_pack") ? " · " + Studio.price("listing_pack") : "");
+  const syncChan = () => $("wChan").textContent = wChannel() === "etsy" ? "Etsy" : "Shopify";
+  $("channel").addEventListener("change", syncChan); syncChan();
+  $("name").addEventListener("change", () => { if (!$("wProduct").value) $("wProduct").value = $("name").value; });
+  $("wProduct").value = $("name").value;
+  wLeft(null, 0);
+  $("wGo").onclick = async () => {
+    const product = $("wProduct").value.trim();
+    if (product.length < 3) { wMsg("Say what the product is first.", true); $("wProduct").focus(); return; }
+    $("wGo").disabled = true; wMsg("Writing…");
+    try {
+      const j = await Studio.api("/listing", { channel: wChannel(), product, details: $("wDetails").value, tone: $("wTone").value, code: Studio.code() || undefined });
+      const L = j.listing;
+      $("oTitle").textContent = L.title; $("oDesc").textContent = L.description;
+      $("oTags").textContent = ""; L.tags.forEach(t => { const sp = document.createElement("span"); sp.textContent = t; $("oTags").appendChild(sp); });
+      $("oSeoWrap").hidden = !(L.seoTitle || L.metaDescription); $("oSeo").textContent = [L.seoTitle, L.metaDescription].filter(Boolean).join("\n\n");
+      $("wOut").hidden = false; wMsg(""); wLeft(j.left.free, j.left.credits);
+    } catch (e) { wMsg(e.message, true); }
+    $("wGo").disabled = false;
+  };
+  $("writer").addEventListener("click", async e => {
+    const id = e.target.dataset.copy; if (!id) return;
+    const text = id === "oTags" ? [...$("oTags").children].map(c => c.textContent).join(", ") : $(id).textContent;
+    try { await navigator.clipboard.writeText(text); e.target.textContent = "Copied"; setTimeout(() => e.target.textContent = "Copy", 1200); } catch (err) {}
+  });
+  $("wBuy").onclick = async () => { wMsg("Opening checkout…"); try { await Studio.buy("listing_pack"); } catch (e) { wMsg(e.message, true); } };
+  $("wUse").onclick = async () => {
+    const c = $("wCode").value.trim(); if (!c) return;
+    try { const l = await Studio.useCode(c); $("wCode").value = ""; wLeft(null, l.credits); wMsg(l.credits ? "Code added." : "That code has no listings left on it.", !l.credits); }
+    catch (e) { wMsg(e.message, true); }
+  };
+  (async () => {
+    try {
+      const paid = await Studio.finishPurchase();
+      if (paid) { wLeft(null, paid.credits); wMsg("Thank you! Your listings are ready."); $("writer").scrollIntoView({ block: "center" }); return; }
+      const l = await Studio.license(); if (l) wLeft(null, l.credits);
+    } catch (e) { wMsg(e.message, true); }
+  })();
+}
 window.__pp = { calc };
 </script>
 </body>

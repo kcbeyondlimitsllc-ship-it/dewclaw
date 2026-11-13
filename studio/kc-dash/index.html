@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#12261e">
 <title>KC Trail Dash</title>
-<meta name="description" content="Run the Pacific Northwest with KC. Catch tennis balls, hop the logs, get the zoomies.">
+<meta name="description" content="Run the Pacific Northwest with KC. Catch her ball, hop the logs, get the zoomies.">
 <style>
   :root { --ink:#fff; --panel:rgba(14,30,24,.88); --accent:#ffb238; --accent-ink:#2a1a00; }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
@@ -46,7 +46,7 @@
 <div id="hud" hidden>
   <span id="paws" aria-label="Paws left"></span>
   <span id="dist">0 m</span>
-  <span id="balls">🎾 0</span>
+  <span id="balls">🟠 0</span>
   <span class="sp"></span>
   <button id="muteBtn" aria-label="Sound on or off">🔊</button>
   <button id="pauseBtn" aria-label="Pause">⏸</button>
@@ -56,7 +56,7 @@
 <div class="panel" id="startPanel">
   <div class="card">
     <h1>KC Trail Dash</h1>
-    <p>Run the Pacific Northwest with KC. Catch tennis balls, hop the logs, and grab a golden bone for the zoomies.</p>
+    <p>Run the Pacific Northwest with KC. Catch her orange ball, hop the logs, and grab a golden bone for the zoomies.</p>
     <p><b>Tap</b> (or Space) to jump. <b>Tap again</b> in the air for a second jump.</p>
     <div class="row"><button class="btn go" id="startBtn">Run!</button></div>
     <div class="fine" id="bestStart"></div>
@@ -92,8 +92,10 @@
    Settings you can edit without touching the game code.
    --------------------------------------------------------------------------- */
 const CFG = {
-  /* KC's colours. PLACEHOLDER: change these to match KC's real coat. */
-  kc: { coat: "#c98a3c", shade: "#8a5522", belly: "#f4e3c6", ear: "#7a4a1c", bandana: "#e2483d" },
+  /* KC's colours, matched to her photos: cream coat, tan ears, pink-brown
+     nose, black harness, blue collar. */
+  kc: { coat: "#f1dcae", shade: "#dcc08a", belly: "#fcf5e6", ear: "#d9a866", tailTip: "#fbf1dc",
+        nose: "#b57f78", eye: "#4a2e1c", harness: "#1f1f22", collar: "#3f7fd6" },
   followUrl: "https://www.youtube.com/@KCBeyondLimits",
   /* Set storeLive to true when kcbeyondlimits.com is back online. */
   storeLive: false,
@@ -187,7 +189,7 @@ function generate() {
     const kind = Math.floor(m / BIOME_M) % BIOMES.length;
     const ob = (x, w, h) => S.items.push({ t: "ob", x, w, h, kind, seed: hash(x) });
     const ball = (x, up) => S.items.push({ t: "ball", x, up });
-    if (r < 0.22) {                                   /* tennis balls along the trail */
+    if (r < 0.22) {                                   /* balls along the trail */
       for (let i = 0; i < 6; i++) ball(gx + i * 46, 26);
     } else if (r < 0.50) {                            /* one log with an arc of balls over it */
       ob(gx + 70, 52, 30);
@@ -361,8 +363,8 @@ function drawObstacle(it, sx) {
   ctx.restore();
 }
 function drawBall(sx, y, t) {
-  ctx.fillStyle = "#d8f23c"; ctx.beginPath(); ctx.arc(sx, y, 10, 0, 7); ctx.fill();
-  ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(sx - 8, y, 10, -0.75, 0.75); ctx.stroke();
+  ctx.fillStyle = "#f26a1b"; ctx.beginPath(); ctx.arc(sx, y, 10, 0, 7); ctx.fill();
+  ctx.strokeStyle = "#2f6fd0"; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(sx - 8, y, 10, -0.75, 0.75); ctx.stroke();
 }
 function drawBone(sx, y, t) {
   ctx.save(); ctx.translate(sx, y + Math.sin(t * 4) * 5); ctx.rotate(-0.4);
@@ -390,15 +392,20 @@ function drawKC(sx) {
   };
   leg(-15, 0, true); leg(14, Math.PI, true);
   ctx.save(); ctx.translate(-24, -30 + bob); ctx.rotate(-0.9 + Math.sin(S.t * 16) * 0.35);    /* wagging tail */
-  ctx.fillStyle = c.coat; ctx.beginPath(); ctx.roundRect(-3, -20, 7, 22, 3.5); ctx.fill(); ctx.restore();
+  ctx.strokeStyle = c.coat; ctx.lineWidth = 7; ctx.lineCap = "round";
+  ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(-3, -16, 6, -22); ctx.stroke();
+  ctx.strokeStyle = c.tailTip; ctx.beginPath(); ctx.moveTo(3, -20); ctx.lineTo(6, -22); ctx.stroke(); ctx.restore();
   ctx.fillStyle = c.coat; ctx.beginPath(); ctx.ellipse(0, -26 + bob, 26, 13, 0, 0, 7); ctx.fill();       /* body */
   ctx.fillStyle = c.belly; ctx.beginPath(); ctx.ellipse(4, -20 + bob, 17, 6, 0, 0, Math.PI); ctx.fill();
   leg(-11, Math.PI, false); leg(18, 0, false);
-  ctx.fillStyle = c.bandana; ctx.beginPath(); ctx.moveTo(12, -37 + bob); ctx.lineTo(26, -30 + bob); ctx.lineTo(15, -19 + bob); ctx.fill(); /* bandana */
+  ctx.strokeStyle = c.harness; ctx.lineWidth = 5; ctx.lineCap = "round";                               /* black harness */
+  ctx.beginPath(); ctx.moveTo(7, -38 + bob); ctx.lineTo(10, -15 + bob); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(8, -36 + bob); ctx.lineTo(21, -22 + bob); ctx.stroke();
+  ctx.strokeStyle = c.collar; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(15, -43 + bob); ctx.lineTo(23, -29 + bob); ctx.stroke(); /* blue collar */
   ctx.fillStyle = c.coat; ctx.beginPath(); ctx.arc(25, -41 + bob, 12, 0, 7); ctx.fill();                /* head */
   ctx.fillStyle = c.belly; ctx.beginPath(); ctx.ellipse(35, -38 + bob, 9, 6.5, 0, 0, 7); ctx.fill();    /* muzzle */
-  ctx.fillStyle = "#2a1a12"; ctx.beginPath(); ctx.arc(43, -40 + bob, 2.8, 0, 7); ctx.fill();            /* nose */
-  ctx.beginPath(); ctx.arc(28, -45 + bob, 2.1, 0, 7); ctx.fill();                                        /* eye */
+  ctx.fillStyle = c.nose; ctx.beginPath(); ctx.arc(43, -40 + bob, 3, 0, 7); ctx.fill();                 /* nose */
+  ctx.fillStyle = c.eye; ctx.beginPath(); ctx.arc(28, -45 + bob, 2.2, 0, 7); ctx.fill();                                        /* eye */
   ctx.fillStyle = "#ff8fa3"; ctx.beginPath(); ctx.ellipse(36, -32 + bob, 3, 4.5, 0.2, 0, 7); ctx.fill(); /* happy tongue */
   ctx.save(); ctx.translate(18, -49 + bob); ctx.rotate(-0.5 + (air ? -0.7 : Math.sin(run * 2) * 0.2));   /* floppy ear */
   ctx.fillStyle = c.ear; ctx.beginPath(); ctx.ellipse(0, 7, 5.5, 10, 0, 0, 7); ctx.fill(); ctx.restore();
@@ -427,7 +434,7 @@ function hud() {
   if (m !== lastM) { lastM = m; $("dist").textContent = m + " m"; }
   if (!hudDirty) return; hudDirty = false;
   $("paws").textContent = "🐾".repeat(Math.max(0, S.paws)) + "·".repeat(3 - Math.max(0, S.paws));
-  $("balls").textContent = "🎾 " + S.balls + (S.streak >= 5 ? "  ×" + S.streak : "");
+  $("balls").textContent = "🟠 " + S.balls + (S.streak >= 5 ? "  ×" + S.streak : "");
 }
 const score = () => Math.floor(S.x / PX_PER_M) + S.balls * 10;
 function show(id) { for (const p of ["startPanel", "pausePanel", "overPanel"]) $(p).hidden = p !== id; }
@@ -439,7 +446,7 @@ function gameOver() {
   const sc = score(), m = Math.floor(S.x / PX_PER_M), isBest = sc > best;
   if (isBest) { best = sc; store.set("kcdash.best", best); }
   $("finalScore").textContent = sc.toLocaleString();
-  $("finalLine").textContent = `${m} m and ${S.balls} tennis balls. ` + (isBest ? "New best!" : `Best: ${best.toLocaleString()}`);
+  $("finalLine").textContent = `${m} m and ${S.balls} balls. ` + (isBest ? "New best!" : `Best: ${best.toLocaleString()}`);
   show("overPanel"); $("againBtn").focus();
 }
 $("startBtn").onclick = $("againBtn").onclick = start;
