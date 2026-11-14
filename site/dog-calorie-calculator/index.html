@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dog Calorie Calculator: Calories and Cups a Day by Breed | Dewclaw</title>
+<meta name="description" content="How many calories your dog needs a day, and how many cups that is of your food. Free calculator by breed, weight, age, neuter status and activity, with the formula shown.">
+<link rel="canonical" href="https://dewclaw-app.netlify.app/dog-calorie-calculator/">
+<meta name="theme-color" content="#1F4A33">
+<link rel="icon" href="/icons/icon-192.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Dewclaw">
+<meta property="og:title" content="Dog Calorie Calculator: Calories and Cups a Day by Breed">
+<meta property="og:description" content="How many calories your dog needs a day, and how many cups that is of your food. Free calculator by breed, weight, age, neuter status and activity, with the formula shown.">
+<meta property="og:url" content="https://dewclaw-app.netlify.app/dog-calorie-calculator/">
+<meta property="og:image" content="https://dewclaw-app.netlify.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@600;700&family=Figtree:wght@400..700&display=swap">
+<link rel="stylesheet" href="/guide.css">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Dewclaw","item":"https://dewclaw-app.netlify.app/"},{"@type":"ListItem","position":2,"name":"Dog calorie calculator","item":"https://dewclaw-app.netlify.app/dog-calorie-calculator/"}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Dewclaw dog calorie calculator","url":"https://dewclaw-app.netlify.app/dog-calorie-calculator/","applicationCategory":"HealthApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}</script>
+</head>
+<body>
+<header class="top"><div class="wrap topbar">
+  <a class="brand" href="/"><img src="/icons/icon-192.png" alt="" width="30" height="30">Dewclaw</a>
+  <nav class="topnav" aria-label="Guides"><a href="/dogs/">Dog breeds</a><a href="/cats/">Cat breeds</a><a href="/dog-calorie-calculator/">Calorie calculator</a></nav>
+  <a class="btn sm" href="/index.html?utm_source=guide&amp;utm_medium=header#/app">Open the app</a>
+</div></header>
+<main class="wrap">
+<nav class="crumbs" aria-label="Breadcrumb"><a href="/">Dewclaw</a> › Dog calorie calculator</nav>
+<h1>Dog calorie calculator</h1>
+
+<p class="lede">Enter your dog's healthy weight, age and lifestyle to get daily calories, cups of your own food, a treat budget and an exercise target. It is the same engine that builds a full chart in the Dewclaw app.</p>
+<p class="meta">Last reviewed November 10, 2026 · <a href="/how-we-calculate/">How we calculate</a></p>
+<section class="card calc" aria-labelledby="calcH">
+<h2 id="calcH">Dog calorie calculator</h2>
+<form id="calc" data-species="dog" data-breed="mix-medium">
+  <div class="full"><label for="cBreed">Breed</label><select id="cBreed"></select></div>
+  <div><label for="cWeight">Healthy weight</label><div class="pair"><input id="cWeight" type="number" inputmode="decimal" min="0.5" max="300" step="0.5" value="40"><select id="cUnit" aria-label="Unit"><option value="lb">lb</option><option value="kg">kg</option></select></div></div>
+  <div><label for="cAge">Age in years</label><input id="cAge" type="number" inputmode="decimal" min="0" max="30" step="0.25" value="4"></div>
+  <div><label for="cFixed">Spayed or neutered</label><select id="cFixed"><option value="1">Yes</option><option value="0">No</option></select></div>
+  <div><label for="cAct">Activity</label><select id="cAct"><option value="low">Mostly indoors, short walks</option><option value="normal" selected>Regular daily walks</option><option value="active">Long walks, running, hikes</option><option value="working">Working, sport or daily hard exercise</option></select></div>
+  <div class="full"><label for="cKcal">Calories per cup of your food (it is printed on the bag)</label><input id="cKcal" type="number" inputmode="numeric" min="100" max="900" step="5" value="360"></div>
+</form>
+<div class="out" aria-live="polite">
+  <div><span>Calories a day</span><b id="oKcal">–</b><small id="oKcalNote"></small></div>
+  <div><span>Cups a day</span><b id="oCups">–</b><small id="oMeals"></small></div>
+  <div><span>Treat budget</span><b id="oTreat">–</b><small>kcal, taken out of meals</small></div>
+  <div><span>Exercise</span><b id="oMove">–</b><small>minutes a day · <span id="oStage" style="display:inline"></span></small></div>
+</div>
+<p class="note">Enter the weight your dog should be, not the weight they are, if they are carrying extra. For a growing puppy, enter today's weight and age.</p>
+<div class="go"><a class="btn" id="cGo" data-base="/" href="/index.html?species=dog&amp;breed=mix-medium&amp;w=40&amp;unit=lb&amp;utm_source=guide&amp;utm_medium=calc#/app">Build the full care plan, free</a><span class="note">No account. Works offline.</span></div>
+</section>
+
+<h2>How many calories does a dog need?</h2>
+<p>Start from the resting energy requirement, <b>RER = 70 × (weight in kg)<sup>0.75</sup></b>, then multiply by a factor for life stage: about 1.6 for a neutered adult dog and 1.8 for an intact one, more for a growing puppy, less for weight loss. Breed energy and activity move it from there.</p>
+<div class="tablewrap"><table>
+<thead><tr><th>Healthy weight</th><th>Neutered adult</th><th>Intact adult</th><th>Cups a day (neutered)</th></tr></thead>
+<tbody>
+<tr><td>5 lb (2.3 kg)</td><td><b>599</b> kcal</td><td>674 kcal</td><td>1.66</td></tr>
+<tr><td>10 lb (4.5 kg)</td><td><b>599</b> kcal</td><td>674 kcal</td><td>1.66</td></tr>
+<tr><td>20 lb (9.1 kg)</td><td><b>599</b> kcal</td><td>674 kcal</td><td>1.66</td></tr>
+<tr><td>30 lb (13.6 kg)</td><td><b>794</b> kcal</td><td>893 kcal</td><td>2.21</td></tr>
+<tr><td>40 lb (18.1 kg)</td><td><b>985</b> kcal</td><td>1,108 kcal</td><td>2.74</td></tr>
+<tr><td>50 lb (22.7 kg)</td><td><b>1,164</b> kcal</td><td>1,309 kcal</td><td>3.23</td></tr>
+<tr><td>60 lb (27.2 kg)</td><td><b>1,335</b> kcal</td><td>1,501 kcal</td><td>3.71</td></tr>
+<tr><td>70 lb (31.8 kg)</td><td><b>1,391</b> kcal</td><td>1,564 kcal</td><td>3.86</td></tr>
+<tr><td>80 lb (36.3 kg)</td><td><b>1,391</b> kcal</td><td>1,564 kcal</td><td>3.86</td></tr>
+<tr><td>100 lb (45.4 kg)</td><td><b>1,391</b> kcal</td><td>1,564 kcal</td><td>3.86</td></tr>
+</tbody>
+</table></div>
+<p class="meta">A medium mixed-breed adult dog with regular daily walks. Cups assume 360 kcal per cup. Pick your breed in the calculator for its own figures.</p>
+
+<h2>Getting the portion right</h2>
+<dl class="rows">
+<div><dt>Feed the target weight</dt><dd>Calculate from the weight your dog should be. Feeding an overweight dog for its current weight keeps it overweight.</dd></div>
+<div><dt>Read the bag</dt><dd>Calories per cup range from under 300 to over 450 between foods. The figure is on the label as kcal/cup or kcal/kg.</dd></div>
+<div><dt>Weigh, do not scoop</dt><dd>Cup measures run 20–30% off. A kitchen scale and the kcal/kg figure are more accurate.</dd></div>
+<div><dt>Count the treats</dt><dd>Keep treats to 10% of the day and take them out of the meal total.</dd></div>
+<div><dt>Re-check monthly</dt><dd>A calculator gives a starting point. Adjust by <a href="/body-condition-score/">body condition score</a>, about 10% at a time.</dd></div>
+</dl>
+
+<h2>By breed</h2>
+<p>Each breed has its own page with a feeding chart across its healthy weight range.</p>
+<ul class="grid">
+<li><a href="/dogs/labrador-retriever/">Labrador Retriever<small>55–79 lb</small></a></li>
+<li><a href="/dogs/golden-retriever/">Golden Retriever<small>55–75 lb</small></a></li>
+<li><a href="/dogs/german-shepherd-dog/">German Shepherd Dog<small>49–88 lb</small></a></li>
+<li><a href="/dogs/french-bulldog/">French Bulldog<small>18–31 lb</small></a></li>
+<li><a href="/dogs/siberian-husky/">Siberian Husky<small>35–60 lb</small></a></li>
+<li><a href="/dogs/chihuahua/">Chihuahua<small>3–7 lb</small></a></li>
+<li><a href="/dogs/standard-dachshund/">Standard Dachshund<small>15–33 lb</small></a></li>
+<li><a href="/dogs/beagle/">Beagle<small>20–31 lb</small></a></li>
+<li><a href="/dogs/australian-shepherd/">Australian Shepherd<small>35–71 lb</small></a></li>
+<li><a href="/dogs/rottweiler/">Rottweiler<small>77–132 lb</small></a></li>
+<li><a href="/dogs/yorkshire-terrier/">Yorkshire Terrier<small>4–8 lb</small></a></li>
+<li><a href="/dogs/boxer/">Boxer<small>55–71 lb</small></a></li>
+</ul>
+<p><a href="/dogs/">All 140 dog breeds</a> · <a href="/cat-calorie-calculator/">Cat calorie calculator</a></p>
+<p class="disclaimer"><b>Dewclaw is not a veterinarian.</b> These figures are computed from published general-population formulas and breed tendencies. They are a starting point for a conversation with your vet, not a diagnosis or a treatment plan. Health conditions, medication, pregnancy and nursing all change them. If something seems wrong with your pet, call your veterinarian or an emergency clinic.</p>
+</main>
+<footer class="foot"><div class="wrap">
+  <p><a href="/dogs/">Dog breeds</a><a href="/cats/">Cat breeds</a><a href="/dog-calorie-calculator/">Dog calorie calculator</a><a href="/cat-calorie-calculator/">Cat calorie calculator</a><a href="/body-condition-score/">Body condition chart</a><a href="/how-we-calculate/">How we calculate</a><a href="/for-shelters/">For shelters</a></p>
+  <p><a href="/privacy.html">Privacy</a><a href="/terms.html">Terms</a><a href="https://www.kcbeyondlimits.com">KC Beyond Limits</a></p>
+  <p>Dewclaw is made by KC Beyond Limits LLC in Oregon. It is not a veterinarian.</p>
+</div></footer>
+<script src="/engine.js" defer></script>
+<script src="/guide.js" defer></script>
+</body>
+</html>
