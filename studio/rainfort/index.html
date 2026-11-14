@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1b1a">
+<title>Rainfort</title>
+<meta name="description" content="Pacific Northwest sounds for sleep and focus. Mix rain, river, wind in the firs, ocean and campfire. Works offline, no account.">
+<style>
+  :root { --bg:#0f1b1a; --card:#182a28; --ink:#eaf4f1; --mute:#9db5af; --line:#2a403d; --accent:#7fd6c2; --accent-ink:#06211c; }
+  @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
+    --bg:#eef4f1; --card:#fff; --ink:#14221f; --mute:#566b65; --line:#d3dfda; --accent:#17705d; --accent-ink:#fff; } }
+  :root[data-theme="light"] { --bg:#eef4f1; --card:#fff; --ink:#14221f; --mute:#566b65; --line:#d3dfda; --accent:#17705d; --accent-ink:#fff; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  main { max-width:560px; margin:0 auto; padding:calc(20px + env(safe-area-inset-top)) 16px 60px; }
+  h1 { margin:0; font-size:30px; } header p { margin:4px 0 18px; color:var(--mute); }
+  .play { width:100%; font:inherit; font-size:20px; font-weight:800; border:0; border-radius:18px; padding:18px; min-height:60px;
+    background:var(--accent); color:var(--accent-ink); cursor:pointer; }
+  button:focus-visible, input:focus-visible { outline:3px solid var(--accent); outline-offset:2px; }
+  .chips { display:flex; gap:8px; flex-wrap:wrap; margin:14px 0; }
+  .chip { font:inherit; font-weight:600; border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:999px;
+    padding:9px 14px; min-height:44px; cursor:pointer; }
+  .chip[aria-pressed="true"] { background:var(--accent); color:var(--accent-ink); border-color:transparent; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:6px 16px; }
+  .ch { display:grid; grid-template-columns:32px 1fr; gap:4px 10px; align-items:center; padding:12px 0; border-bottom:1px solid var(--line); }
+  .ch:last-child { border-bottom:0; }
+  .ch .ico { font-size:22px; grid-row:span 2; } .ch label { font-weight:600; display:flex; justify-content:space-between; }
+  .ch label > span:last-child { color:var(--mute); font-weight:500; font-variant-numeric:tabular-nums; }
+  input[type=range] { width:100%; height:32px; accent-color:var(--accent); margin:0; }
+  h2 { font-size:15px; color:var(--mute); text-transform:uppercase; letter-spacing:.06em; margin:22px 0 4px; }
+  .fine { color:var(--mute); font-size:13px; margin-top:18px; }
+  .ch.locked label, .ch.locked .ico { opacity:.55; }
+  .badge { font-size:11px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:var(--accent-ink); background:var(--accent);
+    border-radius:6px; padding:2px 6px; margin-left:6px; }
+  .chip .x { margin-left:8px; opacity:.7; }
+  .plus { background:var(--card); border:1px solid var(--accent); border-radius:16px; padding:16px; margin-top:22px; }
+  .plus h3 { margin:0 0 6px; font-size:20px; } .plus ul { margin:6px 0 12px; padding-left:20px; color:var(--mute); }
+  .plus .buy { width:100%; font:inherit; font-weight:800; font-size:17px; border:0; border-radius:14px; padding:14px; min-height:48px;
+    background:var(--accent); color:var(--accent-ink); cursor:pointer; }
+  .rowin { display:flex; gap:8px; margin-top:10px; }
+  .rowin input { flex:1; min-width:0; font:inherit; color:var(--ink); background:var(--bg); border:1px solid var(--line); border-radius:10px; padding:10px; min-height:44px; }
+  .msg { color:var(--mute); font-size:14px; margin:10px 0 0; min-height:1em; } .msg.err { color:#e2685f; }
+  code.k { font-size:15px; font-weight:700; letter-spacing:.03em; word-break:break-all; }
+  [hidden] { display:none !important; }
+  #timerLeft { color:var(--mute); margin-left:4px; align-self:center; font-variant-numeric:tabular-nums; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Rainfort</h1>
+    <p>Pacific Northwest sounds for sleep and focus.</p>
+  </header>
+
+  <button class="play" id="play" aria-pressed="false">▶ Play</button>
+
+  <h2>Mixes</h2>
+  <div class="chips" id="presets"></div>
+
+  <h2>Your mix</h2>
+  <div class="card" id="channels"></div>
+
+  <div id="mineWrap" hidden>
+    <h2>My mixes</h2>
+    <div class="chips" id="mine"></div>
+    <div class="rowin"><input id="mixName" type="text" maxlength="24" placeholder="Name this mix" aria-label="Name this mix"><button class="chip" id="saveMix">Save mix</button></div>
+  </div>
+
+  <h2>Sleep timer</h2>
+  <div class="chips" id="timers"></div>
+
+  <section class="plus" id="plusCard" hidden aria-live="polite">
+    <div id="plusOffer">
+      <h3>Rainfort Plus</h3>
+      <ul>
+        <li>Four more sounds: tent rain, waterfall, creek frogs and deep brown noise</li>
+        <li>Save your own mixes</li>
+        <li>All-night timers: 4 and 8 hours</li>
+      </ul>
+      <button class="buy" id="buyPlus">Get Plus</button>
+      <div class="rowin"><input id="codeIn" type="text" autocomplete="off" placeholder="Have a code? KC-…" aria-label="Unlock code"><button class="chip" id="useCode">Unlock</button></div>
+    </div>
+    <div id="plusOwned" hidden>
+      <h3>Rainfort Plus is on</h3>
+      <p style="margin:0;color:var(--mute)">Keep this code. Type it on another phone or browser to unlock Plus there.</p>
+      <p style="margin:8px 0 0"><code class="k" id="myCode"></code></p>
+    </div>
+    <p class="msg" id="plusMsg"></p>
+  </section>
+
+  <p class="fine">Every sound is made on your device, so Rainfort works offline and uses no data. Your mix is saved in this browser.</p>
+</main>
+
+<script src="../config.js"></script>
+<script src="../plus.js"></script>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+};
+const CHANNELS = [
+  { id: "rain", name: "Rain", ico: "🌧️" }, { id: "river", name: "River", ico: "🏞️" },
+  { id: "wind", name: "Wind in the firs", ico: "🌲" }, { id: "ocean", name: "Ocean waves", ico: "🌊" },
+  { id: "fire", name: "Campfire", ico: "🔥" }, { id: "thunder", name: "Distant thunder", ico: "⛈️" },
+  { id: "crickets", name: "Night crickets", ico: "🌙" },
+  { id: "tent", name: "Rain on a tent", ico: "⛺", plus: true }, { id: "waterfall", name: "Waterfall", ico: "💧", plus: true },
+  { id: "frogs", name: "Creek frogs", ico: "🐸", plus: true }, { id: "deep", name: "Deep brown noise", ico: "🟤", plus: true }
+];
+/* Plus is free for everyone until a studio server is set in config.js */
+let plus = !Studio.on;
+const locked = c => c.plus && !plus;
+const PRESETS = {
+  "Rainy cabin": { rain: 70, fire: 45, thunder: 25 },
+  "Oregon coast": { ocean: 75, wind: 30, rain: 15 },
+  "River camp": { river: 65, fire: 40, crickets: 30 },
+  "Forest storm": { rain: 85, wind: 55, thunder: 60 },
+  "Deep focus": { rain: 50, river: 35 }
+};
+const blank = () => Object.fromEntries(CHANNELS.map(c => [c.id, 0]));
+let mix = Object.assign(blank(), store.get("rf.mix", PRESETS["Rainy cabin"]));
+let master = store.get("rf.master", 80);
+
+/* ---------- sound engine: everything is synthesised from noise ---------- */
+let ac = null, out = null, gains = {}, playing = false, tickers = [];
+function noise(kind) {
+  const len = ac.sampleRate * 4, buf = ac.createBuffer(1, len, ac.sampleRate), d = buf.getChannelData(0);
+  let b0 = 0, b1 = 0, b2 = 0, last = 0;
+  for (let i = 0; i < len; i++) {
+    const w = Math.random() * 2 - 1;
+    if (kind === "white") d[i] = w * 0.5;
+    else if (kind === "pink") { b0 = 0.99765 * b0 + w * 0.0990460; b1 = 0.96300 * b1 + w * 0.2965164; b2 = 0.57000 * b2 + w * 1.0526913; d[i] = (b0 + b1 + b2 + w * 0.1848) * 0.12; }
+    else { last = (last + 0.02 * w) / 1.02; d[i] = last * 3.2; }
+  }
+  const s = ac.createBufferSource(); s.buffer = buf; s.loop = true; s.start(); return s;
+}
+const filt = (type, f, q) => { const n = ac.createBiquadFilter(); n.type = type; n.frequency.value = f; if (q) n.Q.value = q; return n; };
+const gain = v => { const g = ac.createGain(); g.gain.value = v; return g; };
+function lfo(freq, depth, param) { const o = ac.createOscillator(); o.frequency.value = freq; const g = gain(depth); o.connect(g).connect(param); o.start(); }
+function chain(...nodes) { for (let i = 0; i < nodes.length - 1; i++) nodes[i].connect(nodes[i + 1]); return nodes[nodes.length - 1]; }
+
+function build() {
+  ac = new (window.AudioContext || window.webkitAudioContext)();
+  out = gain(master / 100); out.connect(ac.destination);
+  for (const c of CHANNELS) { gains[c.id] = gain(0); gains[c.id].connect(out); }
+  const white = noise("white"), pink = noise("pink"), brown = noise("brown");
+
+  chain(pink, filt("highpass", 500), filt("lowpass", 9000), gain(1.5), gains.rain);                /* rain */
+  chain(white, filt("highpass", 5000), gain(0.12), gains.rain);
+
+  chain(brown, filt("bandpass", 420, 0.4), gain(1.1), gains.river);                               /* river */
+  const rs = gain(0.22); chain(white, filt("bandpass", 2400, 0.7), rs, gains.river); lfo(0.31, 0.08, rs.gain);
+
+  const wf = filt("bandpass", 520, 1.1), wg = gain(1.3);                                          /* wind */
+  chain(pink, wf, wg, gains.wind); lfo(0.07, 260, wf.frequency); lfo(0.11, 0.55, wg.gain);
+
+  const og = gain(0.75);                                                                           /* ocean */
+  chain(brown, filt("lowpass", 900), og, gains.ocean); chain(white, filt("bandpass", 1500, 0.5), gain(0.3), og);
+  lfo(0.085, 0.6, og.gain);
+
+  chain(brown, filt("lowpass", 160), gain(0.9), gains.fire);                                      /* campfire bed */
+
+  chain(pink, filt("bandpass", 1700, 0.6), gain(1.1), gains.tent);                                /* tent rain bed */
+  chain(white, filt("lowpass", 4500), gain(0.6), gains.waterfall); chain(brown, gain(0.8), gains.waterfall);   /* waterfall */
+  chain(brown, filt("lowpass", 380), gain(1.7), gains.deep);                                      /* deep brown noise */
+}
+function burst(dest, hp, vol, dur) {                                                               /* one crackle or rumble */
+  const len = Math.ceil(ac.sampleRate * dur), buf = ac.createBuffer(1, len, ac.sampleRate), d = buf.getChannelData(0);
+  let last = 0;
+  for (let i = 0; i < len; i++) { const w = Math.random() * 2 - 1; last = hp ? w : (last + 0.02 * w) / 1.02; d[i] = hp ? w : last * 3.5; }
+  const s = ac.createBufferSource(); s.buffer = buf;
+  const g = gain(0), t = ac.currentTime;
+  if (hp) { g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); chain(s, filt("highpass", hp), g, dest); }
+  else { g.gain.linearRampToValueAtTime(vol, t + dur * 0.12); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); chain(s, filt("lowpass", 140), g, dest); }
+  s.start(); s.stop(t + dur);
+}
+function chirp(dest, freq, n, gap, vol) {                                                          /* a cricket or frog: a few quick pulses */
+  const o = ac.createOscillator(), g = gain(0), t = ac.currentTime;
+  o.frequency.value = freq;
+  for (let i = 0; i < n; i++) { g.gain.setValueAtTime(0.0001, t + i * gap); g.gain.linearRampToValueAtTime(vol, t + i * gap + gap * 0.18); g.gain.linearRampToValueAtTime(0.0001, t + i * gap + gap * 0.65); }
+  o.connect(g).connect(dest); o.start(t); o.stop(t + n * gap + 0.05);
+}
+function startTickers() {
+  stopTickers();
+  tickers.push(setInterval(() => { if (mix.fire > 0 && Math.random() < 0.55) burst(gains.fire, 1800 + Math.random() * 2500, 0.15 + Math.random() * 0.4, 0.03 + Math.random() * 0.05); }, 110));
+  tickers.push(setInterval(() => { if (mix.crickets > 0 && Math.random() < 0.7) chirp(gains.crickets, 4100 + Math.random() * 500, 3, 0.07, 0.05); }, 520));
+  tickers.push(setInterval(() => { if (mix.tent > 0 && Math.random() < 0.6) burst(gains.tent, 700 + Math.random() * 900, 0.2 + Math.random() * 0.35, 0.02 + Math.random() * 0.03); }, 70));
+  tickers.push(setInterval(() => { if (mix.frogs > 0 && Math.random() < 0.5) chirp(gains.frogs, 950 + Math.random() * 500, 4 + Math.floor(Math.random() * 3), 0.085, 0.07); }, 640));
+  const thunder = () => { if (mix.thunder > 0) burst(gains.thunder, 0, 1.4, 5 + Math.random() * 4); thunderT = setTimeout(thunder, 14000 + Math.random() * 26000); };
+  thunderT = setTimeout(thunder, 3000);
+}
+let thunderT = 0;
+function stopTickers() { tickers.forEach(t => clearInterval(t)); tickers = []; clearTimeout(thunderT); }
+function applyMix() {
+  if (!ac) return;
+  for (const c of CHANNELS) gains[c.id].gain.setTargetAtTime(locked(c) ? 0 : Math.pow(mix[c.id] / 100, 1.6), ac.currentTime, 0.15);
+  out.gain.setTargetAtTime(master / 100, ac.currentTime, 0.1);
+}
+async function setPlaying(on) {
+  if (on) { if (!ac) build(); await ac.resume(); applyMix(); startTickers(); }
+  else if (ac) { stopTickers(); await ac.suspend(); }
+  playing = on;
+  $("play").textContent = on ? "⏸ Pause" : "▶ Play"; $("play").setAttribute("aria-pressed", on);
+  if ("mediaSession" in navigator) {
+    try { navigator.mediaSession.metadata = new MediaMetadata({ title: "Rainfort", artist: "Pacific Northwest sounds" }); navigator.mediaSession.playbackState = on ? "playing" : "paused"; } catch (e) {}
+  }
+}
+
+/* ---------- interface ---------- */
+$("channels").innerHTML = [{ id: "master", name: "Overall volume", ico: "🔈" }].concat(CHANNELS).map(c =>
+  `<div class="ch" id="row_${c.id}"><div class="ico" aria-hidden="true">${c.ico}</div><label for="s_${c.id}"><span>${c.name}${c.plus ? '<span class="badge" hidden>Plus</span>' : ""}</span><span id="v_${c.id}"></span></label><input type="range" id="s_${c.id}" min="0" max="100" step="1"></div>`).join("");
+$("channels").addEventListener("click", e => { const row = e.target.closest(".ch.locked"); if (row) $("plusCard").scrollIntoView({ behavior: "smooth", block: "center" }); });
+function syncSliders() {
+  $("s_master").value = master; $("v_master").textContent = master;
+  for (const c of CHANNELS) {
+    const L = locked(c);
+    $("s_" + c.id).value = L ? 0 : mix[c.id]; $("s_" + c.id).disabled = L;
+    $("v_" + c.id).textContent = L ? "locked" : mix[c.id] ? mix[c.id] : "off";
+    $("row_" + c.id).classList.toggle("locked", L);
+    const b = $("row_" + c.id).querySelector(".badge"); if (b) b.hidden = !L;
+  }
+  document.querySelectorAll("#timers .chip").forEach(b => { const L = +b.dataset.m > 120 && !plus; b.disabled = L; b.title = L ? "Rainfort Plus" : ""; b.style.opacity = L ? 0.5 : 1; });
+  const now = JSON.stringify(mix);
+  document.querySelectorAll("#presets .chip").forEach(b => b.setAttribute("aria-pressed", JSON.stringify(Object.assign(blank(), PRESETS[b.textContent])) === now));
+}
+$("channels").addEventListener("input", e => {
+  const id = e.target.id.slice(2), v = +e.target.value;
+  if (id === "master") { master = v; store.set("rf.master", master); } else { mix[id] = v; store.set("rf.mix", mix); }
+  syncSliders(); applyMix();
+});
+$("presets").innerHTML = Object.keys(PRESETS).map(n => `<button class="chip" aria-pressed="false">${n}</button>`).join("");
+$("presets").addEventListener("click", e => {
+  if (!e.target.classList.contains("chip")) return;
+  mix = Object.assign(blank(), PRESETS[e.target.textContent]); store.set("rf.mix", mix); syncSliders(); applyMix();
+  if (!playing) setPlaying(true);
+});
+$("play").onclick = () => setPlaying(!playing);
+
+/* sleep timer: fades out over the last 20 seconds */
+let timerEnd = 0, timerTick = null;
+$("timers").innerHTML = [15, 30, 60, 120, 240, 480].map(m => `<button class="chip" data-m="${m}" aria-pressed="false">${m < 60 ? m + " min" : m / 60 + " hr"}</button>`).join("") + '<span id="timerLeft"></span>';
+$("timers").addEventListener("click", e => {
+  const m = +e.target.dataset.m; if (!m) return;
+  const wasOn = e.target.getAttribute("aria-pressed") === "true";
+  document.querySelectorAll("#timers .chip").forEach(b => b.setAttribute("aria-pressed", "false"));
+  clearInterval(timerTick); timerEnd = 0; $("timerLeft").textContent = "";
+  if (wasOn) { applyMix(); return; }
+  e.target.setAttribute("aria-pressed", "true"); timerEnd = Date.now() + m * 60000;
+  if (!playing) setPlaying(true);
+  timerTick = setInterval(() => {
+    const left = timerEnd - Date.now();
+    if (left <= 0) { clearInterval(timerTick); timerEnd = 0; $("timerLeft").textContent = ""; document.querySelectorAll("#timers .chip").forEach(b => b.setAttribute("aria-pressed", "false")); setPlaying(false); return; }
+    if (left < 20000 && ac) out.gain.setTargetAtTime((master / 100) * (left / 20000), ac.currentTime, 0.3);
+    const s = Math.ceil(left / 1000); $("timerLeft").textContent = Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+  }, 1000);
+});
+
+/* ---------- my mixes (Plus) ---------- */
+let mine = store.get("rf.mine", []);
+function renderMine() {
+  $("mineWrap").hidden = !plus;
+  $("mine").textContent = "";
+  mine.forEach((m, i) => {
+    const b = document.createElement("button"); b.className = "chip"; b.textContent = m.name; b.dataset.i = i;
+    const x = document.createElement("span"); x.className = "x"; x.textContent = "✕"; x.dataset.del = i; x.setAttribute("role", "button"); x.setAttribute("aria-label", "Delete " + m.name);
+    b.appendChild(x); $("mine").appendChild(b);
+  });
+}
+$("mine").addEventListener("click", e => {
+  if (e.target.dataset.del !== undefined) { mine.splice(+e.target.dataset.del, 1); store.set("rf.mine", mine); renderMine(); return; }
+  const b = e.target.closest(".chip"); if (!b) return;
+  mix = Object.assign(blank(), mine[+b.dataset.i].mix); store.set("rf.mix", mix); syncSliders(); applyMix();
+  if (!playing) setPlaying(true);
+});
+$("saveMix").onclick = () => {
+  const name = $("mixName").value.trim(); if (!name) { $("mixName").focus(); return; }
+  mine = mine.filter(m => m.name !== name).concat({ name, mix: Object.assign({}, mix) }).slice(-8);
+  store.set("rf.mine", mine); $("mixName").value = ""; renderMine();
+};
+
+/* ---------- Rainfort Plus ---------- */
+function setPlus(on) {
+  plus = on;
+  $("plusCard").hidden = !Studio.on;
+  $("plusOffer").hidden = on; $("plusOwned").hidden = !on; $("myCode").textContent = Studio.code();
+  syncSliders(); renderMine(); applyMix();
+}
+function plusMsg(text, err) { $("plusMsg").textContent = text || ""; $("plusMsg").classList.toggle("err", !!err); }
+$("buyPlus").textContent = "Get Plus" + (Studio.price("rainfort_plus") ? " · " + Studio.price("rainfort_plus") : "");
+$("buyPlus").onclick = async () => { plusMsg("Opening checkout…"); try { await Studio.buy("rainfort_plus"); } catch (e) { plusMsg(e.message, true); } };
+$("useCode").onclick = async () => {
+  const c = $("codeIn").value.trim(); if (!c) return;
+  plusMsg("Checking…");
+  try { const l = await Studio.useCode(c); if (l.plus) { store.set("rf.plus", true); setPlus(true); plusMsg("Unlocked. Enjoy!"); } else plusMsg("That code doesn't include Rainfort Plus.", true); }
+  catch (e) { plusMsg(e.message, true); }
+};
+setPlus(plus);
+if (Studio.on) (async () => {
+  try {
+    const paid = await Studio.finishPurchase();
+    if (paid && paid.plus) { store.set("rf.plus", true); setPlus(true); plusMsg("Thank you! Plus is unlocked."); return; }
+    const cached = store.get("rf.plus", false); if (cached && Studio.code()) setPlus(true);       /* works offline once unlocked */
+    const l = await Studio.license(); if (l) { store.set("rf.plus", !!l.plus); setPlus(!!l.plus); } else if (!Studio.code()) { store.set("rf.plus", false); setPlus(false); }
+  } catch (e) { plusMsg(e.message, true); }
+})();
+window.__rf = { get ctx() { return ac; }, get gains() { return gains; }, get playing() { return playing; } };
+</script>
+</body>
+</html>

@@ -21,7 +21,7 @@
 </head>
 <body>
 <main>
-  <p class="meta">Dewclaw · Privacy policy · Effective October 19, 2026</p>
+  <p class="meta">Dewclaw · Privacy policy · Effective November 10, 2026</p>
   <h1>Privacy policy</h1>
   <p>Dewclaw is made by KC Beyond Limits LLC, an Oregon company. The short version: Dewclaw has no accounts, keeps your pets' information on your own device, shows no ads, uses no analytics or tracking, and never sells data. The rest of this page says exactly what leaves your device, when, and why.</p>
 
@@ -38,8 +38,10 @@
     <li><b>Maps and places (Nearby, Geopet).</b> To show dog parks, trails, daycares, vets, groomers and events, the app asks OpenStreetMap services (the Overpass and Nominatim servers) for places near the area you chose. Your area is rounded to roughly 11 km before it is sent. Map images come from OpenStreetMap tile servers. These services receive your device's IP address, as any website would.</li>
     <li><b>Location.</b> The GPS walk tracker and Geopet check-ins use your precise location only while you use them, and only on the device: distance is measured on your phone, and a check-in compares your position to the stop locally. Your precise location is not sent to us or to anyone else. You can refuse the location permission and still use everything except walk tracking and check-ins.</li>
     <li><b>DewclawMD research.</b> After the built-in guide answers, DewclawMD looks the question up in free public databases: Europe PMC (peer-reviewed literature), openFDA (the FDA's open data) and Wikipedia. The text of your question, and the breed and species of the pet it concerns, are sent to those services so they can search. Turn "Look things up online" off in Settings and nothing is sent.</li>
-    <li><b>DewclawMD for Plus subscribers.</b> When Dewclaw Plus is on and you ask DewclawMD a question, the question and a short text summary of the pet's chart (species, breed, age, weight, body condition, and the chart's figures) are sent to our Dewclaw server, which passes them to Anthropic's Claude model to write the answer. We do not store your questions or answers after the answer is returned. Anthropic's handling of API data is described in <a href="https://www.anthropic.com/legal/privacy" target="_blank" rel="noopener noreferrer">Anthropic's privacy policy</a>.</li>
-    <li><b>Dewclaw Plus purchases.</b> Plus is sold and billed by Google Play. We never see your payment details. To confirm a purchase and to count your monthly DewclawMD allowance, the app sends Google's purchase token for your subscription to our Dewclaw server, which checks it with Google Play. We keep that token, its expiry date and a monthly question count, and nothing else about you.</li>
+    <li><b>DewclawMD for Plus subscribers.</b> When Dewclaw Plus is on and you ask DewclawMD a question, the question and a short text summary of the pet's chart (species, breed, age, weight, body condition, and the chart's figures) are sent to our Dewclaw server, which runs on Cloudflare and passes them to an AI model hosted by Cloudflare (Workers AI) to write the answer. We do not store your questions or answers after the answer is returned. Cloudflare's handling of this data is described in <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener noreferrer">Cloudflare's privacy policy</a>.</li>
+    <li><b>Purchases on the web (Stripe).</b> In a browser, Dewclaw Plus and Pocket Pup packs are paid through Stripe's hosted checkout. Your card details, email address and billing address go to Stripe, not to us, and are handled under <a href="https://stripe.com/privacy" target="_blank" rel="noopener noreferrer">Stripe's privacy policy</a>. After you pay, our Dewclaw server keeps a scrambled access token for your purchase, what was bought, its expiry date, your Plus code if you have one, and a monthly question count. As the seller we can see your order in our Stripe account, including the email you gave at checkout, and we use it only for receipts, refunds and support.</li>
+    <li><b>Purchases in the Android app (Google Play).</b> In the app installed from Google Play, Plus and packs are sold and billed by Google Play. We never see your payment details. To confirm a purchase and to count your monthly DewclawMD allowance, the app sends Google's purchase token to our Dewclaw server, which checks it with Google Play. We keep that token, its expiry date and a monthly question count, and nothing else about you.</li>
+    <li><b>Links to KC's social pages and store.</b> Dewclaw links to KC Beyond Limits on Instagram, TikTok, YouTube, Facebook and X, and to the KC Beyond Limits store. Nothing is sent to them unless you tap a link, which opens that site under its own privacy policy.</li>
   </ul>
 
   <div class="box"><b>We do not</b> run ads, use analytics or advertising identifiers, fingerprint devices, sell or rent data, or share anything with data brokers.</div>
@@ -51,7 +53,7 @@
   <ul>
     <li>Use Dewclaw without the location permission, and without the online research switch.</li>
     <li>Delete your pets' data at any time by deleting the pet, using "Start over" in Geopet, or uninstalling the app.</li>
-    <li>Cancel Dewclaw Plus at any time in Google Play. To have the server forget your purchase token and question count, email us the Google order number and we will remove them within 30 days.</li>
+    <li>Cancel Dewclaw Plus at any time: from the Plus screen ("Manage billing") if you bought on the web, or in Google Play if you bought in the Android app. To have the server forget your purchase token and question count, email us the checkout email address or the Google order number and we will remove them within 30 days.</li>
   </ul>
 
   <h2>Changes</h2>
