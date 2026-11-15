@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#8fd3ff">
+<meta name="description" content="KC's Learning Trail: counting, letters, colours, shapes, patterns, memory and comparing for ages 3 to 6. No ads, no data collection, works offline.">
+<title>KC's Learning Trail</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- Trail map -->
+  <section id="home" class="screen">
+    <div id="scene" aria-hidden="true"></div>
+    <div id="stops"></div>
+    <div id="mapkc" aria-hidden="true"></div>
+    <header class="bar">
+      <button id="bookBtn" class="rbtn" aria-label="Sticker book"></button>
+      <h1 class="title">KC's Learning Trail</h1>
+      <button class="rbtn muteBtn" aria-label="Sound on or off"></button>
+    </header>
+    <button id="gateBtn" aria-label="Grown-ups: press and hold for 3 seconds"><span class="ring"></span><span class="gateIcon"></span><span class="gateTxt">Grown-ups<br>hold 3 s</span></button>
+  </section>
+
+  <!-- An activity -->
+  <section id="play" class="screen" hidden>
+    <header class="bar">
+      <button id="homeBtn" class="rbtn" aria-label="Back to the trail"></button>
+      <div id="dots" aria-hidden="true"></div>
+      <button class="rbtn muteBtn" aria-label="Sound on or off"></button>
+    </header>
+    <div id="stage">
+      <div id="prompt" class="card"></div>
+      <div id="kcrow">
+        <div id="kc"></div>
+        <button id="sayBtn" aria-label="Say it again"></button>
+        <button id="doneBtn" aria-label="Done" hidden></button>
+      </div>
+      <div id="options"></div>
+    </div>
+    <div id="paw" aria-hidden="true"></div>
+    <div id="reward" hidden>
+      <div class="rays" aria-hidden="true"></div>
+      <div id="confetti" aria-hidden="true"></div>
+      <div id="rewardSticker"></div>
+      <div id="rewardKc" aria-hidden="true"></div>
+      <div id="rewardLevel" aria-hidden="true"></div>
+      <div class="rewardBtns">
+        <button id="rHome" class="rbtn big" aria-label="Back to the trail"></button>
+        <button id="rAgain" class="rbtn big go" aria-label="Play again"></button>
+        <button id="rBook" class="rbtn big" aria-label="Sticker book"></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Sticker book -->
+  <section id="book" class="screen" hidden>
+    <header class="bar">
+      <button id="bookBack" class="rbtn" aria-label="Back to the trail"></button>
+      <div id="bookCount" class="title"></div>
+      <button class="rbtn muteBtn" aria-label="Sound on or off"></button>
+    </header>
+    <div id="bookGrid"></div>
+  </section>
+
+  <!-- Grown-ups corner (behind the gate) -->
+  <section id="grown" class="screen" hidden>
+    <header class="bar">
+      <button id="grownBack" class="rbtn" aria-label="Back"></button>
+      <h2 class="title">Grown-ups' corner</h2>
+      <span class="barSpace"></span>
+    </header>
+    <div id="grownBody"></div>
+  </section>
+
+  <!-- Parental gate, step two -->
+  <div id="gate" class="modal" hidden>
+    <div class="gateCard" role="dialog" aria-modal="true" aria-labelledby="gateQ">
+      <p class="gateLead">For grown-ups only</p>
+      <p id="gateQ"></p>
+      <div id="gateOut" aria-live="polite"></div>
+      <div id="gatePad"></div>
+      <button id="gateCancel" class="txtBtn">Cancel</button>
+    </div>
+  </div>
+</div>
+<script src="art.js"></script>
+<script src="content.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
