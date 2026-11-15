@@ -89,6 +89,19 @@
     for (i = 0; i < 6; i++) { h = 62 - i * 6; s += '<rect x="' + (10 + i * 13.6) + '" y="' + (56 - h / 2) + '" width="11" height="' + h + '" rx="3" fill="' + cols[i] + '" ' + O + '/>'; }
     return '<path d="M6 40 L94 46 M6 72 L94 66" ' + NS + ' stroke="#8a5a2b" stroke-width="5"/>' + s + limb("M70 10 L52 30", "#c98a3d", 3) + limb("M92 12 L78 30", "#c98a3d", 3) + '<circle cx="71" cy="9" r="6" fill="#fff" ' + O + '/><circle cx="93" cy="11" r="6" fill="#fff" ' + O + '/>';
   })();
+  /* an x-ray picture: a hand's bones glowing on dark film */
+  P.xray = (function () {
+    var bone = function (d, w) { return '<path d="' + d + '" ' + NS + ' stroke="#eaf6ff" stroke-width="' + w + '"/>'; }, s = "", i;
+    var f = [[30, 52, 22, 30], [41, 48, 38, 20], [52, 47, 53, 16], [63, 49, 68, 22]];      /* knuckle x,y then fingertip x,y */
+    for (i = 0; i < 4; i++) {
+      s += bone("M" + (38 + i * 7) + " 74 L" + f[i][0] + " " + (f[i][1] + 4), 5.5);
+      s += bone("M" + f[i][0] + " " + (f[i][1] - 3) + " L" + ((f[i][0] + f[i][2]) / 2 + 0.6) + " " + ((f[i][1] + f[i][3]) / 2 + 2), 5.5);
+      s += bone("M" + ((f[i][0] + f[i][2]) / 2 - 0.6) + " " + ((f[i][1] + f[i][3]) / 2 - 3) + " L" + f[i][2] + " " + f[i][3], 5);
+    }
+    s += bone("M60 78 L72 66", 5.5) + bone("M76 61 L84 50", 5.5);
+    s += '<rect x="36" y="78" width="28" height="8" rx="4" fill="#eaf6ff"/>';
+    return '<rect x="8" y="6" width="84" height="88" rx="10" fill="#dfe8f2" ' + O + '/><rect x="15" y="13" width="70" height="74" rx="5" fill="#12324f"/>' + s;
+  })();
   P.yoyo = '<path d="M50 14 V40" ' + NS + ' stroke="' + INK + '" stroke-width="3"/><circle cx="50" cy="9" r="6" fill="none" stroke="' + INK + '" stroke-width="3"/><circle cx="50" cy="64" r="28" fill="#1e66d0" ' + O + '/><circle cx="50" cy="64" r="17" fill="#ffd23c" ' + O + '/><circle cx="50" cy="64" r="5" fill="#e3342f"/>';
   /* ---- helpers used by the interface ---- */
   P.bowl = '<path d="M8 44 H92 L82 86 Q50 92 18 86Z" fill="#3f7fd6" ' + O + '/><ellipse cx="50" cy="44" rx="42" ry="9" fill="#2b5fa8" ' + O + '/>';
@@ -124,14 +137,14 @@
     var leg = function (x, col) { return '<g transform="translate(' + x + ' -16)"><rect x="-4" y="0" width="8" height="17" rx="4" fill="' + col + '"/><rect x="-4" y="12" width="9" height="5" rx="2.5" fill="' + c.belly + '"/></g>'; };
     return '<svg class="kc" viewBox="-40 -66 96 70" aria-hidden="true" focusable="false"><g class="kc-body">' +
       leg(-15, c.shade) + leg(14, c.shade) +
-      '<g class="kc-tail"><path d="M0 0 Q-3 -16 6 -22" fill="none" stroke="' + c.coat + '" stroke-width="7" stroke-linecap="round"/><path d="M3 -20 L6 -22" fill="none" stroke="' + c.tailTip + '" stroke-width="7" stroke-linecap="round"/></g>' +
+      '<g transform="translate(-24 -30) rotate(-40)"><g class="kc-tail"><path d="M0 0 Q-3 -16 6 -22" fill="none" stroke="' + c.coat + '" stroke-width="7" stroke-linecap="round"/><path d="M3 -20 L6 -22" fill="none" stroke="' + c.tailTip + '" stroke-width="7" stroke-linecap="round"/></g></g>' +
       '<ellipse cx="0" cy="-26" rx="26" ry="13" fill="' + c.coat + '"/><path d="M-13 -20 A17 6 0 0 0 21 -20Z" fill="' + c.belly + '"/>' +
       leg(-11, c.coat) + leg(18, c.coat) +
       '<path d="M7 -38 L10 -15 M8 -36 L21 -22" fill="none" stroke="' + c.harness + '" stroke-width="5" stroke-linecap="round"/>' +
       '<path d="M15 -43 L23 -29" fill="none" stroke="' + c.collar + '" stroke-width="4" stroke-linecap="round"/>' +
       '<g class="kc-head"><circle cx="25" cy="-41" r="12" fill="' + c.coat + '"/><ellipse cx="35" cy="-38" rx="9" ry="6.5" fill="' + c.belly + '"/><circle cx="43" cy="-40" r="3" fill="' + c.nose + '"/>' +
       '<circle cx="28" cy="-45" r="2.2" fill="' + c.eye + '"/><ellipse cx="36" cy="-32" rx="3" ry="4.5" fill="' + c.tongue + '" transform="rotate(11 36 -32)"/>' +
-      '<g class="kc-ear"><ellipse cx="0" cy="7" rx="5.5" ry="10" fill="' + c.ear + '"/></g></g>' +
+      '<g class="kc-ear" transform="translate(18 -49) rotate(-29)"><ellipse cx="0" cy="7" rx="5.5" ry="10" fill="' + c.ear + '"/></g></g>' +
       "</g></svg>";
   }
   /* KC's face, front view, for the app icon, the reward screen and the grown-ups corner. */

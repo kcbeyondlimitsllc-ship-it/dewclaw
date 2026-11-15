@@ -43,13 +43,16 @@
       </div>
       <div id="options"></div>
     </div>
+    <div id="sr" class="sr" aria-live="polite"></div>
     <div id="paw" aria-hidden="true"></div>
     <div id="reward" hidden>
       <div class="rays" aria-hidden="true"></div>
       <div id="confetti" aria-hidden="true"></div>
-      <div id="rewardSticker"></div>
-      <div id="rewardKc" aria-hidden="true"></div>
-      <div id="rewardLevel" aria-hidden="true"></div>
+      <button id="rMute" class="rbtn muteBtn" aria-label="Sound on or off"></button>
+      <div class="rewardTop">
+        <button id="rewardSticker" aria-label="Your new sticker"></button>
+        <div class="rewardSide"><div id="rewardKc" aria-hidden="true"></div><div id="rewardLevel" aria-hidden="true"></div></div>
+      </div>
       <div class="rewardBtns">
         <button id="rHome" class="rbtn big" aria-label="Back to the trail"></button>
         <button id="rAgain" class="rbtn big go" aria-label="Play again"></button>
@@ -80,7 +83,7 @@
 
   <!-- Parental gate, step two -->
   <div id="gate" class="modal" hidden>
-    <div class="gateCard" role="dialog" aria-modal="true" aria-labelledby="gateQ">
+    <div class="gateCard" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="gateQ">
       <p class="gateLead">For grown-ups only</p>
       <p id="gateQ"></p>
       <div id="gateOut" aria-live="polite"></div>

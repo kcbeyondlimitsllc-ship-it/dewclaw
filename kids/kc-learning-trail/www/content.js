@@ -62,7 +62,7 @@
     u: { word: "umbrella", vis: { k: "emo", ch: "☔" }, starts: ["u", "r"], say: "you" },
     v: { word: "volcano", vis: { k: "emo", ch: "🌋" }, starts: ["v", "m"], say: "vee" },
     w: { word: "watermelon", vis: { k: "emo", ch: "🍉" }, starts: ["w", "m"], say: "double you", snd: "wuh" },
-    x: { word: "xylophone", vis: { k: "pic", id: "xylo" }, starts: ["x", "z"], say: "ex" },
+    x: { word: "x-ray", vis: { k: "pic", id: "xray" }, starts: ["x", "e"], say: "ex" },   /* "x-ray" really begins with the letter's own name; a xylophone begins with a Z sound */
     y: { word: "yo-yo", vis: { k: "pic", id: "yoyo" }, starts: ["y"], say: "why", snd: "yuh" },
     z: { word: "zebra", vis: { k: "emo", ch: "🦓" }, starts: ["z", "x", "h"], say: "zee" }
   };
@@ -71,11 +71,15 @@
   var CLASH = { c: ["k", "q"], k: ["c", "q"], q: ["k", "c"], x: ["z", "s"], z: ["x", "s"], s: ["z", "x", "c"] };
   /* pairs that are fair but tricky (look or sound close): kept out of level 1 only */
   var TRICKY = { b: ["p", "d"], p: ["b", "q"], d: ["b", "t"], t: ["d"], f: ["v"], v: ["f"], m: ["n"], n: ["m"], g: ["k", "c", "j"], j: ["g"], e: ["i", "a"], i: ["e"], a: ["e"], o: ["u"], u: ["o"] };
+  /* A letter's NAME can begin with another letter's sound ("em" begins like egg, "double you" like donut).
+     When the answer is the key letter, pictures starting with any letter listed here are never offered as
+     wrong choices, so a child going by the sound of the spoken letter name is not led astray. */
+  var NAME_SOUND = { f: ["e"], l: ["e"], m: ["e"], n: ["e"], s: ["e"], x: ["e"], r: ["a"], h: ["a"], u: ["y"], y: ["w"], w: ["d"], g: ["j"], j: ["g"], c: ["s"], q: ["k", "c"] };
   function clashes(a, b) { return a === b || (CLASH[a] || []).indexOf(b) >= 0 || (CLASH[b] || []).indexOf(a) >= 0; }
   /* may the picture for letter `d` be shown as a wrong choice when the answer is letter `L`? */
   function pictureIsFairDistractor(L, d) {
     var st = LETTERS[d].starts, i;
-    for (i = 0; i < st.length; i++) if (clashes(L, st[i])) return false;
+    for (i = 0; i < st.length; i++) if (clashes(L, st[i]) || (NAME_SOUND[L] || []).indexOf(st[i]) >= 0) return false;
     return true;
   }
   /* may letter `d` be shown as a wrong choice for the picture of letter `L`? */
@@ -103,7 +107,7 @@
     do { n = ri(rng, lo, hi); } while (avoid && avoid.indexOf(n) >= 0 && ++guard < 40);
     opts = [n];
     while (opts.length < nOpt) {
-      c = level === 1 ? ri(rng, 1, 5) : n + ri(rng, -2, 2);
+      c = level === 1 ? ri(rng, 1, 5) : level === 2 ? n + ri(rng, -2, 2) : n + ri(rng, -3, 3);
       if (c >= 1 && c <= 10 && opts.indexOf(c) < 0) opts.push(c);
     }
     opts = shuffle(rng, opts);
@@ -121,7 +125,6 @@
     var n, guard = 0, tray;
     do { n = level === 3 ? ri(rng, 3, 10) : ri(rng, 1, 5); } while (avoid && avoid.indexOf(n) >= 0 && ++guard < 40);
     tray = Math.min(10, n + ri(rng, 2, 3));
-    if (tray === n) tray = n; /* ten treats, need ten */
     return {
       act: "count", kind: "give", tag: "g" + n, target: n, tray: Math.max(tray, n),
       prompt: { k: "num", n: n },
@@ -131,6 +134,7 @@
       options: [], correct: -1, meta: { type: "give", n: n }
     };
   }
+  function listWords(w) { return w.slice(0, -1).join(", ") + ", or " + w[w.length - 1] + "?"; }
   function qLetter(rng, level, L, reverse) {
     var e = LETTERS[L], nOpt = level === 3 ? 4 : 3, pool, ds, opts, nameL = e.say;
     if (reverse) {
@@ -155,9 +159,10 @@
     opts = shuffle(rng, [L].concat(ds));
     return {
       act: "letters", kind: "letter2pic", tag: L, prompt: { k: "letter", L: L },
+      /* from level 2 the pictures are named aloud in the order shown, so the task is hearing the first sound */
       say: level === 1
         ? "This is the letter " + nameL + ". " + nameL + " is for " + e.word + ". Tap the " + e.word + "."
-        : "This is the letter " + nameL + "." + (e.snd ? " " + nameL + " says " + e.snd + "." : "") + " Tap the picture that starts with " + nameL + ".",
+        : "This is the letter " + nameL + "." + (e.snd ? " " + nameL + " says " + e.snd + "." : "") + " Which one starts with " + nameL + "? " + listWords(opts.map(function (d) { return LETTERS[d].word; })),
       hint: nameL + " is for " + e.word + ".",
       done: "Yes! " + nameL + " is for " + e.word + ".",
       options: opts.map(function (d) { return { vis: LETTERS[d].vis, name: LETTERS[d].word, letter: d }; }),
@@ -208,8 +213,8 @@
   function qPattern(rng, level) {
     var unit = pick(rng, PATTERN_UNITS[level]), kinds = unit.indexOf("C") >= 0 ? 3 : 2;
     var things = sample(rng, PATTERN_THINGS, kinds + 1), map = { A: things[0], B: things[1], C: things[2] };
-    var len = unit.length * 2 + ri(rng, 0, unit.length === 2 ? 1 : (level === 3 ? 1 : 0)), seq = [], i, next, optIds, opts;
-    if (unit.length === 2) len = 4 + ri(rng, 0, 2);
+    /* always show the repeating unit at least twice in full, and never more than six pictures */
+    var len = unit.length === 2 ? 4 + ri(rng, 0, 1) : 6, seq = [], i, next, optIds, opts;
     for (i = 0; i < len; i++) seq.push(map[unit[i % unit.length]]);
     next = map[unit[len % unit.length]];
     optIds = things.slice(0, kinds);
@@ -238,7 +243,7 @@
         say: n === 2 ? "Which " + nm(id, 1) + " is " + word + "?" : "Which " + nm(id, 1) + " is the " + word + "?",
         hint: big ? "Big means it takes up lots of room." : "Small means tiny, like a little bug.",
         done: "Yes! That one is " + (n === 2 ? word : "the " + word) + ".",
-        options: vals.map(function (s) { return { vis: { k: "sized", item: item, scale: s }, name: nm(id, 1) }; }),
+        options: vals.map(function (s) { var sorted = vals.slice().sort(function (x, y) { return y - x; }), r = sorted.indexOf(s); return { vis: { k: "sized", item: item, scale: s }, name: (r === 0 ? "big " : r === vals.length - 1 ? "small " : "medium ") + nm(id, 1) }; }),
         correct: vals.indexOf(target), meta: { type: "size", want: big ? "max" : "min" }
       };
     }
@@ -332,7 +337,10 @@
     for (i = 0; i < q.options.length; i++) {
       o = q.options[i].vis;
       if (m.type === "count") { if (o.n === q.prompt.n) right.push(i); }
-      else if (m.type === "letter2pic") { if (LETTERS[q.options[i].letter].starts.some(function (s) { return clashes(m.L, s); })) right.push(i); }
+      else if (m.type === "letter2pic") {
+        if (LETTERS[q.options[i].letter].starts.some(function (s) { return clashes(m.L, s); })) right.push(i);
+        else if (LETTERS[q.options[i].letter].starts.some(function (s) { return (NAME_SOUND[m.L] || []).indexOf(s) >= 0; })) bad("wrong choice '" + q.options[i].name + "' starts with the sound of the letter name " + LETTERS[m.L].say);
+      }
       else if (m.type === "pic2letter") { if (LETTERS[m.L].starts.some(function (s) { return clashes(o.L, s); })) right.push(i); }
       else if (m.type === "match") {
         if (m.want.binColor) { if (o.label.color === m.want.binColor) right.push(i); }
@@ -354,7 +362,7 @@
       for (p = 1; p <= s.length; p++) { ok = true; for (i = p; i < s.length; i++) if (s[i] !== s[i - p]) { ok = false; break; } if (ok) break; }
       if (p * 2 > s.length) bad("pattern unit is not shown twice: " + s.join(","));
       if (p < 2) bad("pattern has only one kind of thing");
-      if (s.length > 7) bad("pattern too long to show");
+      if (s.length > 6) bad("pattern too long to show");
       nextId = s[s.length - p];
       q.options.forEach(function (op, j) { if (op.vis.id === nextId) right.push(j); });
     }
@@ -363,14 +371,14 @@
       best = m.want === "max" ? Math.max.apply(null, vals) : Math.min.apply(null, vals);
       vals.forEach(function (v, j) { if (v === best) right.push(j); });
       if (m.type === "qty") vals.forEach(function (v) { if (v < 1 || v > 10) bad("group size out of 1..10"); });
-      if (m.type === "size") { var sv = vals.slice().sort(); for (i = 1; i < sv.length; i++) if (sv[i] - sv[i - 1] < 0.15) bad("sizes too close to tell apart"); }
+      if (m.type === "size") { var sv = vals.slice().sort(function (x, y) { return x - y; }); for (i = 1; i < sv.length; i++) if (sv[i] - sv[i - 1] < 0.15) bad("sizes too close to tell apart"); }
     }
     if (right.length !== 1) bad("expected exactly one right option, found " + right.length + " in " + keys.join(" | "));
     else if (right[0] !== q.correct) bad("marked answer " + q.correct + " but the right one is " + right[0]);
     return errs;
   }
 
-  var api = { ACTIVITIES: ACTIVITIES, NUM_WORDS: NUM_WORDS, NAMES: NAMES, LETTERS: LETTERS, ALPHABET: ALPHABET, CLASH: CLASH, TRICKY: TRICKY,
+  var api = { ACTIVITIES: ACTIVITIES, NUM_WORDS: NUM_WORDS, NAMES: NAMES, LETTERS: LETTERS, ALPHABET: ALPHABET, CLASH: CLASH, TRICKY: TRICKY, NAME_SOUND: NAME_SOUND,
               COLOR_NAMES: COLOR_NAMES, SHAPE_NAMES: SHAPE_NAMES, PATTERN_THINGS: PATTERN_THINGS, PATTERN_UNITS: PATTERN_UNITS,
               MEMORY_ANIMALS: MEMORY_ANIMALS, MEMORY_BOARDS: MEMORY_BOARDS, COMPARE_THINGS: COMPARE_THINGS, COUNT_THINGS: COUNT_THINGS,
               makeRound: makeRound, validate: validate, seeded: seeded, shuffle: shuffle, keyOf: keyOf, nm: nm };

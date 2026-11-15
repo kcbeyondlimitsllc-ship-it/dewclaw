@@ -31,10 +31,10 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
 
 /* ---------- HUD ---------- */
 #hud { position: fixed; inset: 0; pointer-events: none; padding: calc(8px + var(--st)) calc(10px + var(--sr)) 0 calc(10px + var(--sl));
-  display: grid; grid-template-columns: 1fr auto 1fr; grid-template-rows: auto auto; gap: 6px 10px; align-content: start; align-items: center;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); grid-template-rows: auto auto; gap: 6px 10px; align-content: start; align-items: center;
   font-weight: 800; color: #fff; text-shadow: 0 2px 0 rgba(0,0,0,.35); }
 .pill { background: rgba(20,45,36,.62); border: 2px solid rgba(255,255,255,.28); border-radius: 999px; padding: 5px 12px; display: inline-flex; align-items: center; gap: 8px; min-height: 40px; }
-#hudL { justify-self: start; display: flex; gap: 6px; }
+#hudL { justify-self: start; display: flex; gap: 6px; min-width: 0; }
 #hudR { justify-self: end; display: flex; gap: 6px; align-items: center; }
 #paws { font-size: 21px; display: inline-flex; gap: 3px; color: #ffb3c4; }
 #paws .off { color: rgba(255,255,255,.25); }
@@ -43,26 +43,28 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
 #ballN, #time { font-variant-numeric: tabular-nums; font-size: 18px; }
 #boneHud { font-size: 17px; display: inline-flex; gap: 1px; color: rgba(255,255,255,.3); }
 #boneHud .on { color: var(--gold); }
-#meterWrap { justify-self: center; width: min(250px, 34vw); }
+#meterWrap { justify-self: center; width: min(250px, 30vw); min-width: 0; }
 #meter { height: 24px; border-radius: 999px; background: rgba(20,45,36,.62); border: 2px solid rgba(255,255,255,.4); position: relative; overflow: hidden; }
 #meterFill { position: absolute; inset: 0; transform-origin: 0 50%; transform: scaleX(0); background: linear-gradient(90deg, var(--blue), #56b6ff 45%, var(--orange)); }
 #meter span { position: absolute; inset: 0; display: grid; place-items: center; font-size: 12px; letter-spacing: .14em; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
 #meter.full { border-color: #fff; box-shadow: 0 0 14px #ffd76a; }
 .hbtn { pointer-events: auto; width: 46px; height: 46px; border-radius: 50%; border: 2px solid rgba(255,255,255,.4); background: rgba(20,45,36,.62); color: #fff; font-size: 22px; display: grid; place-items: center; padding: 0; cursor: pointer; }
 .hbtn:active { transform: scale(.94); }
-@media (max-width: 620px) {
-  #hud { grid-template-columns: 1fr auto; }
+@media (max-width: 720px) {
+  #hud { grid-template-columns: minmax(0, 1fr) auto; }
   #meterWrap { grid-column: 1 / -1; grid-row: 2; width: min(260px, 64vw); }
   #ballN, #time { font-size: 16px; } .pill { padding: 4px 9px; gap: 6px; } #paws { font-size: 18px; }
   .hbtn { width: 44px; height: 44px; }
 }
-@media (max-width: 380px) { #boneHud { display: none; } }
+@media (max-width: 440px) { #hud { padding-left: calc(6px + var(--sl)); padding-right: calc(6px + var(--sr)); } #hudL, #hudR { gap: 4px; } .pill { padding: 4px 7px; gap: 4px; } #boneHud { font-size: 14px; } #paws { font-size: 16px; gap: 1px; } }
+@media (max-width: 350px) { #boneHud { display: none; } }
 
+/* top is set from script so the bubble always sits just under the HUD, whatever its layout */
 #hint { position: fixed; left: 50%; top: calc(112px + var(--st)); transform: translateX(-50%); max-width: min(86vw, 520px); text-align: center;
   background: rgba(255,248,233,.95); color: var(--ink); border: 3px solid var(--forest); border-radius: 18px; padding: 9px 16px; font-weight: 800; font-size: 17px; line-height: 1.25;
   pointer-events: none; transition: opacity .25s; }
 #hint.out { opacity: 0; }
-@media (max-height: 460px) { #hint { top: calc(62px + var(--st)); font-size: 15px; padding: 6px 14px; } }
+@media (max-height: 460px) { #hint { font-size: 15px; padding: 6px 14px; } }
 
 /* ---------- touch controls ---------- */
 #touch { position: fixed; inset: 0; pointer-events: none; }
@@ -75,9 +77,15 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
 
 /* ---------- panels ---------- */
 .panel { position: fixed; inset: 0; display: grid; place-items: center; padding: calc(10px + var(--st)) calc(12px + var(--sr)) calc(10px + var(--sb)) calc(12px + var(--sl));
-  background: rgba(12,32,26,.5); overflow: auto; touch-action: pan-y; }
-.card { width: min(460px, 100%); background: var(--cream); border: 4px solid var(--forest); border-radius: 26px; padding: 18px 18px 16px; box-shadow: 0 10px 0 rgba(0,0,0,.25); text-align: center; }
-.card h2 { margin: 0 0 10px; font-size: 26px; color: var(--forest); letter-spacing: .01em; }
+  background: rgba(12,32,26,.5); overflow: auto; touch-action: pan-y; grid-template-rows: minmax(0, 1fr); grid-template-columns: minmax(0, 1fr); }
+/* a card never grows past the screen: its body scrolls and its buttons stay put at the bottom */
+.card { width: min(460px, 100%); max-height: calc(100% - 10px); display: flex; flex-direction: column; background: var(--cream); border: 4px solid var(--forest); border-radius: 26px; padding: 18px 18px 16px; box-shadow: 0 10px 0 rgba(0,0,0,.25); text-align: center; }
+.card h2 { flex: none; margin: 0 0 10px; font-size: 26px; color: var(--forest); letter-spacing: .01em; }
+.card > .body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; -webkit-overflow-scrolling: touch; }
+.card > .row { flex: none; position: relative; }
+.card.more > .row::before { content: ""; position: absolute; left: -6px; right: -6px; top: -22px; height: 18px; pointer-events: none; border-radius: 0 0 10px 10px;
+  background: linear-gradient(rgba(35,57,46,0), rgba(35,57,46,.3)); }
+.card.more > .row::after { content: ""; position: absolute; left: 50%; top: -19px; width: 12px; height: 12px; margin-left: -6px; pointer-events: none; border: solid var(--forest); border-width: 0 4px 4px 0; transform: rotate(45deg) scale(.8); }
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 54px; min-width: 150px; padding: 8px 22px; border-radius: 18px; border: 0; cursor: pointer;
   font-weight: 900; font-size: 19px; color: #fff; background: var(--blue); box-shadow: 0 5px 0 var(--blue-d); text-decoration: none; }
 .btn.go { background: var(--orange); box-shadow: 0 5px 0 var(--orange-d); }
@@ -87,28 +95,29 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
 .row { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
 .col { display: grid; gap: 12px; justify-items: stretch; }
 
-#title { background: linear-gradient(180deg, rgba(12,32,26,.08), rgba(12,32,26,.5) 70%); align-content: center; gap: 0; }
+#title { grid-template-rows: none; background: linear-gradient(180deg, rgba(12,32,26,.05), rgba(12,32,26,.3) 70%); align-content: start; padding-top: calc(11vh + var(--st)); gap: 0; }
 #titleBox { text-align: center; display: grid; gap: clamp(8px, 2.6vmin, 22px); justify-items: center; width: 100%; }
 #logo { margin: 0; line-height: .86; font-weight: 900; font-style: italic; font-size: clamp(54px, 17vmin, 132px); letter-spacing: -.02em; color: #fff;
   text-shadow: 0 .045em 0 var(--blue-d), 0 .09em 0 #173d2b, .03em .13em .08em rgba(0,0,0,.4); transform: rotate(-3deg); }
 #logo b { color: var(--orange); text-shadow: 0 .045em 0 var(--orange-d), 0 .09em 0 #173d2b, .03em .13em .08em rgba(0,0,0,.4); display: block; font-size: .78em; }
 #tag { margin: 0; color: #fff; font-weight: 800; font-size: clamp(14px, 3.2vmin, 20px); text-shadow: 0 2px 4px rgba(0,0,0,.6); }
-#made { position: fixed; left: 0; right: 0; bottom: calc(8px + var(--sb)); text-align: center; font-size: 13px; font-weight: 700; }
-#made a { color: #fff; opacity: .85; text-decoration: underline; text-underline-offset: 3px; padding: 8px; text-shadow: 0 1px 3px rgba(0,0,0,.7); }
+#made { position: fixed; left: 0; right: 0; bottom: calc(2px + var(--sb)); text-align: center; font-size: 13px; font-weight: 700; }
+#made a, #made span { display: inline-block; min-height: 44px; line-height: 28px; padding: 8px 16px; color: #fff; opacity: .85; text-shadow: 0 1px 3px rgba(0,0,0,.7); }
+#made a { text-decoration: underline; text-underline-offset: 3px; }
 @media (orientation: landscape) and (max-height: 460px) {
-  #titleBox { grid-template-columns: 1fr 1fr; align-items: center; } #logo { grid-row: span 2; }
+  #title { padding-top: calc(5vh + var(--st)); } #titleBox { grid-template-columns: 1fr 1fr; align-items: center; } #logo { grid-row: span 2; }
   #titleBtns { align-self: end; } #tag { grid-column: 2; grid-row: 1; align-self: end; }
   .card { padding: 12px 16px; } .card h2 { font-size: 22px; margin-bottom: 6px; } .btn { min-height: 48px; font-size: 17px; }
 }
 
 #howto .card { text-align: left; width: min(560px, 100%); }
 #howto h2 { text-align: center; }
-#howto ul { margin: 0 0 12px; padding: 0; list-style: none; display: grid; gap: 7px; font-weight: 700; font-size: 15.5px; line-height: 1.3; }
+#howto ul { margin: 0 0 8px; padding: 0 2px 5px 0; list-style: none; display: grid; gap: 7px; font-weight: 700; font-size: 15.5px; line-height: 1.3; }
 #howto li { display: grid; grid-template-columns: 30px 1fr; gap: 8px; align-items: start; }
 #howto li i { font-style: normal; font-size: 20px; color: var(--orange); text-align: center; }
 kbd { font: inherit; font-size: .9em; background: #fff; border: 2px solid #c9bfa5; border-bottom-width: 4px; border-radius: 7px; padding: 0 6px; }
 
-#lvList { display: grid; gap: 10px; margin-bottom: 14px; }
+#lvList { display: grid; gap: 10px; margin-bottom: 14px; padding: 2px; }
 .lv { display: grid; grid-template-columns: 74px 1fr auto; gap: 12px; align-items: center; text-align: left; padding: 8px 12px 8px 8px; border-radius: 18px; border: 3px solid var(--forest); background: #fff; cursor: pointer; min-height: 72px; }
 .lv .th { width: 74px; height: 56px; border-radius: 12px; position: relative; overflow: hidden; }
 .lv .th::after { content: ""; position: absolute; left: -10%; right: -10%; bottom: -34%; height: 70%; border-radius: 50% 60% 0 0; }
@@ -128,13 +137,24 @@ kbd { font: inherit; font-size: .9em; background: #fff; border: 2px solid #c9bfa
 #resGoals .on { color: var(--forest); } #resGoals svg { color: #d8cfb8; } #resGoals .on svg { color: var(--gold); }
 #resBest { font-weight: 800; margin: 0 0 12px; color: var(--orange-d); }
 @media (orientation: landscape) and (max-height: 460px) {
-  #results .card { width: min(680px, 100%); display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; align-items: center; }
-  #results h2, #results .row { grid-column: 1 / -1; } #resStars { font-size: 44px; margin: 0; }
-  #resGrid div { font-size: 16px; padding: 3px 8px; } #resGoals { grid-column: 1; margin: 0 0 6px; } #resBest { margin: 0 0 6px; }
-  #resGrid { grid-column: 2; grid-row: 2 / span 3; margin: 0 0 6px; }
+  #results .card { width: min(680px, 100%); } #resBody { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; align-items: center; margin-bottom: 6px; }
+  #resStars { font-size: 44px; margin: 0; }
+  #resGrid div { font-size: 16px; padding: 3px 8px; } #resGoals { grid-column: 1; margin: 0 0 6px; } #resBest { grid-column: 1; margin: 0 0 6px; }
+  #resGrid { grid-column: 2; grid-row: 1 / span 3; margin: 0 0 6px; }
   #lvList { grid-template-columns: repeat(3, 1fr); } .lv { grid-template-columns: 1fr; text-align: center; justify-items: center; padding: 8px; gap: 4px; } #select .card { width: min(720px, 100%); }
   #howto .card { width: min(760px, 100%); } #howto ul { grid-template-columns: 1fr 1fr; font-size: 14px; gap: 5px 14px; }
 }
+/* compact cards for short or narrow screens (small phones either way up) */
+@media (max-height: 560px), (max-width: 400px) {
+  .card { padding: 12px 14px 12px; border-radius: 22px; } .card h2 { font-size: 22px; margin-bottom: 6px; }
+  .btn { min-height: 48px; font-size: 17px; padding: 6px 18px; min-width: 132px; } .row { gap: 10px; }
+  #howto ul { font-size: 14px; gap: 5px; margin-bottom: 8px; line-height: 1.25; } #howto li { grid-template-columns: 24px 1fr; gap: 6px; } #howto li i { font-size: 17px; }
+  #lvList { gap: 7px; margin-bottom: 8px; } .lv { min-height: 62px; padding: 5px 10px 5px 6px; } .lv .th { height: 48px; } .lv b { font-size: 16.5px; }
+  #resStars { font-size: 40px; margin: 0 0 4px; } #resGoals { margin-bottom: 6px; font-size: 13px; } #resBest { margin-bottom: 6px; } #resGrid { gap: 6px; margin-bottom: 8px; } #resGrid div { font-size: 16px; padding: 3px 8px; }
+}
+@media (max-height: 560px) and (min-width: 460px) { #howto .card { width: min(760px, 100%); } #howto ul { grid-template-columns: 1fr 1fr; gap: 5px 14px; } }
+@media (orientation: landscape) and (max-height: 400px) { .lv .th { width: 64px; height: 30px; } .lv { min-height: 0; gap: 2px; padding: 6px; } #lvList { margin-bottom: 8px; } .lv small { font-size: 12.5px; } .lv .st { font-size: 17px; } }
+@media (max-width: 340px) { .btn { min-width: 118px; padding: 6px 12px; } .lv { grid-template-columns: 56px 1fr auto; gap: 8px; } .lv .th { width: 56px; } .lv .st { font-size: 16px; } }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 </style>
 </head>
@@ -191,7 +211,7 @@ kbd { font: inherit; font-size: .9em; background: #fff; border: 2px solid #c9bfa
 <div class="panel" id="howto" hidden>
   <div class="card">
     <h2>How to play</h2>
-    <ul>
+    <ul class="body">
       <li><i><svg class="i"><use href="#i-r"/></svg></i><span><b>Run:</b> hold the arrow buttons, or <kbd>&larr;</kbd> <kbd>&rarr;</kbd> / <kbd>A</kbd> <kbd>D</kbd>. Downhill builds speed and carries you up the next rise.</span></li>
       <li><i><svg class="i"><use href="#i-up"/></svg></i><span><b>Jump:</b> the JUMP button, or <kbd>Space</kbd> / <kbd>&uarr;</kbd> / <kbd>W</kbd>. Hold it to jump higher.</span></li>
       <li><i><span class="ballico"></span></i><span><b>Zoomies:</b> collect KC's orange-and-blue balls to fill the meter, then zoom through brambles at top speed.</span></li>
@@ -206,7 +226,7 @@ kbd { font: inherit; font-size: .9em; background: #fff; border: 2px solid #c9bfa
 <div class="panel" id="select" hidden>
   <div class="card">
     <h2>Pick a trail</h2>
-    <div id="lvList"></div>
+    <div id="lvList" class="body"></div>
     <div class="row"><button class="btn soft" id="btnSelBack">Back</button></div>
   </div>
 </div>
@@ -226,6 +246,7 @@ kbd { font: inherit; font-size: .9em; background: #fff; border: 2px solid #c9bfa
 <div class="panel" id="results" hidden>
   <div class="card">
     <h2 id="resTitle">Trail complete!</h2>
+    <div class="body" id="resBody">
     <div id="resStars"><svg class="i"><use href="#i-star"/></svg><svg class="i"><use href="#i-star"/></svg><svg class="i"><use href="#i-star"/></svg></div>
     <ul id="resGoals"><li><svg class="i"><use href="#i-star"/></svg> Reach the picnic</li><li><svg class="i"><use href="#i-star"/></svg> Fetch 70% of the balls</li><li><svg class="i"><use href="#i-star"/></svg> Find all 3 golden bones</li></ul>
     <p id="resBest"></p>
@@ -234,6 +255,7 @@ kbd { font: inherit; font-size: .9em; background: #fff; border: 2px solid #c9bfa
       <div><small>Balls</small><span id="resBalls"></span></div>
       <div><small>Golden bones</small><span id="resBones"></span></div>
       <div><small>Paws left</small><span id="resPaws"></span></div>
+    </div>
     </div>
     <div class="row">
       <button class="btn go" id="btnNext">Next trail</button>

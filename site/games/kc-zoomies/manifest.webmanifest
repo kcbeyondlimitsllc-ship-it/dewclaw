@@ -1,0 +1,20 @@
+{
+  "name": "KC Zoomies",
+  "short_name": "KC Zoomies",
+  "description": "An original momentum platformer starring KC the adventure dog. Run the forest trail, cross the river canyon and race the mountain ridge. Free, works offline.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#16332a",
+  "theme_color": "#1f4a33",
+  "lang": "en-US",
+  "dir": "ltr",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
