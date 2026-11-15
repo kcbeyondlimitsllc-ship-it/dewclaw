@@ -1,0 +1,36 @@
+plugins { id 'com.android.application' }
+
+/* KC's Learning Trail: the game in ../www is copied into the app and shown
+   in a WebView from local files. The app has no INTERNET permission, so it
+   cannot make a network request even by mistake. */
+android {
+    namespace 'com.kcbeyondlimits.kclearningtrail'
+    compileSdk 36
+    defaultConfig {
+        applicationId 'com.kcbeyondlimits.kclearningtrail'
+        minSdk 24
+        targetSdk 36
+        versionCode 1          // raise by one for every upload to Google Play
+        versionName '1.0.0'
+    }
+    buildTypes {
+        release { minifyEnabled false }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    lint { checkReleaseBuilds false; abortOnError false }
+    sourceSets { main { assets.srcDirs = [layout.buildDirectory.dir('gameAssets')] } }
+}
+
+/* the game's web files, bundled under assets/www */
+def copyGame = tasks.register('copyGame', Copy) {
+    from(project.findProperty('gameDir') ?: '../../www')
+    into(layout.buildDirectory.dir('gameAssets/www'))
+}
+tasks.named('preBuild') { dependsOn copyGame }
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.12.1'
+}
