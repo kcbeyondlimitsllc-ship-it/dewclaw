@@ -5842,7 +5842,13 @@ const isPlayApp = () => {
   if (/^android-app:\/\//.test(document.referrer || "")) { try { sessionStorage.setItem("dewclaw.play", "1"); } catch {} return true; }
   return false;
 };
-const webBilling = () => !!(PLUS_CFG.webBilling && plusCloud() && !self.PETLIFE_SANDBOX && !isPlayApp());
+/* The App Store build (ios/dewclaw) sets this flag before the page runs.
+   Apple does not allow a Stripe checkout for a digital subscription inside
+   an app, and a checkout opened from there could not hand its result back,
+   so web billing is off in that build. With no billing on iOS the paywall
+   is off too (see paywallOn), exactly as in Safari without web billing. */
+const isIOSApp = () => !!self.DEWCLAW_IOS_APP;
+const webBilling = () => !!(PLUS_CFG.webBilling && plusCloud() && !self.PETLIFE_SANDBOX && !isPlayApp() && !isIOSApp());
 const paywallOn = () => NATIVE && (!!self.PETLIFE_SANDBOX || (!!plusCloud() && (!isIOS() || webBilling())));
 const isWebToken = t => typeof t === "string" && t.startsWith("w1.");
 /* The price line under the Plus offer. config.js's offerCopy is written for

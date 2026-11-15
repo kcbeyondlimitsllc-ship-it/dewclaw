@@ -1,0 +1,187 @@
+# Builds the Dewclaw iOS app (ios/dewclaw) on a GitHub-hosted Mac and sends it to TestFlight.
+# Start it by hand: GitHub > Actions > "iOS TestFlight" > Run workflow.
+# Setup instructions for the four secrets are in ios/dewclaw/README.md.
+name: iOS TestFlight
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "App version shown in TestFlight, e.g. 1.0.1. Leave empty to use the one in the Xcode project (1.0.0)."
+        required: false
+        default: ""
+      build_number:
+        description: "Build number. Leave empty to use this workflow's run number."
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-testflight
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  testflight:
+    name: Archive and upload to TestFlight
+    # macos-26 is the image "macos-latest" pointed at when this file was written (Nov 2026).
+    # Apple requires App Store uploads to be built with Xcode 26 or later.
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      PROJECT: ios/dewclaw/Dewclaw.xcodeproj
+      SCHEME: Dewclaw
+      INPUT_VERSION: ${{ inputs.version }}
+      INPUT_BUILD_NUMBER: ${{ inputs.build_number }}
+      RUN_NUMBER: ${{ github.run_number }}
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Check that the four secrets are set
+        run: |
+          missing=0
+          for name in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8 APPLE_TEAM_ID; do
+            if [ -z "${!name}" ]; then
+              echo "::error::The repository secret $name is missing. See ios/dewclaw/README.md."
+              missing=1
+            fi
+          done
+          exit $missing
+
+      - name: Select the newest Xcode on the runner
+        run: |
+          newest=$(ls -d /Applications/Xcode_*.app 2>/dev/null | grep -viE 'beta|release_candidate|_rc' | sort -V | tail -n 1 || true)
+          if [ -n "$newest" ]; then
+            sudo xcode-select -s "$newest/Contents/Developer"
+          else
+            echo "::warning::No /Applications/Xcode_*.app found, keeping the runner's default Xcode."
+          fi
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+
+      - name: Write the App Store Connect API key
+        run: |
+          key_dir="$RUNNER_TEMP/private_keys"
+          mkdir -p "$key_dir" "$HOME/.appstoreconnect/private_keys"
+          key_path="$key_dir/AuthKey_${ASC_KEY_ID}.p8"
+          printf '%s\n' "$ASC_KEY_P8" > "$key_path"
+          chmod 600 "$key_path"
+          if ! grep -q "BEGIN PRIVATE KEY" "$key_path"; then
+            echo "::error::ASC_KEY_P8 does not look like a .p8 key. Paste the whole file, including the BEGIN and END lines."
+            exit 1
+          fi
+          # altool looks for AuthKey_<key id>.p8 in this folder
+          cp "$key_path" "$HOME/.appstoreconnect/private_keys/"
+          echo "ASC_KEY_PATH=$key_path" >> "$GITHUB_ENV"
+
+      - name: Work out version and build number
+        run: |
+          build="${INPUT_BUILD_NUMBER:-$RUN_NUMBER}"
+          case "$build" in ''|*[!0-9.]*) echo "::error::Build number must be digits (and dots) only."; exit 1 ;; esac
+          echo "BUILD_NUMBER=$build" >> "$GITHUB_ENV"
+          if [ -n "$INPUT_VERSION" ]; then
+            case "$INPUT_VERSION" in *[!0-9.]*) echo "::error::Version must look like 1.0.1."; exit 1 ;; esac
+          fi
+          echo "Version: ${INPUT_VERSION:-from the Xcode project}, build: $build"
+
+      - name: Archive (automatic signing with the API key)
+        run: |
+          set -o pipefail
+          extra=()
+          if [ -n "$INPUT_VERSION" ]; then extra+=("MARKETING_VERSION=$INPUT_VERSION"); fi
+          xcodebuild archive \
+            -project "$PROJECT" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/Dewclaw.xcarchive" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$ASC_KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CODE_SIGN_STYLE=Automatic \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            "${extra[@]}" \
+            | tee "$RUNNER_TEMP/archive.log"
+
+      - name: Export the App Store IPA
+        run: |
+          set -o pipefail
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store-connect</string>
+            <key>destination</key>
+            <string>export</string>
+            <key>signingStyle</key>
+            <string>automatic</string>
+            <key>teamID</key>
+            <string>${APPLE_TEAM_ID}</string>
+            <key>manageAppVersionAndBuildNumber</key>
+            <false/>
+            <key>uploadSymbols</key>
+            <true/>
+          </dict>
+          </plist>
+          PLIST
+          plutil -lint "$RUNNER_TEMP/ExportOptions.plist"
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/Dewclaw.xcarchive" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$ASC_KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            | tee "$RUNNER_TEMP/export.log"
+          ipa=$(ls "$RUNNER_TEMP"/export/*.ipa | head -n 1)
+          echo "IPA_PATH=$ipa" >> "$GITHUB_ENV"
+          ls -lh "$ipa"
+
+      - name: Upload to TestFlight
+        run: |
+          set -o pipefail
+          xcrun altool --upload-app \
+            --type ios \
+            --file "$IPA_PATH" \
+            --apiKey "$ASC_KEY_ID" \
+            --apiIssuer "$ASC_ISSUER_ID" \
+            2>&1 | tee "$RUNNER_TEMP/upload.log"
+          # altool has been known to exit 0 after printing an error
+          if grep -qE '(^|[^A-Za-z])(ERROR ITMS|\*\*\* Error)' "$RUNNER_TEMP/upload.log"; then
+            echo "::error::altool reported an error, see the log above."
+            exit 1
+          fi
+          echo "Uploaded build $BUILD_NUMBER. It appears in App Store Connect > TestFlight after Apple finishes processing (usually 5 to 30 minutes)."
+
+      - name: Keep the build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-logs
+          path: |
+            ${{ runner.temp }}/archive.log
+            ${{ runner.temp }}/export.log
+            ${{ runner.temp }}/upload.log
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Remove the API key from the runner
+        if: always()
+        run: |
+          rm -rf "$RUNNER_TEMP/private_keys" "$HOME/.appstoreconnect/private_keys"
