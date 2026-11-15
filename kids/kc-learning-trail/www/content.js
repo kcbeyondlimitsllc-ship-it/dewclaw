@@ -62,7 +62,7 @@
     u: { word: "umbrella", vis: { k: "emo", ch: "☔" }, starts: ["u", "r"], say: "you" },
     v: { word: "volcano", vis: { k: "emo", ch: "🌋" }, starts: ["v", "m"], say: "vee" },
     w: { word: "watermelon", vis: { k: "emo", ch: "🍉" }, starts: ["w", "m"], say: "double you", snd: "wuh" },
-    x: { word: "x-ray", vis: { k: "pic", id: "xray" }, starts: ["x", "e"], say: "ex" },   /* "x-ray" really begins with the letter's own name; a xylophone begins with a Z sound */
+    x: { word: "x-ray", vis: { k: "pic", id: "xray" }, starts: ["x", "e", "h", "b"], say: "ex" },   /* "x-ray" begins with the letter's own name (a xylophone begins with a Z sound); a child might also call the picture a hand or bones */
     y: { word: "yo-yo", vis: { k: "pic", id: "yoyo" }, starts: ["y"], say: "why", snd: "yuh" },
     z: { word: "zebra", vis: { k: "emo", ch: "🦓" }, starts: ["z", "x", "h"], say: "zee" }
   };
@@ -193,7 +193,7 @@
     if (kind === "sortColor") {
       bins = [color].concat(others(COLOR_NAMES, color, nOpt - 1));
       items = bins.map(function (c) { return { k: "bin", label: { k: "blob", color: c } }; });
-      return finish(sh(color, shape), "Sort by colour. Which basket does it go in?", "It is " + color + ". Find the " + color + " basket.", "Yes! " + color + " goes with " + color + ".", { binColor: color });
+      return finish(sh(color, shape), "Sort by color. Which basket does it go in?", "It is " + color + ". Find the " + color + " basket.", "Yes! " + color + " goes with " + color + ".", { binColor: color });
     }
     bins = [shape].concat(others(SHAPE_NAMES, shape, nOpt - 1));
     items = bins.map(function (s) { return { k: "bin", label: { k: "outline", shape: s } }; });

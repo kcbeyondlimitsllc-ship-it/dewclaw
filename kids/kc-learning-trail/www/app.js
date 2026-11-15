@@ -160,7 +160,7 @@
       if (then) later(finish, Math.max(minMs || 0, 1200 + text.length * 90));   /* never get stuck waiting for a voice */
     } catch (e) { if (then) later(finish, minMs || 0); }
   }
-  var PRAISE = ["Great job!", "Woof! You did it!", "Yes!", "Pawsome!", "Nice one!", "Way to go!", "You got it!"];
+  var PRAISE = ["Great job!", "Woof! You did it!", "Hooray!", "Pawsome!", "Nice one!", "Way to go!", "You got it!"];
 
   /* ---------- small icons ---------- */
   var ink = A.INK, st = 'fill="none" stroke="' + ink + '" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"';
@@ -185,7 +185,7 @@
     memory: A.svg('<g transform="rotate(-10 30 50)"><rect x="6" y="18" width="46" height="62" rx="9" fill="#2f9e8f" stroke="' + ink + '" stroke-width="4"/>' + nest(A.pic("paw"), 15, 35, 28) + '</g><g transform="rotate(8 70 52)"><rect x="46" y="20" width="48" height="64" rx="9" fill="#fffaf0" stroke="' + ink + '" stroke-width="4"/>' + nest(A.pic("owl"), 50, 32, 40) + "</g>"),
     compare: A.svg(nest(A.pic("pine"), 0, 4, 64, 92) + nest(A.pic("pine"), 62, 58, 34, 38))
   };
-  var ACT_NAMES = { count: "Counting", letters: "Letters", colors: "Colours and shapes", patterns: "Patterns", memory: "Memory match", compare: "Bigger, smaller, more, fewer" };
+  var ACT_NAMES = { count: "Counting", letters: "Letters", colors: "Colors and shapes", patterns: "Patterns", memory: "Memory match", compare: "Bigger, smaller, more, fewer" };
 
   /* ---------- turning a <visual> from content.js into SVG ---------- */
   function V(v, mode) {
@@ -726,7 +726,7 @@
     h += '<h3>Privacy</h3><div class="note"><p><b>Nothing leaves this device.</b> KC\'s Learning Trail has no ads, no accounts, no in-app purchases, no analytics or tracking, no social features and no links to websites, stores or other apps.</p>' +
          "<p>It never connects to the internet. The only thing it stores is your child's levels, stickers and the sound settings above, saved on this device so they are still here next time. Reset progress, or uninstalling the app, erases them.</p>" +
          "<p>If spoken instructions are on, the words are read aloud by your device's own built-in voice.</p></div>";
-    h += '<h3>About</h3><p>KC\'s Learning Trail, version ' + VERSION + ". Six short activities for ages 3 to 6: counting to ten, letters and first sounds, colours and shapes, patterns, memory and comparing. Starring KC, a real dog who loves the Pacific Northwest.</p>";
+    h += '<h3>About</h3><p>KC\'s Learning Trail, version ' + VERSION + ". Six short activities for ages 3 to 6: counting to ten, letters and first sounds, colors and shapes, patterns, memory and comparing. Starring KC, a real dog who loves the Pacific Northwest.</p>";
     show("grown");
     $("grownBack").innerHTML = ICON.back;
     $("grownBody").innerHTML = h;
@@ -826,6 +826,12 @@
     /* no click is made from this long press, so lifting the finger cannot press something in the question box */
     b.addEventListener("touchstart", function (e) { if (e.cancelable) e.preventDefault(); }, { passive: false });
     ["pointerup", "pointerleave", "pointercancel"].forEach(function (ev) { b.addEventListener(ev, gateHoldEnd); });
+    /* a captured touch never fires pointerleave, so watch where the finger actually is */
+    b.addEventListener("pointermove", function (e) {
+      if (!gate.holdTimer || gate.keyDown) return;
+      var el = document.elementFromPoint(e.clientX, e.clientY);
+      if (!el || !b.contains(el)) gateHoldEnd();
+    });
     b.addEventListener("keydown", function (e) { if ((e.key === "Enter" || e.key === " ") && !e.repeat) gateHoldStart(e); });
     b.addEventListener("keyup", gateHoldEnd);
     b.addEventListener("blur", gateHoldEnd);

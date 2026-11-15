@@ -7,7 +7,7 @@ a sticker for the sticker book.
 | Stop | Skill | Level 1 | Level 2 | Level 3 |
 |---|---|---|---|---|
 | 1 | Counting | count 1 to 5, three numerals | count 1 to 10, plus "give KC n treats" (1 to 5) | scattered groups 4 to 10, four numerals, give 3 to 10 treats |
-| 2 | Letters | letter to picture, easy wrong choices, the word is spoken | letter to picture, name and sound only | four choices, and picture to letter |
+| 2 | Letters | letter to picture, easy wrong choices, the word is spoken | letter to picture: name, sound, and the picture words read out in order | four choices, and picture to letter |
 | 3 | Colours and shapes | tap the red one / tap the triangle | tap the red triangle (4), sort into 2 baskets | 6 choices, sort into 3 baskets |
 | 4 | Patterns | AB | AAB, ABB, AB | ABC, AAB, ABB |
 | 5 | Memory match | 2x2 then 3x2 | 3x2 then 4x2 | 4x3 |
@@ -20,8 +20,8 @@ loaded from local storage. It also runs from any static file server.
 
 ```
 cd kids/kc-learning-trail/www
-python3 -m http.server 8802
-# open http://localhost:8802/
+python3 -m http.server 8852
+# open http://localhost:8852/
 ```
 
 There is no build step. Opening `www/index.html` straight from disk works too.
@@ -71,6 +71,11 @@ To add or change content:
   say for that picture (for example the queen is `["q","p","k","c","g","l"]` because a child may say princess,
   king, crown, girl or lady). A picture is never offered as a wrong choice for any letter in its `starts`, or
   for a letter that sounds the same (`CLASH`: c/k/q, s/x/z). `TRICKY` pairs (b/d/p, m/n ...) are kept out of level 1.
+  `NAME_SOUND` lists letters whose spoken *name* begins with another letter's sound ("em" like egg, "double you"
+  like donut, "why" like watermelon); those pictures are never wrong choices for that letter. X uses "x-ray",
+  which really begins with the letter's name (a xylophone begins with a Z sound).
+  The Letters deck (saved) loses a round's five letters only when the round is finished; an abandoned round
+  moves them to the back, so all 26 always come round.
 - **Things to count, compare, or make patterns from**: add the id to `COUNT_THINGS`, `COMPARE_THINGS` or
   `PATTERN_THINGS`, add its spoken name to `NAMES`, and draw it in `art.js` as `P.<id>` (a 100 x 100 SVG fragment).
 - **Memory animals**: `MEMORY_ANIMALS`; board sizes per level are in `MEMORY_BOARDS`.
@@ -94,8 +99,17 @@ right answers, duplicate choices, a group outside 1 to 10, or a pattern with mor
 
 - No reading needed: every prompt is a big picture, numeral or letter. A pointing paw shows what to do the first
   time each kind of question appears, and the orange speech button repeats the instruction.
-- Voice uses the device's own text-to-speech (`speechSynthesis`) with an English voice at a slightly slow
-  rate. If the device has none (common in an Android WebView) the app stays silent and relies on the pictures.
+- Voice uses the device's own text-to-speech with an English voice at a slightly slow rate. In a browser that
+  is `speechSynthesis`. Inside the Android app, where a WebView usually has no `speechSynthesis` voices, the
+  shell in `android/` offers the phone's own TextToSpeech as `window.KCNative` (`canSpeak()`, `speak(text, rate,
+  pitch)`, `stopSpeaking()`), and the game uses it whenever `canSpeak()` is true. With neither, the app stays
+  silent and relies on the pictures.
+- The Android Back button calls `window.KCBack()`: it closes the grown-ups question or returns to the trail map
+  and answers `true`; on the map it answers `false` and the app closes.
+- Taps are handled per finger when it lifts (pointer events) on the map and in activities, so a thumb resting
+  on the glass or a finger that slides a little does not stop a tap from counting.
+- When the app goes to the background the round pauses (timers held, voice stopped); on return it carries on
+  and says the current instruction again.
 - Never punishing: a wrong tap wobbles, fades that choice and gives a hint; after two misses the right answer
   glows and the paw points to it. No timers, lives or scores.
 - Adaptive: a round with at most one slip moves that activity up a level; a round where two questions needed the
@@ -124,12 +138,12 @@ right answers, duplicate choices, a group outside 1 to 10, or a pattern with mor
 
 ```
 node tests/content-check.js                          # content correctness, no browser needed
-cd www && python3 -m http.server 8802 &              # then:
-node tests/e2e.js http://localhost:8802 [shots-dir]  # needs Playwright with Chromium
+cd www && python3 -m http.server 8852 &              # then:
+node tests/e2e.js http://localhost:8852 [shots-dir]  # needs Playwright with Chromium
 ```
 
 Debug hooks (only with `?debug=1`): `__kc.state()`, `__kc.question()`, `__kc.validate()`, `__kc.answer()`,
-`__kc.wrong()`, `__kc.start(activity, level)`, `__kc.home()`, `__kc.save()`, `__kc.gateAnswer()`, `__kc.spoken`.
+`__kc.wrong()`, `__kc.start(activity, level)`, `__kc.home()`, `__kc.save()`, `__kc.gateAnswer()`, `__kc.hide(true|false)` (pretend the tab is hidden), `__kc.spoken`.
 In debug mode the right choice also carries `data-correct="1"`, memory cards carry `data-animal`, and the bowl
 carries `data-target`.
 

@@ -1,6 +1,6 @@
 /* Dewclaw service worker: the app shell works with no signal, and settings
    changes still reach the phone. Bump VERSION whenever index.html changes. */
-const VERSION = "dewclaw-2026.11.15b";
+const VERSION = "dewclaw-2026.11.15c";
 const SHELL = ["./", "./index.html", "./config.js", "./manifest.webmanifest", "./privacy.html", "./terms.html",
                "./icons/icon-192.png", "./icons/icon-512.png", "./icons/maskable-512.png", "./vendor/three.min.js"];
 
@@ -9,7 +9,7 @@ self.addEventListener("install", e => {
 });
 
 self.addEventListener("activate", e => {
-  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== VERSION).map(k => caches.delete(k))))
+  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k.startsWith("dewclaw-") && k !== VERSION).map(k => caches.delete(k))))
     .then(() => self.clients.claim()));
 });
 

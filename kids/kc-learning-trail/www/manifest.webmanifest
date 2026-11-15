@@ -1,7 +1,7 @@
 {
   "name": "KC's Learning Trail",
   "short_name": "KC Learning",
-  "description": "Counting, letters, colours, shapes, patterns, memory and comparing for ages 3 to 6, with KC the dog. No ads, no data collection, works offline.",
+  "description": "Counting, letters, colors, shapes, patterns, memory and comparing for ages 3 to 6, with KC the dog. No ads, no data collection, works offline.",
   "lang": "en",
   "dir": "ltr",
   "start_url": "./index.html",
