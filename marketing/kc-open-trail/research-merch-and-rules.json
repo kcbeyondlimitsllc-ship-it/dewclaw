@@ -1,0 +1,942 @@
+[
+ {
+  "findings": [
+   {
+    "id": "gta-cash-card-ladder",
+    "finding": "GTA Online premium currency price ladder (after 6 Dec 2022): 5 tiers at USD 4.99 / 9.99 / 19.99 / 49.99 / 99.99 granting GTA$250k / 600k / 1.5M / 4.25M / 10M. Value per dollar rises with tier: about 50k, 60k, 75k, 85k, 100k GTA$ per USD (top tier gives 2x the per-dollar value of the bottom). The USD 2.99 entry card (GTA$100k) was delisted in Dec 2022. Subscribers get +25% on every card (was +15% at launch). Per-dollar ratios are my arithmetic from the wiki table.",
+    "source": "https://gta.wiki/w/Shark_Cards",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "Gem packs: 4-5 Stripe price points (e.g. $1.99/$4.99/$9.99/$19.99/$49.99) with a visible bonus that grows per tier, capped well below 2x for a kids-adjacent audience. Consider skipping a $99.99 tier entirely; show 'bonus gems' as a plain number, not a pressure banner."
+   },
+   {
+    "id": "gta-subscription",
+    "finding": "GTA+ subscription: launched 29 Mar 2022 at USD 5.99/month, raised to USD 7.99 on 11 Apr 2024. Grants: GTA$500,000 deposited monthly, a complimentary vehicle to claim, member-only clothing and liveries, a 100-vehicle five-floor member garage, a member workshop with discounted mods and no rank requirements, 20%+ discounts and early access on rotating showroom vehicles, a quality-of-life app (remote business earnings collection), a rotating library of older games, one extra daily prize-wheel spin, and bonus on currency cards. Rockstar's own support article returned HTTP 503, so this is from the fan wiki.",
+    "source": "https://gta.wiki/w/GTA%2B",
+    "confidence": "likely",
+    "hasNumberOrRule": true,
+    "applyHow": "Optional 'Trail Club' monthly membership via Stripe Billing: monthly gem stipend worth more than the fee at pack rates, one member-only cosmetic per month (collar/bandana/kennel skin), a bigger kennel/garage, a convenience perk (collect all business income from one menu), and a real-world perk no other game can offer: a merch discount code or free sticker at Printify. Skip the prize-wheel spin (conflicts with the no-loot-box promise)."
+   },
+   {
+    "id": "gta-property-tiers",
+    "finding": "GTA Online housing is a 6-step ladder where each tier roughly doubles price and adds storage capacity: low-end $80k-$121k (2-car garage), medium $125k-$175k (6 cars), high-end $200k-$400k (10 cars, plus a planning room that gates heists), updated-interior high-end $468k-$500k, stilt houses $449k-$800k, custom penthouses $905k-$1.1M with 8 switchable interior styles. Players can own up to 10 properties (raised over time from 1); trading in an old property refunds 50% of its original price; businesses do not count toward the cap.",
+    "source": "https://gta.wiki/w/Apartments",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "Dog-home ladder bought with bones: tent/doghouse -> cabin -> river cottage -> hillside house -> Portland loft, each about 2x the previous price and adding gear/outfit storage plus one functional unlock (e.g. a planning board that opens a mission chain). Offer 50% trade-in on the old home; raise the ownership cap in later updates as a retention beat."
+   },
+   {
+    "id": "gta-business-structure",
+    "finding": "A GTA Online business is a stack of separate sinks around one property: (1) location purchase with price varying by convenience (nightclub: 10 locations, $1.08M-$1.7M; bunker: 11 locations, $1.165M-$2.375M in the location table); (2) exactly three functional upgrades named equipment / staff / security (nightclub: $1,425,000 / $475,000 / $695,000), each fixing a different pain (faster production, slower decay, fewer raids); (3) capacity add-ons (nightclub storage floors up to $1,702,550 total, garage floors up to $441,350); (4) pure cosmetics (3 interior styles $175k-$300k, 4 light rigs $88k-$295k, name signs $33.5k each, dancers $213.5k-$255k, dry ice $345k). Fully kitting out costs several times the entry price.",
+    "source": "https://gta.wiki/w/Nightclubs",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "Each business (dog bakery, grooming van, kayak rental, coffee cart, trail-guide hut) gets: 3-5 locations at different prices; three one-time upgrades (equipment = faster output, staff = slower decay, 'good neighbour' = fewer interruptions); 2-4 capacity add-ons; and a cosmetic set (style, sign, awning, mascot). Price upgrades at roughly 0.4x-1.3x the property price so the full kit is 3-4x entry cost."
+   },
+   {
+    "id": "gta-passive-income-cap",
+    "finding": "Passive income is capped and decays to force return visits: the nightclub pays $50,000 per in-game day (48 real minutes) at 100% popularity, falling to $9,500 at 50% and $1,500 at 0%; income lands in a safe capped at $250,000 and excess is lost. Popularity is kept up by short management missions or by simply being present (+1% per minute dancing below 50%).",
+    "source": "https://gta.wiki/w/Nightclubs",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "Businesses earn bones while the player plays (not offline, or offline up to a cap) into a till with a cap of about 5 payout cycles. A 'popularity' meter decays and is restored by a 2-minute wholesome errand (deliver treats, greet customers). Steep drop below 50% makes upkeep feel worthwhile without ever going negative."
+   },
+   {
+    "id": "gta-upkeep-fees",
+    "finding": "Businesses carry recurring upkeep that scales with upgrades: bunker daily fee is $2,000 base + $800 (equipment) + $1,000 (staff) + $700 (security) = $4,500/day fully upgraded. Fees were roughly halved in a later update (previously $9,400/day), i.e. the developer reduced an unpopular sink. Optional bunker add-ons are separate purchases: living quarters $265k, activity range $740k-$845k, storage locker $175k, on-site buggy $85k-$120k, 3 styles $175k-$290k.",
+    "source": "https://gta.wiki/w/Bunker",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "If using upkeep, keep it small (under 10% of a day's business income) and never let it take a child's balance negative; safer alternative for this audience is no upkeep and a decaying popularity meter instead. Sell optional 'rooms' per business (nap room, treat pantry, mini-golf cart) as separate one-off bone sinks."
+   },
+   {
+    "id": "gta-supplies-loop",
+    "finding": "Production businesses in GTA Online convert supplies into stock that is sold via a delivery mission; supplies can be bought with cash or fetched for free via a mission, and equipment/staff upgrades raise output. Specific numbers (supply cost, production time, full-stock values, distance sell bonus) could not be retrieved from the wiki pages fetched.",
+    "source": "https://gta.wiki/w/Bunker",
+    "confidence": "unverified",
+    "hasNumberOrRule": false,
+    "applyHow": "Pattern only: bakery needs flour (buy for bones = time-saver sink, or fetch via a short errand = free); stock builds over play time; a delivery run sells it with a bonus for farther drop-offs. Pick own numbers and tune by playtest."
+   },
+   {
+    "id": "gta-vehicle-upgrades",
+    "finding": "Vehicle upgrade shop splits into performance tiers and cosmetics. Performance: engine 4 levels, brakes 3 tiers (street/sport/race), transmission 3 tiers, suspension 3-5 options, armour in steps from 20% to 100%, plus turbo. Parts unlock by player rank and some by winning races. Cosmetics: about a dozen slots (bumpers, exhaust, grille, hood, skirts, roof, spoiler, horns, lights, window tint, plates, liveries), resprays in 6 finish classes (classic, matte, metallic, pearlescent, chrome, brushed), and 7 wheel families each with colour options. Per-tier prices are on a separate page not retrieved.",
+    "source": "https://gta.wiki/w/Los_Santos_Customs",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "For each ride (skateboard, bike, kayak, sidecar, van): 3-4 performance tracks with 3-4 tiers each (speed, handling, stamina/range, cargo) at roughly doubling prices, unlocked by level or by winning a trail race; plus 8-12 cosmetic slots and paint finishes as a long tail. Same structure for the dog: collar, harness, bandana, boots, backpack, coat pattern accents."
+   },
+   {
+    "id": "gta-dailies",
+    "finding": "Daily objectives: 3 per day; completing all three pays $30,000 + 5,000 RP; 7-day streak bonus $150,000; 28-day streak bonus $750,000 (25x a single day); resets at 06:00 UTC. A separate weekly challenge (one objective, same for all players) pays $100,000 and resets Thursdays.",
+    "source": "https://gta.wiki/w/Daily_Objectives",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "3 daily 'sniff-outs' paying a modest bone bundle, plus one weekly town goal. Streak bonuses at 7 and 28 days, but for a family audience add a grace day or 'streak saver' so a missed day does not wipe progress, and never sell streak repair for gems."
+   },
+   {
+    "id": "gta-weekly-events",
+    "finding": "GTA Online runs a weekly rotation (reset Thursdays): 2x/3x rewards on a named activity, 30-50% discounts on a handful of named properties/vehicles/upgrades (2021 examples: 40% off offices, 50% off hydraulics, several 30-35% markdowns), and one featured prize vehicle. Based on third-party recaps of past weeks; the current week's Newswire post was not retrieved.",
+    "source": "https://racinggames.gg/article/gta-online-weekly-update-live-4-march-2021-new-podium-car-discounts-new-content-revealed-diamond-casino-deals-money-glitch-save",
+    "confidence": "likely",
+    "hasNumberOrRule": true,
+    "applyHow": "A config-driven weekly 'Town Bulletin': one activity at 2x bones, 3-5 items at 25-40% off in bones, one featured free cosmetic earned by a set task (not a wheel). Mirror it in the real shop: one merch product of the week with a Printify discount code shown in the same bulletin."
+   },
+   {
+    "id": "rdo-roles",
+    "finding": "Red Dead Online gates each 'career' behind a one-time premium-currency licence, then monetises progression inside it with soft currency: the Trader role costs 15 gold bars (a butcher's table); Collector and Bounty Hunter also 15 gold bars. Each role has 20 ranks in four 5-rank tiers (Novice, Promising, Established, Distinguished). Rank-ups grant role tokens; role items cost cash AND tokens, e.g. medium delivery wagon $500 + 1 token (tier 2), large wagon $750 + 2 tokens (tier 3), hunting wagon $875 + 2 tokens, stew pot $650 + 1 token. Passive skill perks unlock at fixed ranks (6, 7, 8, 11, 13, 16).",
+    "source": "https://www.gtabase.com/red-dead-redemption-2/roles/trader-role",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "Careers (Trail Guide, Baker, Fetch Courier, River Ranger, Photographer): unlock with gems OR a large bone price so nothing is paywalled; 20 ranks in 4 named tiers; each rank gives a 'badge' token; role gear costs bones + badges so money alone cannot skip play. Capacity tiers small/medium/large for the delivery cart are the main income upgrade."
+   },
+   {
+    "id": "rdo-gold-and-pass",
+    "finding": "Red Dead Online premium currency: gold bars sold from 25 for USD 9.99 (about $0.40 each) to 350 for USD 99.99 (about $0.29 each), with a one-time starter offer of 25 for USD 4.99 (50% off). Gold is also earnable in play via daily challenges (seven general plus up to three per role), with streak multipliers; exact multiplier tiers conflict between sources. The Outlaw Pass No. 3 cost 40 gold bars, had 80 ranks, and returned 40 gold bars across 8 ranks (5 each), i.e. it refunded itself if completed.",
+    "source": "https://www.shacknews.com/article/119470/red-dead-online-outlaw-pass-no-3-ranks-and-rewards",
+    "confidence": "likely",
+    "hasNumberOrRule": true,
+    "applyHow": "Offer a one-time half-price starter gem pack; let small amounts of gems be earned from dailies so non-payers can reach a career licence in about 2-3 weeks. If adding a seasonal 'Trail Pass', make it non-expiring (no FOMO), cosmetic-led, and refund its gem cost at milestones."
+   },
+   {
+    "id": "acnh-house-ladder",
+    "finding": "Animal Crossing New Horizons house ladder: 7 loan stages after the tent with a smooth, front-loaded curve: 98,000 -> 198,000 -> 348,000 -> 548,000 -> 758,000 -> 1,248,000 -> 2,498,000 Bells (ratios about 2.0x, 1.76x, 1.57x, 1.38x, 1.65x, 2.0x). Each stage adds a visible room and storage (80, 120, 240, 320, 400, 800, 1,600 slots). The upgrade is delivered first and paid off after as a debt; the wiki text retrieved does not mention interest or deadlines. After the last loan, 6 further pure storage expansions cost 500k, 700k, 900k, 1.2M, 1.5M, 1.8M (to 9,000 slots). Whole track totals 12,296,000 Bells. Paying off all loans makes exterior customisation (normally 5,000 Bells) free forever.",
+    "source": "https://nookipedia.com/wiki/Player_house",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "Add a friendly 'build now, pay later in bones' option for home and business upgrades with no interest and no deadline, shown as a progress bar the player can chip at. Seven room stages then six storage-only stages gives 13 purchases from one system. Reward final payoff with a permanent perk (free repaints)."
+   },
+   {
+    "id": "acnh-two-currencies-and-catalog",
+    "finding": "Animal Crossing New Horizons uses a second, activity-earned currency (Nook Miles) with tiered milestone achievements (e.g. catch 10 fish = 300 miles, increasing per tier) and renewable daily goals; miles buy inventory upgrades, tool-wheel convenience, recipes, haircuts and outdoor furniture, and convert to the main currency at 500 miles = 3,000 Bells. The catalogue shop shows up to 11 rotating daily items, limits orders to 5 per day delivered next day, lets players send 2 gifts per day, and sells seasonal items for about 120 to 7,000 Bells (sell-back is 25% of buy price). The app version of the shop unlocks after buying 100 items.",
+    "source": "https://nookipedia.com/wiki/Nook_Shopping",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "Add 'Trail Miles' earned only by doing things (walks, photos, fetches) for convenience upgrades (bigger backpack, quick-select wheel) so real money never buys them. Decor shop: 8-12 rotating items daily, seasonal Oregon sets (rain season, berry season, salmon run, snow day), a collected-items catalogue with completion percentage, gifting to friends, and sell-back at 25%."
+   },
+   {
+    "id": "stardew-tool-ladder",
+    "finding": "Stardew Valley tool upgrades: 4 tiers per tool (copper, steel, gold, iridium) at 2,000 / 5,000 / 10,000 / 25,000 gold (multipliers 2.5x, 2x, 2.5x), each also needing 5 bars of a crafted material, must be bought in order, and the tool is unavailable for 2 days while upgrading. Applies to 4 tools, so 16 purchases totalling 168,000g. Backpack: two upgrades at 2,000g and 10,000g (24 then 36 slots).",
+    "source": "https://stardewvalleywiki.com/Tools",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "Dog gear with 4 tiers each (leash/harness, digging paws, nose/scent tracker, swim vest, backpack): price in bones about 2-2.5x per tier plus 5 of a gathered material (river stones, pine resin), so upgrades need both playing and paying. Skip or shorten the 2-day lockout for kids (e.g. ready 'after your next nap')."
+   },
+   {
+    "id": "stardew-building-ladder",
+    "finding": "Stardew Valley buildings use 3-step chains with about 2x price steps plus rising material costs: coop 4,000g -> big 10,000g -> deluxe 20,000g; barn 6,000g -> 12,000g -> 25,000g; shed 15,000g -> big shed 20,000g. Farmhouse: 10,000g + 450 wood -> 65,000g + 100 hardwood -> cellar 100,000g, each taking 3 days. After the second house upgrade, 8 optional instant renovations open at 10,000g to 150,000g and are fully refundable. Cheap utility buildings (well 1,000g, silo 100g, pet bowl 5,000g) fill the low end; a 200,000g furniture catalogue is a luxury sink.",
+    "source": "https://stardewvalleywiki.com/Carpenter%27s_Shop",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "Every buildable (kennel, treat garden, boat dock, workshop) gets a basic/big/deluxe chain at about 1x/2x/4x with materials. Make cosmetic renovations instant and fully refundable in bones so children can experiment without regret."
+   },
+   {
+    "id": "stardew-endgame-sinks",
+    "finding": "Stardew Valley's post-story money sinks are 20x-100x normal prices and buy convenience or prestige rather than power: four fast-travel obelisks at 500,000g, 500,000g, 1,000,000g and 1,000,000g (plus rare materials) and a Gold Clock at 10,000,000g whose only effect is removing chores (no debris, fences never decay). A repeatable micro-sink charges 500g per appearance change.",
+    "source": "https://stardewvalleywiki.com/Wizard%27s_Tower",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "After the main story add 4-5 prestige bone sinks: fast-travel trail markers per region (about 20-40x a mid-game item), and one monument-class item (golden fire hydrant / town statue of the dog) at about 100x that removes a chore. Charge a small bone fee for re-styling the dog."
+   },
+   {
+    "id": "forza-structure",
+    "finding": "Forza Horizon 5 sells no premium currency; real-money spend is one-off DLC: a VIP membership (2x credit race rewards permanently, weekly bonus wheelspins, a gift house, 3 exclusive cars, vanity items), a Car Pass (42 cars), a Welcome Pack (5 cars, a house, a voucher), two map expansions (each 10 cars plus a new map and events), a Treasure Map that reveals all collectible locations, and edition bundles (Standard / Deluxe / Premium, plus an add-ons bundle for upgraders). Base game ships 773 cars. Prices are not on the official list page.",
+    "source": "https://forza.net/fh5dlclist",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "Offer permanent one-time Stripe purchases alongside gems, which suit parents better than consumables: 'Supporter Pack' (permanent 2x bones from jobs + exclusive collar + a cabin), 'Treasure Map' (shows all collectibles), a region expansion (new district + missions + 10 items), and a bundle of everything at a discount. Real-world twist: a physical merch bundle that includes a code unlocking the matching in-game item."
+   },
+   {
+    "id": "forza-houses",
+    "finding": "Forza Horizon 5 has 7 player houses priced from 150,000 to 5,000,000 credits, and each grants a different permanent perk rather than just storage (reported perks: fast travel anywhere, a daily free spin, bonus spins, a free car, doubled seasonal points). Individual house prices conflict between guide sites, and the wiki page returned HTTP 402.",
+    "source": "https://gamespot.com/articles/forza-horizon-5-player-houses-all-locations-prices-and-perks/1100-6497650/",
+    "confidence": "unverified",
+    "hasNumberOrRule": true,
+    "applyHow": "Give every purchasable property one unique account-wide perk (fast travel from anywhere, daily free treat bundle, +10% job pay, extra daily objective) so players want all of them, with a 30x spread from cheapest to dearest."
+   },
+   {
+    "id": "roblox-pass-vs-product",
+    "finding": "Roblox formally separates two purchase types: passes are a 'one-time Robux fee to access special privileges' (restricted area, avatar item, permanent power-up), while developer products are items 'a user can purchase more than once' (currency, ammo, potions), priced from 1 Robux to 1 billion. Passes promoted on the platform store must be priced above 49 and below 801 Robux and cannot grant paid random items; randomised rewards fall under a separate Randomized Virtual Item Policy.",
+    "source": "https://create.roblox.com/docs/production/monetization/passes",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "Model the Stripe catalogue as two SKU types: permanent entitlements (stored server-side per account, restorable) and consumable gem packs. Keep everything deterministic: the buyer always sees exactly what they get, consistent with the no-loot-box promise."
+   },
+   {
+    "id": "roblox-multiplier-passes",
+    "finding": "Roblox tycoon/simulator games commonly sell permanent multiplier passes: 2x currency, VIP (often +0.5x plus perks), 2x rebirth tokens. Observed listing prices cluster around 249-700 Robux (examples: 249, 299, 375, 399, 499, 700). Guides note multipliers usually stack additively rather than multiplicatively (2x + VIP = 2.5x-3x, not 4x) and that money passes lose relative value at high rebirth counts. Prices and stacking rules conflict between sources.",
+    "source": "https://www.rolimons.com/gamepass/5944009",
+    "confidence": "unverified",
+    "hasNumberOrRule": true,
+    "applyHow": "One or two permanent boosts at most (2x bones from jobs; +1 business till capacity), priced like a mid gem pack, stacking additively and capped so the economy stays tunable. State the exact multiplier and that it never expires on the purchase screen behind the grown-up gate."
+   },
+   {
+    "id": "roblox-rebirth",
+    "finding": "The rebirth/prestige loop in Roblox simulators: on reaching a ceiling the player voluntarily resets currency and purchasable upgrades in exchange for a permanent stacking earnings multiplier; recommended practice is to keep cosmetics and achievements, avoid resetting too much, and set rebirth costs high enough that players cannot chain many rebirths instantly. Sources are implementation guides and a glossary making retention claims without data.",
+    "source": "https://www.creation.dev/glossary/rebirth",
+    "confidence": "unverified",
+    "hasNumberOrRule": false,
+    "applyHow": "Optional post-story 'New Season' for a single business only (never the whole save): reset that business's upgrades for a permanent +10-25% income star and a cosmetic plaque, max 5 stars, each star costing about 3x the last. Never reset homes, cosmetics, or anything bought with gems."
+   },
+   {
+    "id": "synthesis-sink-taxonomy",
+    "finding": "Across the games studied the same eight sink types recur: (1) housing ladder with storage, (2) income property + 3 functional upgrades + capacity add-ons, (3) vehicle/tool performance tiers of 3-4 steps, (4) large cosmetic catalogues with rotating/seasonal stock, (5) convenience (fast travel, inventory, remote collection), (6) recurring upkeep or supplies, (7) prestige items at 20-100x normal prices for post-story players, (8) small repeatable fees (restyle, repaint). Tier counts are consistently 3-4 for functional upgrades and 6-13 for housing; adjacent price steps are consistently about 1.4x-2.5x. This is my synthesis of the sourced findings above, not a claim from a single source.",
+    "source": "https://nookipedia.com/wiki/Player_house",
+    "confidence": "likely",
+    "hasNumberOrRule": true,
+    "applyHow": "Build one data table (id, category, tier, bone price, gem price or null, prerequisite, effect) covering all eight sink types, generated from a base price times a 2x step per tier. Keep gems to cosmetics, time-savers and career licences, with every gem item also reachable by play."
+   }
+  ],
+  "notes": "Research limits: Firecrawl was out of credits, so all data came through WebSearch/WebFetch (page answers are model-summarised extracts of the pages, not raw HTML). Pages that failed: Rockstar's official GTA+ support article (HTTP 503), Red Dead and Forza Fandom wikis (HTTP 402), gta.wiki business/research sub-pages (404), GamesRadar gold-bar article (truncated). As a result: GTA business supply costs, production times and sell bonuses are unverified; per-tier vehicle upgrade prices were not retrieved; Forza Horizon house prices and car price ranges are unverified (guide sites conflict); Red Dead Online gold-bar pack prices come from a search snippet of an undated GamesRadar article; Roblox pass prices and rebirth claims come from third-party listings and guides, not Roblox. Most confirmed numbers are from fan-maintained wikis (gta.wiki, Nookipedia, Stardew Valley Wiki, GTABase) plus official Roblox Creator docs and forza.net; none is from the publishers' own price lists except Roblox and Forza. No GDC talk or named industry report was retrieved. Minor source inconsistencies: gta.wiki says cash card values rose 20% in Dec 2022 but its own figures show 25%; the bunker infobox price range ($4.07M max) disagrees with its location table ($2.375M max); the Nookipedia house total (12,296,000 Bells) excludes the tent fee. Wiki text did not state whether Animal Crossing loans carry interest or deadlines. The 'applyHow' entries are my design suggestions, not sourced facts; items touching children (streaks, subscriptions, multipliers, passes) should be checked against the developer's own no-loot-box and no-tracking promises and against a regulatory review, which this topic did not cover. No files were edited and no developer or business names were used in any query."
+ },
+ {
+  "findings": [
+   {
+    "id": "ACPC-1",
+    "finding": "Animal Crossing: Pocket Camp was relaunched in December 2024 as a one-time-purchase app (Pocket Camp Complete): US$9.99 introductory price until 31 Jan 2025, then US$19.99. It has no in-app purchases and no subscription; the premium currency (Leaf Tickets) and the Pocket Camp Club subscription features were removed, and previously paid/limited items were folded into normal play. Save transfer from the free version was allowed until 2 June 2025.",
+    "source": "https://animalcrossingworld.com/2024/10/animal-crossing-pocket-camp-complete-removes-microtransactions-costs-10-launching-in-december/ ; https://www.macrumors.com/2024/12/02/animal-crossing-pocket-camp-complete ; https://gamedeveloper.com/business/the-free-to-play-version-of-animal-crossing-is-becoming-a-20-premium-release",
+    "confidence": "likely",
+    "hasNumberOrRule": true,
+    "applyHow": "Offer a single 'Trail Pass for Life' / complete edition (about $10 intro, $20 regular) that unlocks all current cosmetic catalogues and removes any need for gems. Parents of child players strongly prefer one known price; it also gives a clean answer to 'what does this cost in total?'. Keep gems for people who want to buy piecemeal."
+   },
+   {
+    "id": "ACPC-2",
+    "finding": "The original free Pocket Camp added paid randomised 'fortune cookies' about six months after launch; critics treated them as loot boxes, with no duplicate protection. Nintendo ended the game's service in Belgium on 27 Aug 2019, citing 'the current unclear situation in Belgium regarding certain in-game revenue models'. Nintendo did not name the mechanic; press inferred the fortune cookies.",
+    "source": "https://animalcrossingworld.com/2019/05/animal-crossing-pocket-camp-is-shutting-down-in-belgium-due-to-loot-box-regulations/ ; https://techradar.com/news/nintendo-is-shutting-down-animal-crossing-pocket-camp-in-belgium-due-to-loot-box-regulation-concerns ; https://animalcrossingworld.com/guides/pocket-camp/fortune-cookies-how-to-get-stamp-cards-odds-duplicates/",
+    "confidence": "likely",
+    "hasNumberOrRule": true,
+    "applyHow": "Keep the existing no-loot-box promise absolute: every paid item is shown and chosen before purchase. If a 'surprise' mechanic is wanted, make it free (earned from play) or sell fixed, fully listed bundles. Never add random paid draws later; that is the exact change that drew backlash and a market exit."
+   },
+   {
+    "id": "ACPC-3",
+    "finding": "Pocket Camp Club (Nov 2019) sold tiered monthly subscriptions: Happy Helper Plan US$2.99/month (a helper character that auto-completes tasks, one-month free trial) and Cookie & Depot Plan US$7.99/month (five fortune cookies a month plus extra storage 'warehouse'), later renamed Furniture & Fashion Plan; a US$0.99/month Merry Memories Plan was added later. Both main plans also cut crafting timers. Fan commentary criticised stacking subscriptions on top of existing microtransactions.",
+    "source": "https://animalcrossingworld.com/2019/11/pocket-camp-club-paid-subscription-plans-benefits-and-prices-fully-detailed/ ; https://videogameschronicle.com/news/animal-crossing-pocket-camp-launches-optional-7-99-p-month-subscription ; https://animalcrossingpocketcamp.wiki.gg/wiki/Pocket_Camp_Club",
+    "confidence": "likely",
+    "hasNumberOrRule": true,
+    "applyHow": "If a membership is added, keep it to one plan at a low price ($2.99-$4.99/month) with clear contents: a monthly gem stipend, a monthly dog outfit, extra photo-album and wardrobe storage, and a standing merch discount code. Avoid multiple overlapping tiers and avoid selling timer skips; storage and a helper companion were the benefits people actually subscribed for."
+   },
+   {
+    "id": "PGO-1",
+    "finding": "Pokemon GO sells storage as a repeatable, permanent convenience upgrade: each item-bag or creature-storage upgrade adds 50 slots for 200 PokeCoins. Coin packs run from 100 coins for US$0.99 to 5,200 for US$39.99 (so a storage upgrade is roughly US$2). A standard single-use incubator is 150 coins, a faster one 200. One source puts the storage cap at 2,000 slots (unverified, caps have been raised over time).",
+    "source": "https://gamewith.net/pokemongo/article/show/3012 ; https://sportskeeda.com/pokemon/pokemon-go-shop-changes-january-2023-all-items-prices ; https://ggrecon.com/guides/pokemon-go-item-shop-prices-boxes-items",
+    "confidence": "likely",
+    "hasNumberOrRule": true,
+    "applyHow": "Sell permanent capacity in fixed steps at about $2 each: wardrobe slots for dog outfits, photo album pages, doghouse/camp decoration slots, extra saved outfit presets, extra companion kennel slots. Fixed step size and price, purchasable repeatedly, never expiring. Give a generous free base so the upgrade feels like room to grow, not a wall."
+   },
+   {
+    "id": "PGO-2",
+    "finding": "Pokemon GO lets players earn the premium currency through play, capped at 50 PokeCoins per 24 hours from defending gyms. With a 200-coin storage upgrade, a non-paying player can earn one permanent upgrade in about four days.",
+    "source": "https://www.sportskeeda.com/pokemon/pokemon-go-shop-prices-boxes-items-offerings",
+    "confidence": "likely",
+    "hasNumberOrRule": true,
+    "applyHow": "Let players earn a small capped trickle of gems from daily play (for example a daily good-deed mission or business payout worth up to about a quarter of the cheapest paid item). It keeps children who cannot pay inside the cosmetic economy, and the daily cap protects revenue."
+   },
+   {
+    "id": "PGO-3",
+    "finding": "Paid event tickets are a core Pokemon GO product. The global GO Fest 2025 ticket was US$14.99 (US$10.99 in 2022); monthly Community Day special-research tickets are US$1.99 as of 2026 (raised from about US$0.99 in early 2025, which itself drew price-hike coverage). The event itself stays free to join; the ticket adds a story questline and extra rewards. Tickets can be gifted to friends, and early purchase unlocks a bonus timed task.",
+    "source": "https://pokemongo.com/news/communityday-july-2026-sobble ; https://pokemongo.com/news/202601_communityday-february-2026-vulpix ; https://sportskeeda.com/pokemon/pokemon-go-fest-2025-tickets-general-price-add-ons ; https://www.digitaltrends.com/gaming/pokemon-go-community-day-price-hike/",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "Run seasonal town festivals (river festival, harvest fair, winter lights) that everyone can attend for free, with an optional festival pass: about $1.99 for a small monthly one, $4.99-$9.99 for a big seasonal one. The pass adds a festival questline, a themed dog outfit, camp decor and photo stickers, all listed up front. Add a 'gift a pass' button (grown-up gate applies) and keep the price steady; doubling a small ticket price generated its own negative news cycle."
+   },
+   {
+    "id": "PGO-4",
+    "finding": "In March 2023 Niantic nearly doubled the Remote Raid Pass price (100 to 195 coins; three-pack 300 to 525) and capped use at 5 per day. Players organised a week-long store boycott and a petition reached about 71,000 signatures; complaints centred on rural and disabled players losing access.",
+    "source": "https://alternativeto.net/news/2023/3/niantic-s-pokemon-go-faces-backlash-over-price-increase-of-remote-raid-passes ; https://www.pockettactics.com/pokemon-go/remote-raid-changes ; https://gamepress.gg/node/78226",
+    "confidence": "likely",
+    "hasNumberOrRule": true,
+    "applyHow": "Never raise the price of, or add limits to, something players already rely on. Publish a price-lock promise: anything bought stays owned, and gem prices for existing items do not go up. If prices must change, apply them only to new items. Avoid consumables that gate participation in events."
+   },
+   {
+    "id": "PGO-5",
+    "finding": "Pokemon GO earns money from real-world businesses through sponsored locations on a cost-per-visit model. Niantic stated in 2017 that sponsors pay under US$0.50 per daily unique visit; launch partners included McDonald's Japan and Starbucks (about 7,800 US stores, Dec 2016). Players receive virtual goods at the sponsor's location. Figures are from 2017 and current pricing is unverified.",
+    "source": "https://techcrunch.com/2017/05/31/pokemon-go-sponsorship-price ; https://gamedeveloper.com/business/-i-pokemon-go-i-dev-says-sponsored-locations-can-earn-it-nearly-0-50-per-visitor",
+    "confidence": "likely",
+    "hasNumberOrRule": true,
+    "applyHow": "Offer flat-fee 'featured local business' placements to real dog-friendly shops, cafes, groomers, outfitters and shelters in the towns the game depicts: a storefront in the game world with a small free in-game treat for visiting. Charge a flat monthly or annual fee instead of per visit, because per-visit billing needs player tracking and the game promises none. Label each as a sponsor. This is revenue that does not come from players or children at all."
+   },
+   {
+    "id": "PGO-6",
+    "finding": "Niantic runs a web store outside the app stores that sells the same coin packs at similar prices but adds bonus coins (for example 1,200 +60 up to 14,500 +1,000), because web purchases avoid the roughly 30% platform fee. Reports also describe a first-purchase discount (15% on orders above US$9.99, single-source).",
+    "source": "https://www.pokecharms.com/news/pokemon-go-launches-web-store-offering-bonus-pokecoins-discounts-for-direct-purchases/ ; https://charlieintel.com/pokemon/pokemon-go-web-store-pokecoins-offers-price-bundles-243556 ; https://pokemongohub.net/post/news/niantic-launches-the-pokemon-go-web-store/",
+    "confidence": "likely",
+    "hasNumberOrRule": true,
+    "applyHow": "The game already sells direct via Stripe, so the whole catalogue gets this margin. Use part of it for visible generosity: a modest bonus on larger gem packs and a one-time first-purchase bonus. Keep pack sizes in round numbers that map exactly onto item prices so no gems are left stranded."
+   },
+   {
+    "id": "ADOPT-1",
+    "finding": "Adopt Me (Roblox) sells permanent game passes rather than only consumables: sources describe seven to eight passes priced from about 67 to 1,200 Robux, none required for progression, including a VIP pass (about 600-750 Robux) and a premium house pass (about 245-350 Robux). It also sells specific premium pets directly at fixed prices (examples reported at 150, 400 and 500 Robux) and rotates limited-time shops. Exact current prices unverified.",
+    "source": "https://www.sportskeeda.com/roblox-news/exploring-gamepasses-roblox-adopt-me ; https://www.sportskeeda.com/roblox-news/the-final-stop-shop-roblox-adopt-me ; https://www.familygamingdatabase.com/game/Adopt+Me",
+    "confidence": "likely",
+    "hasNumberOrRule": true,
+    "applyHow": "Sell a short list of permanent one-off unlocks at clear prices: a supporter pass (badge, gold name tag, special bandana), a premium doghouse or riverside cabin, a second and third companion slot, a ride-along vehicle (canoe, bike trailer). Sell named companions (a puppy friend, a river otter, a barn cat) directly at a fixed price instead of through random eggs."
+   },
+   {
+    "id": "ADOPT-2",
+    "finding": "Adopt Me pets come from eggs with tiered random odds: the cheapest egg (350 in-game bucks) gives 45% common, 33% uncommon, 14.5% rare, 6% ultra-rare, 1.5% legendary; the standard egg 3% legendary; the 1,450-buck egg 8% legendary. Roblox platform policy requires creators to show the actual numerical odds before any purchase of a randomised item bought with Robux or in-experience currency (including indirect purchases via keys or tickets), to update displayed odds if they change, and it bars trading or selling the results of paid random items for value. Free earned random rewards are exempt.",
+    "source": "https://create.roblox.com/docs/production/monetization/paid-random-items ; https://www.sportskeeda.com/roblox-news/5-best-eggs-roblox-adopt-me ; https://techwiser.com/all-eggs-in-adopt-me/",
+    "confidence": "likely",
+    "hasNumberOrRule": true,
+    "applyHow": "Collection can still drive play without paid chance: hide companions and collectibles in the world to be found, befriended or earned from missions. If any random reward exists, make it purchasable only with earned bones, show the odds anyway, add duplicate protection, and never let gems buy bones-then-draws, because regulators and platforms treat indirect purchase the same as direct."
+   },
+   {
+    "id": "ADOPT-3",
+    "finding": "Parent-safety guides describe Adopt Me as wholesome in content but among the highest-risk Roblox games for scams, because pets are tradeable and valuable and the audience skews young. The studio added a trading licence that requires passing a scam-awareness quiz before high-value trades, publishes anti-scam support pages, and faces ongoing petitions over scammed pets.",
+    "source": "https://www.kinzoo.com/blog/is-adopt-me-safe-for-kids-in-2026-a-parents-guide ; https://support.playadopt.me/support/solutions/articles/153000189821 ; https://en.wikipedia.org/wiki/Adopt_Me! ; https://parentzone.org.uk/article/adopt-me",
+    "confidence": "likely",
+    "hasNumberOrRule": true,
+    "applyHow": "Do not build player-to-player trading of paid or rare items. Offer one-way gifting only (a grown-up buys a specific item for a named friend code) so there is no secondary market, no scam surface and no moderation burden for a solo developer."
+   },
+   {
+    "id": "NEKO-1",
+    "finding": "Neko Atsume uses two currencies: a common one earned passively and a premium one (gold fish) that is also earned in play and can be obtained by exchange (reported at 250 silver for 10 gold in the sequel). US App Store packs are small: 70 gold fish for $0.99, 170 for $1.99, 270 for $2.99, 400 for $3.99; the top purchase is under $5. The main sinks are toys/furniture that attract new cats, yard expansion and yard themes (remodels). Reviews praise the absence of forced ads and mandatory purchases.",
+    "source": "https://apps.apple.com/us/app/-/id923917775 ; https://apppricinglab.com/iap/apple/923917775 ; https://www.siliconera.com/how-to-get-gold-fish-in-neko-atsume-2/ ; https://gamebrain.co/game/neko-atsume-kitty-collector",
+    "confidence": "likely",
+    "hasNumberOrRule": true,
+    "applyHow": "Add a small-ticket tier: gem packs at $0.99, $1.99, $2.99 and $4.99 so a parent can say yes to a dollar. Let bones convert to gems at a steep fixed rate. Build the same loop: yard/camp items that attract visiting animals and neighbourhood dogs, which then appear in a collection album; sell camp expansions and whole camp themes (riverside, forest, snow, downtown patio)."
+   },
+   {
+    "id": "NEKO-2",
+    "finding": "Player reviews of Neko Atsume 2 complain that the sequel added more microtransactions and a subscription, reduced free premium-currency rewards, removed or weakened the silver-to-gold exchange and paywalled some content; reviewers frame it as a decline from the original's goodwill. These are aggregated user opinions, not developer statements.",
+    "source": "https://gamebrain.co/game/neko-atsume-2-kitty-collector ; https://appgoblin.info/apps/6499131935",
+    "confidence": "unverified",
+    "hasNumberOrRule": false,
+    "applyHow": "When adding new ways to spend, do not reduce what free players already get. Add new paid things alongside the existing economy; never retune bones income or remove an earn path in the same update that adds a shop."
+   },
+   {
+    "id": "CATS-1",
+    "finding": "Cats & Soup monetises through rewarded and forced ads plus paid relief from them: ad-removal passes sold by duration (7 days about $0.99, 30 days $2.99-$4.99), packs of 20 ad-skip tickets, a Daily Missions Pass (listed at $17.99), character 'package' bundles and gem packs; costumes come mostly from daily login rewards with limited ones in rotating pop-up shops. Store reviews praise the art and calm play but complain about long ads, time-limited passes that expire, and spending gems on outfits with unclear results.",
+    "source": "https://apps.apple.com/us/app/-/id1581431235",
+    "confidence": "likely",
+    "hasNumberOrRule": true,
+    "applyHow": "The game's no-ads promise is a selling point against this model; say so in the shop. Borrow only the costume side: a free outfit for a login streak or seasonal visit, plus a small rotating 'pop-up stall' in town with a few seasonal dog outfits. Sell permanent items, not passes that expire, and show exactly what an outfit looks like on the dog before purchase (a try-on preview)."
+   },
+   {
+    "id": "CP-1",
+    "finding": "Club Penguin was free to play with a paid membership of about US$5.95-$6 per month. Members-only content included clothing, igloo upgrades and furniture, costumes and some party rooms; non-members could play, chat and usually receive one free item at monthly parties. Reported paying share was small (a co-founder is quoted at under 2%; another source cites about 90% not paying). Recurring criticism: 'almost everything is members only', and a visible social divide and elitism toward non-members among children. The successor (US$4.99/month) drew the same complaint about too little for non-subscribers.",
+    "source": "https://www.engadget.com/2010-12-21-mmo-family-a-parents-look-at-club-penguin.html ; https://stuyspec.com/article/a-farewell-to-our-generation-s-favorite-childhood-game ; https://www.pocketgamer.biz/disney-reacts-to-f2p-concerns-with-subscription-tie-in-for-club-penguin-puffle-wild ; https://www.denofgeek.com/culture/where-have-all-the-online-gaming-spaces-for-kids-gone/",
+    "confidence": "likely",
+    "hasNumberOrRule": true,
+    "applyHow": "A parent-paid monthly club around $5 is a proven shape for a children's world, but keep the map, missions and festivals fully open. Make membership about extras (monthly outfit, stipend, storage, merch discount), give every festival a free item for everyone, and avoid 'members only' doors or labels that mark non-paying children as lesser. Let items granted during membership stay owned after it lapses."
+   },
+   {
+    "id": "CP-2",
+    "finding": "Club Penguin tied physical merchandise to the game: plush toys, books and magazines carried single-use codes that opened a special catalogue (the Treasure Book, launched Oct 2008) where the buyer picked exclusive in-game items, plus a coin bundle (500 coins per book); some plush unlocked the matching item, for example the hat the plush wore.",
+    "source": "https://clubpenguin.fandom.com/wiki/Treasure_Book ; https://forums.tomsguide.com/faq/how-to-unlock-items-with-codes-from-club-penguin-toys.22300/ ; https://www.walmart.com/ip/137843300",
+    "confidence": "likely",
+    "hasNumberOrRule": true,
+    "applyHow": "This is the direct model for building the merch shop into the game: every physical order generates a single-use code (emailed after the Printify order is paid) that unlocks the matching in-game item, so the real hoodie unlocks the dog's hoodie, the real collar unlocks that collar, plus a small gem bonus. Add a 'Merch Vault' catalogue page in the game showing each real product next to its in-game twin, where code holders choose a bonus item. Codes must be single-use and tied to the account on redemption."
+   },
+   {
+    "id": "WEBKINZ-1",
+    "finding": "Webkinz built its business on the physical-first version of that idea: each plush carries a unique secret code entered in an Adoption Center that unlocks the virtual pet and grants one year of full membership from the adoption date. In 2009 Ganz added a Deluxe Membership sold through its own eStore as a way to subscribe without buying plush; Deluxe includes everything in full membership plus a recurring eStore points allowance. Ganz warns players to buy codes only from its own store because third-party codes are an account-security risk. Official Deluxe price not confirmed (a resale listing showed about $33 for a year).",
+    "source": "https://webkinznewz.ganzworld.com/?p=853915 ; https://webkinznewz.ganzworld.com/?p=2282197 ; https://webkinz.fandom.com/wiki/Webkinz",
+    "confidence": "likely",
+    "hasNumberOrRule": true,
+    "applyHow": "Offer both doors: buy merch and get game content (code in the order confirmation), or buy in-game membership and get a merch perk (a standing discount code or a free sticker at a spend threshold). Consider a physical 'adoption kit' product (sticker, collar tag or ornament plus a code for an exclusive companion or outfit). Sell codes only through the developer's own store and say so."
+   },
+   {
+    "id": "DOGSIM-1",
+    "finding": "Nintendogs-style care sims (premium, no real-money purchases) structure spending around two tracks: money, earned from competitions and spent in a pet-supply shop and an accessory shop (collars, hats, glasses, bows), and trainer/owner points, a non-spendable progress score earned from care that unlocks shop stock and room interior designs at thresholds (one guide lists an interior at 6,000 points; some items need 300 points). Owner points have a per-pet daily cap. Rare accessories are found as presents on walks, and a recycle shop trades materials found on walks for exclusive items. Details come from fan wikis and vary by version.",
+    "source": "https://nintendogs.fandom.com/wiki/Dot_Collar ; https://www.thonky.com/nintendogs-plus-cats/list-of-items ; https://tvtropes.org/pmwiki/pmwiki.php/VideoGame/Nintendogs",
+    "confidence": "likely",
+    "hasNumberOrRule": true,
+    "applyHow": "Add a non-purchasable 'good dog' reputation score that unlocks shop tiers and doghouse interiors at milestones, so upgrades feel earned and money alone cannot skip the game. Hide rare collars and bandanas as finds along trails. Add a trade-in stall where trail finds (sticks, river stones, pinecones) exchange for exclusive decor; that gives bones and exploration real spending depth alongside gems."
+   },
+   {
+    "id": "REG-1",
+    "finding": "US FTC v. Cognosphere (Genshin Impact), announced January 2025: US$20 million penalty; children under 16 may not buy loot boxes without a parent's affirmative express consent; loot boxes may not be sold via virtual currency unless they can also be bought directly with real money; the company must disclose loot-box odds and exchange rates for multi-tiered virtual currency and must not misrepresent odds, prices or features. The FTC alleged that converting real money through layered currencies in unusual denominations misled players about how much they were spending.",
+    "source": "https://www.ftc.gov/news-events/news/press-releases/2025/01/genshin-impact-game-developer-will-be-banned-selling-lootboxes-teens-under-16-without-parental",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "Keep one premium currency only and one step from money to item. Show a real-money price beside every gem price (for example '150 gems, about $1.50') and publish the gem exchange rate in the shop. Offer direct card purchase of bigger items without going through gems. Price items so that standard packs divide evenly."
+   },
+   {
+    "id": "REG-2",
+    "finding": "US FTC v. Epic Games (order finalised March 2023): US$245 million in refunds over design that led players, including children, to incur unwanted charges from a single button press; the order bars dark patterns, bars charging without affirmative consent, and bars locking accounts of people who dispute charges. A separate US$275 million penalty covered children's privacy (COPPA) violations.",
+    "source": "https://www.ftc.gov/node/80648 ; https://www.gamespot.com/amp-articles/epic-games-agrees-to-pay-500-million-in-fortnite-ftc-case/1100-6510151/ ; https://www.pymnts.com/news/regulation/2023/ftc-says-epic-games-set-to-refund-245-million-to-fortnite-players/",
+    "confidence": "likely",
+    "hasNumberOrRule": true,
+    "applyHow": "Every spend of gems needs a confirm step showing item, price and remaining balance; every real-money purchase goes through the grown-up gate and Stripe Checkout, never a saved one-tap card. Add a simple self-serve 'undo' for unused gem purchases within a short window and a refund contact, and never restrict an account because of a chargeback."
+   },
+   {
+    "id": "REG-3",
+    "finding": "European consumer authorities (the CPC network) issued principles on in-game virtual currencies in March 2025 and, per October 2026 legal commentary, launched coordinated action involving nine video-game companies covering virtual currency sales, children's data, parental-control defaults, potentially addictive design and direct marketing to children. The principles call for prices shown in real-world money and for not forcing players to buy more currency than they need. The UK advertising regulator's guidance prohibits direct exhortations to children to buy in all circumstances. No UK CMA-specific 2026 guidance was found.",
+    "source": "https://www.lewissilkin.com/insights/2026/10/15/eu-consumer-protection-network-launches-action-involving-nine-video-games-compani-102o5do ; https://lewissilkin.com/insights/2025/03/26/eu-bodies-act-against-gaming-companies-to-protect-children-from-in-game-purchase-102k658 ; https://www.asa.org.uk/static/21e9a90d-a7ac-4499-a57c66729cd5c3e1/In-game-purchasing-statement.pdf",
+    "confidence": "likely",
+    "hasNumberOrRule": true,
+    "applyHow": "Write shop and merch copy as description, not instruction: no 'Buy now!', 'Ask your grown-up!' or countdown pressure in child-visible screens. Put the merch shop behind the same grown-up gate, let exact gem amounts be bought for a specific item (pay-the-difference), and default spending controls to the strictest setting."
+   },
+   {
+    "id": "PATTERN-1",
+    "finding": "Across the games studied, what players pay for clusters into six categories: (1) outfits and accessories for the character or pet; (2) home, yard or camp space, themes and furniture; (3) companions or pets sold directly or as permanent passes; (4) storage and convenience capacity; (5) time-limited event tickets layered on free events; (6) membership bundling a stipend, storage and exclusive cosmetics. The mechanics that drew regulator action or organised backlash were paid randomness, layered currencies, price rises on relied-upon items, heavy member-only walls for children, forced ads, and tradeable valuables among young players. No source found in this pass documents paid photo-mode stickers or paid name tags in these specific titles.",
+    "source": "Synthesis of the sources cited in ACPC-1 to REG-3 above",
+    "confidence": "likely",
+    "hasNumberOrRule": false,
+    "applyHow": "Suggested catalogue for the dog game, all fixed-price and previewable: dog cosmetics (collars, bandanas, hats, coats, name-tag shapes and engraving styles); doghouse and camp (themes, furniture, yard expansions); named companions; capacity upgrades (wardrobe, album, decor, companion slots); seasonal festival passes; photo mode packs (sticker sheets, frames, filters, poses) as low-priced $0.99-$1.99 items; one optional club membership; one complete edition; merch-linked unlock codes; and flat-fee local business sponsorships. Photo stickers and name tags are an untested extension here, so launch them small and cheap."
+   }
+  ],
+  "notes": "Method and limits: Firecrawl was unavailable (account out of credits), so research used WebSearch plus one direct page fetch. Only the FTC Genshin press release was read in full as a primary source; Pokemon GO Community Day pricing rests on Niantic's own news pages surfaced in search. Everything else is marked 'likely' because it comes from search-result summaries of trade press, store listings, fan wikis and parent guides rather than pages I read end to end. Prices shift often (Adopt Me pass prices, Pokemon GO storage cap, Cats & Soup pass prices, Webkinz Deluxe price are the least certain). Not found: official Adopt Me egg odds from the studio itself, any developer statement on Neko Atsume's economy, the exact wording of the EU CPC principles, UK CMA guidance, and any evidence of paid photo-mode stickers or paid name tags in these titles. Dogz was not researched separately; Nintendogs stands in for care sims. No developer or business names were used in any query and no files were edited.\n\nYour Firecrawl credits ran out. Daily MCP credits refresh in 14h 47m. Add credits or upgrade to keep going: https://www.firecrawl.dev/billing/s/EzbVPgbsYzfHH2ia1vGkKs7D14GFE5eOfCwhCDPQImk"
+ },
+ {
+  "findings": [
+   {
+    "id": "M01",
+    "finding": "Roblox toy codes (Jazwares figures and Approved Merchandiser Program products): the code is on a token or scratch-off code card inside the packaging or on a hang tag; the player logs in, enters it on a single Code Redemption page, and the item appears in inventory. Rule: 'Each account can redeem a code for a given virtual item only once. If your account already has the item, you can give the code to another player. Virtual items from codes can't be traded or sold.'",
+    "source": "https://en.help.roblox.com/hc/en-us/articles/360000316606-How-to-Redeem-Toy-Virtual-Item-Codes",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "Build one 'Redeem a code' screen behind the grown-up gate. Server-side table: code -> reward item, redeemed_by, redeemed_at. Grant a cosmetic 'twin' (the in-game version of the hat, collar, bandana). Make redeemed twins account-bound and never tradeable or sellable for bones or gems, so codes have no resale economy."
+   },
+   {
+    "id": "M02",
+    "finding": "Roblox support for a failed toy code asks for: username, code number, photo of front and back of the code card, purchase date, shop and city, and an image of the purchase receipt. Proof of purchase is the fallback when a code is disputed.",
+    "source": "https://en.help.roblox.com/hc/en-us/articles/360000317403-I-have-a-problem-with-a-toy-code-or-virtual-item",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "Have a manual fallback: if a merch buyer's twin did not unlock, they email the order number and order email; the developer checks it against the Printify order list and grants the item by hand. Log every manual grant."
+   },
+   {
+    "id": "M03",
+    "finding": "Webkinz: every plush carries a tag with a unique secret code entered in an 'Adoption Center' to unlock the virtual pet; codes are strictly one-time ('Secret codes can only be used once, to adopt one pet') and Ganz will not replace a lost tag or code. Known abuse: codes read from tags in shops before purchase (a tag's paper can be slipped out without cutting the plastic) and used loose tags resold on secondary markets; Ganz warns an unsealed code 'may already be used'. The abuse reports are forum anecdotes, the one-time and no-replacement rules are from Ganz's own site.",
+    "source": "https://webkinznewz.ganzworld.com/forums/topic/adopting-a-pet/page/27 ; https://www.webkinz.com/us_en/pa_top_issues.html ; https://en.wikipedia.org/wiki/Webkinz",
+    "confidence": "likely",
+    "hasNumberOrRule": true,
+    "applyHow": "Print-on-demand cannot put a unique code on each item, and exposed printed codes get stolen anyway. Do not print codes on products. Issue the unlock digitally after a paid order (order-number claim or own-checkout webhook), so a code never exists before payment."
+   },
+   {
+    "id": "M04",
+    "finding": "Pokemon TCG code cards: The Pokemon Company applies a 'soft' redemption cap per product type, with booster packs at 400 per expansion and Build & Battle Boxes at 25 per expansion. A fan wiki reports that past the cap a code still redeems but pays a small amount of currency instead of the item, and that preconstructed decks cap at 4 (those two details are from Bulbapedia, not verified on the official page). A visible third-party resale market for unused codes exists (code-only shops with automatic delivery).",
+    "source": "https://support.pokemon.com/hc/en-us/articles/6488400519444-Code-Card-Redemption-FAQ ; https://bulbapedia.bulbagarden.net/wiki/Code_card ; https://www.cardcaverntradingcards.com/collections/ptcgl-codes-automatic-delivery/products/ascended-heroes-etb-ptcgl-code",
+    "confidence": "likely",
+    "hasNumberOrRule": true,
+    "applyHow": "Cap rewards per account per product (one twin per product per account). If someone buys the same item twice, give a small consolation (a few gems or bones) instead of a duplicate item. Keep rewards cosmetic so a grey market for codes has nothing worth selling."
+   },
+   {
+    "id": "M05",
+    "finding": "Fortnite physical tie-ins use two delivery patterns: (a) LEGO Fortnite sets carry a QR code on the cover of the building instructions; scanning leads through registration to Fortnite.com/redeem, and specific sets unlock specific outfits; (b) for a retail merchandise promotion Epic put the code on the purchase receipt at participating retailers rather than on the product. I could not open the Epic and LEGO pages directly (blocked), so this rests on search-result extracts of those official pages; dates, expiry and per-account limits are not verified.",
+    "source": "https://www.epicgames.com/help/lego-fortnite-c-44968506/account-c-41537782/how-do-i-redeem-the-bonus-qr-digital-code-from-my-lego-fortnite-set-a13638649 ; https://www.lego.com/themes/fortnite/redeem-lego-fortnite-outfit ; https://www.fortnite.com/news/redeem-the-el-durrrado-back-bling-after-purchasing-official-physical-fortnite-merchandise-from-participating-retailers",
+    "confidence": "likely",
+    "hasNumberOrRule": false,
+    "applyHow": "The receipt pattern fits print-on-demand: tie the unlock to the order (receipt), not the object. Optionally print one generic QR on a packaging insert that opens the game's claim page, where the buyer still has to enter their order number and email."
+   },
+   {
+    "id": "M06",
+    "finding": "Roblox launched in-experience physical commerce in May 2025 with Shopify as first partner: checkout runs through Shopify inside the experience, and eligible creators can bundle the physical purchase with an exclusive avatar item. It is limited to 'U.S. users ages 13 and up' with the footnote 'ages 18 and up required for commerce in Texas'. Pilot data: Twin Atlas reported 'six-figure commerce revenue during the first few weeks', about 90% of its total orders coming through the in-game integration, and half of those from repeat customers. Roblox also cites its 2023 report that 50% of Gen Z respondents are very or extremely likely to consider a brand physically after trying its items virtually.",
+    "source": "https://about.roblox.com/newsroom/2025/05/roblox-launches-shopify-integration-amp-licensing-program",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "The pattern that converted is: merch shown inside the game world, bought without hunting for a separate shop, and paired with a digital twin. Give merch a physical place in the town (an outfitter shop building with a counter NPC) plus a menu tab. Note the platform itself keeps under-13s out of physical commerce entirely, which supports keeping the merch shop wholly behind the grown-up gate and showing children nothing purchasable."
+   },
+   {
+    "id": "M07",
+    "finding": "Roblox gate for pairing a physical purchase with a digital benefit: a minimum of 100K average daily users and 1M Robux earned by the experience in the last 3 months. This is from a search extract of a Roblox DevForum staff post; I could not load the post itself and the thresholds may have changed.",
+    "source": "https://devforum.roblox.com/t/expanding-how-commerce-can-help-you-earn-and-grow-your-communities/3651181",
+    "confidence": "unverified",
+    "hasNumberOrRule": true,
+    "applyHow": "Context only: platforms treat physical-plus-digital bundles as a higher-trust feature. For a direct-sold web game there is no such gate, but it argues for starting small (a handful of twin items) and verifying orders before granting."
+   },
+   {
+    "id": "M08",
+    "finding": "Printify Pop-Up Store URL structure: default address is [store-name].printify.me; a custom domain or subdomain (e.g. shop.yourdomain.com) can be connected via Entri Connect or manual A/CNAME records. Changing the store name changes the URL with no automatic redirect. A live Pop-Up store shows product pages at /product/{numeric id} and collections at /collection/{slug}. Printify also generates per-product QR codes that open the product page.",
+    "source": "https://help.printify.com/hc/en-us/articles/12051129478417-What-is-Printify-Pop-Up-Store ; https://help.printify.com/hc/en-us/articles/37642370602897-How-do-I-connect-a-custom-domain-to-my-Pop-Up-store ; https://help.printify.com/hc/en-us/articles/33636253950353-How-can-I-generate-and-use-QR-codes-for-quick-checkout-in-my-Pop-Up-Store ; https://wonderland.printify.me/ (observed link format)",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "Deep-link every in-game product card to /product/{id} and each shop shelf to /collection/{slug}. Connect a subdomain of the game's domain first and link only to that, so links survive a store rename. Never rename the store after links ship."
+   },
+   {
+    "id": "M09",
+    "finding": "A Pop-Up Store cannot be embedded in the game in an iframe: a live Pop-Up store responds with the header 'content-security-policy: frame-ancestors 'self' https://printify.com https://enterprise.printful.com', which makes browsers refuse to frame it on any other site. Printify's help centre and Pop-Up Store terms describe no embed widget or buy button. Observed on one store on the default printify.me domain on 2026-11-16; behaviour on a custom domain was not tested.",
+    "source": "https://wonderland.printify.me/ (response header, checked 2026-11-16) ; https://printify.com/terms-storefront-merchant/",
+    "confidence": "likely",
+    "hasNumberOrRule": true,
+    "applyHow": "Build the catalogue natively in the game (own product cards with image, name, price) and open the product page in a new tab or the system browser on tap. In the installed PWA use target=_blank so the game keeps running. Do not plan on an in-game iframe checkout."
+   },
+   {
+    "id": "M10",
+    "finding": "Pop-Up Store discounts are store-level promotions, not typed-in coupon codes. Two types exist: a 'Product discount' applying one percentage to all eligible variants store-wide, and a 'Shipping discount'. Each has a start and end date and can be scheduled; only one of each type can run at once and an active promotion cannot overlap a future one. A discount cannot exceed a product's profit margin, and 'Your profit margins after the discount must still cover taxes; otherwise, the order will be canceled and auto-refunded.' I found no help article describing customer-entered codes, per-customer codes or per-product codes.",
+    "source": "https://help.printify.com/hc/en-us/articles/25028388602897-How-do-discounts-work-for-Pop-Up-Store ; https://help.printify.com/hc/en-us/articles/25028470142225-How-can-I-create-a-product-discount-in-my-Pop-Up-Store",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "'Discount codes earned by gameplay' is not possible on the Pop-Up Store. Instead schedule a store-wide sale to coincide with an in-game event (a festival weekend in the town) and announce it in game with a banner and countdown. Per-player earned discounts need the game's own Stripe checkout."
+   },
+   {
+    "id": "M11",
+    "finding": "Pop-Up Store money flow: no setup, listing, monthly or commission fees per Printify's product page. Printify collects the customer's payment, deducts production, shipping and any tax it charges, and pays the remainder through Stripe by bank transfer on the 15th of the following month with no minimum; Stripe verification is required and the first payout has a 7-day hold. Formula: 'Payout = Total Sales - Processing fee (which includes production and shipping costs, as well as taxes if no valid tax exemption documents are provided) - Refunds'.",
+    "source": "https://printify.com/pop-up-store/ ; https://help.printify.com/hc/en-us/articles/12051908094993-How-will-my-Pop-Up-Store-earnings-be-paid-out",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "Merch income arrives up to about six weeks after a sale, separately from the game's Stripe income. Treat merch as a slow second revenue line; do not fund gem refunds or server costs from it."
+   },
+   {
+    "id": "M12",
+    "finding": "The Pop-Up Store seller is the Merchant of Record. Printify 'does not collect, remit, or otherwise manage sales tax, VAT, or any other consumption tax on the transaction between you and your customer'; the seller is 'solely responsible' for it, and is also 'responsible for all chargebacks, reversals, refunds, and related fees'. Printify does charge tax on its own sale to the seller (production cost) unless a resale certificate is filed, and cancels and refunds orders whose margin cannot cover it. Terms last updated October 20, 2026. Sellers must be 18 or over; the terms set no customer age.",
+    "source": "https://help.printify.com/hc/en-us/articles/37390535647889-What-am-I-responsible-for-as-a-Pop-Up-Store-merchant ; https://printify.com/terms-storefront-merchant/",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "Moving merch into the game's own checkout does not create a new tax role: the developer already carries seller tax duties on Pop-Up sales. Get tax advice once for both lines. Keep comfortable margins on low-priced items (stickers) so tax and discounts never trigger auto-cancellation."
+   },
+   {
+    "id": "M13",
+    "finding": "Pop-Up Store tracking and analytics: the Marketing settings accept only a Google Analytics 4 tag ID and a Meta Pixel ID. A built-in Insights page shows unique visitors, orders, top products, device split and traffic sources grouped as Facebook, Instagram, TikTok, YouTube, Pinterest, Linktree, other social, direct, search engines and other websites; data refreshes once a day for 7, 30 or 90 day windows. Nothing documents UTM reporting in Insights, order export for the Pop-Up Store, or any webhook or API for Pop-Up orders.",
+    "source": "https://help.printify.com/hc/en-us/articles/14813624741393-How-can-I-set-up-marketing-tools-for-my-Pop-Up-Store ; https://help.printify.com/hc/en-us/articles/50306489950865-How-can-I-view-my-Pop-Up-Store-s-analytics",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "Game traffic will show under 'Other websites' in Insights, which is enough to see whether the in-game shop sends visitors. The game's no-tracking promise covers the game; if GA4 or a Meta Pixel is switched on in the store, say so on the 'leaving the game' interstitial, or leave both off and rely on Insights. UTM tags only help if GA4 is on."
+   },
+   {
+    "id": "M14",
+    "finding": "Pop-Up Store operations that affect an in-game shop: orders are charged and processed as soon as received and cannot be edited afterwards (cancel and reorder instead); Printify support handles customer service; damaged or defective items get a free reprint or refund within 30 days with photo proof, and returns or exchanges are not supported. Shipping rates are assigned automatically and shown at checkout; free shipping needs a shipping discount. Shipping is available to all destinations, but only sellers in listed countries (including the United States) can open a store. Collections group products and can be reordered.",
+    "source": "https://help.printify.com/hc/en-us/articles/12051129478417-What-is-Printify-Pop-Up-Store ; https://help.printify.com/hc/en-us/articles/23524555546641-How-do-I-set-up-shipping-with-Pop-Up-Store ; https://help.printify.com/hc/en-us/articles/19768094570385-Am-I-an-eligible-merchant-for-Printify-Pop-Up-Store ; https://help.printify.com/hc/en-us/articles/44241620713105-How-do-I-create-Product-Collections-with-Pop-Up-Store-Builder",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "Show 'shipping calculated at checkout, printed to order, no returns' on each in-game card so there are no surprises. Mirror the store's collections as in-game shelves (headwear, dog gear, drinkware, stickers)."
+   },
+   {
+    "id": "M15",
+    "finding": "The Printify public API can create orders from a custom checkout. POST /v1/shops/{shop_id}/orders.json takes external_id (duplicate returns 409), line_items by product_id plus variant_id, or by SKU alone, a shipping_method (1 standard, 2 priority, 3 Printify Express, 4 economy, US only), address_to (required) and send_shipping_notification. POST /v1/shops/{shop_id}/orders/shipping.json calculates shipping cost before charging. Orders can be sent to production or cancelled (unpaid only) by API. Order objects expose total_price, total_shipping and total_tax in cents. Auth is a personal access token valid one year, or OAuth 2.0. Limits: 600 requests per minute overall, 100 per minute on catalogue endpoints, and errors may not exceed 5% of requests.",
+    "source": "https://developers.printify.com/ ; https://developers.printify.com/openapi.json",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "Phase 2 design: game server creates a Stripe Checkout session with shipping-address collection, calls the shipping endpoint to price delivery, and on Stripe's payment-succeeded webhook posts the order to Printify using the Stripe session ID as external_id (the 409 on duplicates makes webhook retries safe), then grants the in-game twin automatically. Keep the token on the server only and set a yearly reminder to rotate it."
+   },
+   {
+    "id": "M16",
+    "finding": "With API or other non-Pop-Up channels, Printify does not receive the customer's money: 'You pay Printify for the cost of making and shipping the item' from Printify Balance or a linked card or PayPal, charged when the order is sent to production. API-submitted orders land 'On hold' and then go to production according to the shop's order approval settings (manual, 1 hour, 24 hours default, or a set daily time). 'Printify API' is listed as a sales channel alongside Shopify, Etsy and others.",
+    "source": "https://help.printify.com/hc/en-us/articles/4483601124113-How-does-the-payment-process-work ; https://help.printify.com/hc/en-us/articles/4483629894289-How-do-orders-and-products-submitted-through-API-look-like-inside-my-account ; https://help.printify.com/hc/en-us/articles/4483630446865-When-will-I-be-charged-for-my-Printify-order ; https://help.printify.com/hc/en-us/articles/4483630572945-Which-sales-channels-does-Printify-integrate-with",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "Own-checkout merch needs working capital: the card on file at Printify is charged within the approval window while Stripe pays out days later. Keep a Printify Balance top-up or a card with headroom, and set approval to 1 hour or 24 hours so a mistaken or fraudulent order can still be cancelled before production."
+   },
+   {
+    "id": "M17",
+    "finding": "Printify sales tax on merchant-paid orders: calculated automatically from the ship-to zip on the production price (retail price for California), in some states also on shipping, and only in states where Printify is registered. Without a resale certificate the merchant is charged it and 'does not have to charge sales tax to the end customer' in Printify's example; with a valid certificate nothing is charged and the 'Merchant needs to charge sales tax on sales to end customers.' VAT applies for EU, UK and Norway destinations at 0% to 27%.",
+    "source": "https://help.printify.com/hc/en-us/articles/4483636557841-How-is-sales-tax-calculated-on-my-orders ; https://help.printify.com/hc/en-us/articles/4483644252433-Which-taxes-apply-when-I-use-Printify",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "For own-checkout merch, price each item so margin covers production plus the tax Printify adds, then decide with a tax adviser whether to collect tax at checkout. Start US-only shipping in own checkout to avoid VAT and customs complexity; send international buyers to the Pop-Up Store link."
+   },
+   {
+    "id": "M18",
+    "finding": "Printify webhooks available to a custom integration: order:created, order:updated, order:line-item:canceled, order:sent-to-production, order:shipment:created, order:shipment:delivered, product:created/updated/deleted, product:publish:started and shop:disconnected. Payloads are signed with a shared secret and delivered with an X-Pfy-Signature header to verify with a constant-time comparison. Printify Express requires address_to.email and address_to.phone. The docs and OpenAPI file never mention the Pop-Up Store, so whether a Pop-Up Store shop's orders or products are readable through /v1/shops and these webhooks is unknown.",
+    "source": "https://developers.printify.com/ ; https://developers.printify.com/openapi.json",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "In phase 2 use order:shipment:created and order:shipment:delivered to show 'your parcel is on the way' in the game's inbox for own-checkout orders. Cheap test before designing anything: generate a read-only token and call GET /v1/shops.json to see whether the Pop-Up Store appears and whether its orders list; if it does, order-number claims can be verified automatically."
+   },
+   {
+    "id": "M19",
+    "finding": "Shopify Buy Button: 'included in all Shopify subscription plans'; it embeds a product, a collection or a cart on an external website with checkout handled by Shopify, and product edits sync to the embed. Shopify's pricing page lists Basic at $39 per month ($29 billed yearly) with 2.9% + 30 cents online card rate and a 2% fee when using a third-party payment provider; Grow is $105 and Advanced $399. A $5 per month Starter plan with a 5% transaction fee is reported only by third-party reviews and did not appear on the pricing page I loaded.",
+    "source": "https://help.shopify.com/en/manual/online-sales-channels/buy-button ; https://www.shopify.com/pricing",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "Shopify is the route if a true embedded cart inside the game page is wanted without writing a checkout: Printify connects to Shopify as a sales channel and the Buy Button embeds in the game's HTML. Cost is a monthly fee plus fees the Pop-Up Store does not charge, and 54 products would need republishing. Not worth it until merch volume justifies it."
+   },
+   {
+    "id": "M20",
+    "finding": "Fourthwall: developer docs describe a Storefront API for 'custom storefronts (cart, checkout, collections)' using a storefront token, with checkout always on Fourthwall's hosted page via a redirect such as https://<checkout_domain>/checkout/?cartCurrency=<code>&cartId=<id>. A Platform API creates promotions and digital products, and webhooks include ORDER_PLACED, ORDER_UPDATED, GIFT_PURCHASE, CART_ABANDONED_1H/24H/72H and PROMOTION_CREATED, signed via X-Fourthwall-Hmac-Apps-SHA256. Rate limit 100 requests per 10 seconds per shop. Payment processing is 2.9% + $0.30 calculated on the total including shipping and tax; a secondary source reports no platform fee on catalogue products and 5% on digital products on the free plan.",
+    "source": "https://docs.fourthwall.com/llms-full.txt ; https://help.fourthwall.com/frequently-asked-questions/payments-and-pricing/transaction-fees ; https://www.sirency.com/blog/fourthwall-for-creators",
+    "confidence": "likely",
+    "hasNumberOrRule": true,
+    "applyHow": "Fourthwall is the strongest alternative if automatic twin unlocks and real promo codes matter more than staying put: an ORDER_PLACED webhook could grant the twin with no manual step, and promo codes can be created by API as gameplay rewards. Cost is rebuilding all 54 products on a different print network. Keep as the fallback if the Pop-Up Store proves too closed."
+   },
+   {
+    "id": "M21",
+    "finding": "Spring (formerly Teespring, owned by Amaze) is reported to have shut down in autumn 2026: a Fourthwall blog post dated Oct 7, 2026, citing Amaze's notice, says stores stopped accepting orders on September 15, 2026 and the creator dashboard closed October 15, 2026; another trade blog gives 28 October 2026 for stores being turned off. Earlier coverage documented payout delays and lawsuits. I did not find Amaze's own notice, and the main source is a competitor.",
+    "source": "https://fourthwall.com/blog/teespring-alternatives ; https://www.printondemandbusiness.com/blog/print-on-demand-supplier-closures-2026/",
+    "confidence": "likely",
+    "hasNumberOrRule": true,
+    "applyHow": "Rule Spring out. General lesson for the design: keep the game's merch catalogue as the game's own data (a JSON file of name, image, price, link) so the merch backend can be swapped without touching game code."
+   },
+   {
+    "id": "M22",
+    "finding": "Recommendation (synthesis of the findings above, not a sourced fact). Phase 1, about a day of work, no new accounts: connect a subdomain to the existing Pop-Up Store; add a grown-up-gated in-game outfitter shop with native product cards from a hand-maintained JSON file; each card opens /product/{id} on that subdomain in a new tab after a short 'you are leaving the game to our merch store' screen; give 6 to 10 products an in-game twin (hat, hoodie pattern, collar, leash, bandana) that can also be bought for gems, and let merch buyers claim the twin free by entering order number and email on a claim form the developer approves; schedule store-wide Pop-Up promotions to match in-game events. Phase 2, only if merch sells: move the top 5 to 10 products into the game's own Stripe Checkout and submit orders to a separate Printify API shop, which unlocks automatic twin grants, bundles (hoodie plus gems), earned per-player discounts and shipment messages in game.",
+    "source": "Synthesis of M08, M09, M10, M13, M15, M16, M18",
+    "confidence": "likely",
+    "hasNumberOrRule": false,
+    "applyHow": "Ship phase 1 first. Before phase 2 confirm with Printify support: (1) whether one account can run a Pop-Up Store and an API shop side by side with the same designs, (2) whether Pop-Up orders are visible via the API, (3) whether any coupon-code feature exists beyond the two promotion types."
+   },
+   {
+    "id": "M23",
+    "finding": "Not confirmed by any source I could open: (a) whether the Pop-Up Store supports cart links or add-to-cart URLs; (b) whether a Pop-Up Store shop and its orders appear in the Printify API; (c) the percentage card-processing fee, if any, that Stripe or Printify takes from Pop-Up sales (the product page says no fees, the terms say Stripe's terms apply and state no figure); (d) price of the custom domain option, described on the product page as an 'optional extra'; (e) conversion-rate evidence for limited drops timed to game events or for gameplay-earned discounts specifically; (f) MrBeast or other YouTuber game-to-merch code tie-ins, which I did not research in the time available.",
+    "source": "https://printify.com/pop-up-store/ ; https://printify.com/terms-storefront-merchant/ ; https://developers.printify.com/openapi.json",
+    "confidence": "unverified",
+    "hasNumberOrRule": false,
+    "applyHow": "Treat these as open questions. Items (a) to (d) can be answered in minutes from the developer's own Printify dashboard and Wallet page; do that before committing to any design that depends on them."
+   }
+  ],
+  "notes": "Method and limits. Firecrawl was out of credits for this session, so I used web search, page fetch, and direct requests. Printify and Roblox help-centre articles were read in full through their public help-centre JSON endpoints (the HTML pages returned 403 to the fetch tool); the Printify OpenAPI file was downloaded and searched locally. The Epic Games, LEGO and Fortnite pages and the Roblox DevForum post could not be opened, so M05 and M07 rest on search extracts and are marked accordingly. Help-centre \"updated\" dates on the Printify articles were all between September and November 2026.\n\nTwo things I observed directly rather than read: the /product/{id} and /collection/{slug} link format, and the frame-ancestors header that blocks iframing. Both came from Printify's own example store (wonderland.printify.me) on its default domain, one store, one request. I did not query the developer's store or use any of the developer's names in searches.\n\nNot covered: the brief also named MrBeast/YouTuber tie-ins, toys-to-life products (amiibo, Skylanders) and Jazwares Fortnite codes specifically; I found nothing citable on those in the time used. Conversion evidence for \"what converts\" is thin: the only hard numbers are Roblox's own pilot figures in M06, which are a platform's marketing claims about one partner. Statements that Oregon has no sales tax, or that Stripe promotion codes could deliver earned discounts in an own checkout, are deliberately left out of the findings because I did not source them.\n\nNo files in the repository were edited. Scratch downloads are in /tmp/claude-0/-home-user-dewclaw/4c759dda-10ae-558f-8139-c091dac09e51/scratchpad/pf"
+ },
+ {
+  "findings": [
+   {
+    "id": "ftc-epic-2022",
+    "finding": "FTC v. Epic Games (Fortnite): $245M in refunds for unwanted charges, finalized March 2023 (4-0 vote), separate from a $275M COPPA penalty. Allegations: confusing/inconsistent button layout let a single press trigger a purchase; children could buy currency without parental involvement; accounts were locked when players disputed charges with their card company. Order bars charging via dark patterns or without affirmative consent, and bars blocking account access over disputed charges. Refund rounds: over $72M sent Dec 2024, over $126M sent June 2025; over 37M people were notified.",
+    "source": "https://www.ftc.gov/news-events/news/press-releases/2023/03/ftc-finalizes-order-requiring-fortnite-maker-epic-games-pay-245-million-tricking-users-making ; https://www.ftc.gov/business-guidance/blog/2022/12/245-million-ftc-settlement-alleges-fortnite-owner-epic-games-used-digital-dark-patterns-charge ; https://www.ftc.gov/news-events/news/press-releases/2024/12/ftc-sends-refund-payments-consumers-impacted-epic-games-unlawful-billing-practices",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "Every spend (real money AND gems) needs a two-step confirm: tap item, then a separate confirm screen showing what is bought and the cost. No one-tap buy, no purchase button adjacent to play/preview/close buttons, no purchase on wake/loading. Add an easy undo/refund for unused gem-bought items (e.g. a short self-serve refund window if the item is unused). Never lock or punish an account because a card dispute was filed: only claw back the disputed gems/items, keep everything else accessible."
+   },
+   {
+    "id": "ftc-genshin-2025",
+    "finding": "US v. Cognosphere (HoYoverse, Genshin Impact), announced Jan 17 2025: $20M penalty. Proposed order bans selling loot boxes to under-16s without parental consent, bans selling loot boxes via virtual currency without an option to buy directly in US dollars, requires disclosure of loot box odds and real-money cost, and COPPA compliance. Complaint alleged bundled, multi-tier virtual currency obscured real cost for children and teens. Commissioner Ferguson concurred only on COPPA and odds-deception counts and dissented on the rest, so the currency-obfuscation theory is not settled FTC doctrine. FTC business blog repeats: avoid dark patterns, be truthful about cost.",
+    "source": "https://www.ftc.gov/news-events/news/press-releases/2025/01/genshin-impact-game-developer-will-be-banned-selling-lootboxes-teens-under-16-without-parental ; https://www.ftc.gov/business-guidance/blog/2025/01/level-tips-businesses-ftcs-settlement-genshin-impact-developer-hoyoverse ; https://www.ftc.gov/system/files/ftc_gov/pdf/ferguson-cognosphere-concurrence.pdf",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "Keep the no-loot-box promise absolute: no paid randomized rewards of any kind (no mystery crates, spin wheels, blind bags bought with gems or with bones that gems can buy). One premium currency only (gems), no gem-to-second-currency chain. Show the dollar price next to every gem price (e.g. '300 gems, about $2.99'), computed from the smallest/base pack rate with no bulk discount. Where practical, offer the bigger items for direct dollar purchase as well as gems."
+   },
+   {
+    "id": "ftc-genshin-status",
+    "finding": "Whether the Cognosphere order was entered by the court: FTC pages describe it as proposed and needing a federal judge's approval (C.D. Cal. case 2:25-cv-00447). One secondary outlet says the FTC 'finalized' the $20M settlement; I could not confirm the entry date from a primary source. I found no FTC game-specific in-app purchase/loot box action dated 2026; 2025-2026 COPPA activity found was Apitor (Sept 2025, third-party SDK collecting kids' geolocation) and Illuminate Education (June 2026, not a game).",
+    "source": "https://www.ftc.gov/legal-library/browse/cases-proceedings/222-3152-cognosphere-llc-us-v ; https://www.mychesco.com/a/news/national/ftc-finalizes-20-million-settlement-over-genshin-impact-loot-box-practices/ ; https://www.ftc.gov/business-guidance/blog/2025/09/using-third-partys-software-your-app-make-sure-youre-all-complying-coppa",
+    "confidence": "unverified",
+    "hasNumberOrRule": false,
+    "applyHow": "Treat the Genshin order terms as the working standard regardless of entry status. The Apitor case means any third-party script in the game (Stripe.js, fonts, CDN, embedded merch iframe) is the developer's COPPA responsibility: load Stripe and the merch shop only behind the grown-up gate, not on the play screen."
+   },
+   {
+    "id": "coppa-dates",
+    "finding": "Amended COPPA Rule: FTC approved Jan 16 2025 (5-0), published in Federal Register April 22 2025, effective June 23 2025, general compliance deadline April 22 2026 (already passed). Key changes: separate opt-in verifiable parental consent before disclosing children's data to third parties (incl. targeted ads), data kept only as long as needed (no indefinite retention), personal information now includes biometric and government identifiers, safe harbor transparency. Proposed push-notification limits were dropped. On Feb 25 2026 the FTC issued a policy statement that it will not bring COPPA actions for collecting data solely to verify age in certain circumstances.",
+    "source": "https://www.ftc.gov/news-events/news/press-releases/2025/01/ftc-finalizes-changes-childrens-privacy-rule-limiting-companies-ability-monetize-kids-data ; https://www.finnegan.com/en/insights/articles/coppas-amended-rule-is-now-in-full-effect-what-operators-need-to-know.html ; https://www.davispolk.com/insights/client-update/ftc-prioritizes-coppa-enforcement-new-compliance-obligations-take-effect",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "Keep the no-analytics/no-tracking promise as the compliance strategy: collect nothing from the player. Save progress locally or under a random ID with no email. Write a short data-retention line in the privacy policy (purchase records kept for tax/refund purposes only, held by the grown-up's Stripe record, not tied to a child profile)."
+   },
+   {
+    "id": "coppa-child-directed",
+    "finding": "COPPA applies to under-13s. A service is covered if 'directed to children' (multi-factor test: subject matter, visual content, animated characters, child-oriented activities, age of models, etc.; no single factor decides; FTC notes some animated characters are general-audience) or if a general-audience operator has actual knowledge it collects personal information from a child. A 'mixed audience' service (children not the primary audience) may use a neutral age screen but must not collect personal info before screening and may not block children altogether. Persistent identifiers are personal information, but need no notice/consent when used only for 'support for internal operations' (maintaining functioning, authentication, personalization such as game scores/character choices; not behavioral advertising) and no other personal info is collected. A card used in connection with a monetary transaction is a listed parental-consent method (with notice of each transaction to the account holder); a card number alone is not.",
+    "source": "https://www.ftc.gov/business-guidance/resources/complying-coppa-frequently-asked-questions",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "A cartoon-style dog game that the developer knows children play should be designed as mixed-audience/child-directed, not argued to be general-audience. Rules: no account, email, name, chat, photo upload or free-text fields on the child side; only a random save ID. All data entry (email for receipt, shipping address for merch, card) happens inside Stripe Checkout or the merch site, reached only through the grown-up gate. The grown-up gate is a purchase safeguard, not COPPA consent, so do not rely on it to justify collecting child data. Stripe emailing a receipt per transaction to the cardholder matches the 'notice of each discrete transaction' element."
+   },
+   {
+    "id": "negative-option-status",
+    "finding": "FTC 'click-to-cancel' (amended Negative Option Rule) was vacated by the Eighth Circuit on July 8 2025 for skipping a required preliminary regulatory analysis. The FTC restarted rulemaking: draft ANPRM to OIRA Jan 30 2026, ANPRM published March 13 2026 (docket FTC-2026-0265), comments closed April 13 2026. As of the latest sources found (to about May 2026) no proposed or final rule exists; I could not confirm any later step. Enforcement continues under ROSCA and FTC Act Section 5; the ANPRM lists the working principles: disclose material terms, clearly and conspicuously, before consent, get express informed consent, honor a simple cancellation.",
+    "source": "https://www.federalregister.gov/documents/2026/03/13/2026-04952/rule-concerning-the-use-of-prenotification-negative-option-plans ; https://www.ftc.gov/news-events/news/press-releases/2026/03/ftc-seeks-public-comment-response-advance-notice-proposed-rulemaking-regarding-negative-option ; https://gibsondunn.com/ftc-restarts-negative-option-rulemaking-after-eighth-circuit-vacatur-enforcement-under-rosca-continues/",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "If a subscription is added (e.g. a monthly supporter pass with a gem stipend): state price, billing interval and 'renews until cancelled' right beside the buy button before Checkout; no pre-ticked boxes; cancel online in the same place it was bought, in two clicks, via Stripe customer portal link in every receipt; no free-trial-to-paid conversion for a kids-adjacent game. Simplest safe option: sell one-time passes (e.g. a 30-day pass that just expires) instead of auto-renewal."
+   },
+   {
+    "id": "state-arl",
+    "finding": "California's Automatic Renewal Law amendments (AB 2863) apply to contracts entered, amended or extended on or after July 1 2025: express affirmative consent to the auto-renewal terms, records of that consent retained, free-trial conversions covered, annual reminder for subscriptions sent via the same medium used to sign up, cancellation in the same medium the consumer used to subscribe, and no misrepresentation of material terms. Commentators note many vacated federal click-to-cancel requirements live on in new or enhanced state auto-renewal laws. Summary is from law-firm alerts, not the statute text; other states' specifics were not individually checked.",
+    "source": "https://btlaw.com/en/insights/alerts/2025/california-expands-automatic-renewal-law-new-requirements-now-in-effect ; https://fenwick.com/insights/publications/california-tightens-requirements-for-automatically-renewing-subscriptions ; https://ktslaw.com/en/insights/alert/2024/10/california-latest-automatic-renewal-law-amendments-take-effect-in-july-2025",
+    "confidence": "likely",
+    "hasNumberOrRule": true,
+    "applyHow": "Build any subscription to the California standard for all US buyers: separate consent checkbox for the renewal terms (logged with timestamp on the server), confirmation email with terms and cancel link, pre-renewal reminder email (Stripe can send renewal reminders), online cancel that takes effect immediately with no retention maze. Avoid annual plans at launch to skip the annual-notice machinery."
+   },
+   {
+    "id": "eu-cpc-principles",
+    "finding": "EU CPC Network 'Key Principles on In-game Virtual Currencies', published 21 March 2025 (non-binding, but states authorities' reading of existing law; applies to currencies bought with real money, excludes currency obtainable only through gameplay). Seven principles: (1) price in real-world money must be clearly and prominently displayed for both the currency and each item, calculated at full price without quantity discounts; (2) avoid obscuring cost: do not mix multiple paid currencies or require several exchanges; (3) do not force unwanted currency purchases: no bundles mismatched to item prices, let consumers choose the specific amount; (4) give pre-contractual information (trader identity and contact, main characteristics, real price, withdrawal right, payment/delivery); (5) respect the 14-day right of withdrawal, including for unused purchased currency; digital content is exempt only with express consent plus acknowledgment given separately from the buy click; (6) fair, plain-language terms: no unilateral right to change currency value, remove purchased content, or ban accounts without a way to contest; (7) respect vulnerabilities: any game not exclusively for adults should expect many under-18 players; do not directly exhort children to buy or to persuade adults to buy; provide parental controls with real-money spending disabled by default; do not build the model on 'whales'. Same day the CPC opened an action against Star Stable Online (time-limited offers pressuring children, unclear pricing). The Commission later said industry dialogue was unsatisfactory and nine companies have been targeted in coordinated actions.",
+    "source": "https://commission.europa.eu/document/download/8af13e88-6540-436c-b137-9853e7fe866a_en?filename=Key+principles+on+in-game+virtual+currencies.pdf ; https://ec.europa.eu/commission/presscorner/detail/en/ip_25_831 ; https://commission.europa.eu/news-and-media/news/european-commission-hosts-stakeholders-talks-application-cpc-networks-key-principles-games-virtual-2025-06-03_en",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "Design to this once and it covers the US too. Gem packs priced so the smallest pack buys the cheapest paid item exactly (no leftover-gem trap); ideally a 'buy exactly what I need' option at checkout (top up the shortfall). Dollar price shown on every gem-priced item. Spending off by default until a grown-up unlocks the shop. No 'ask your grown-up to buy this!' prompts, no begging dog animation tied to a purchase. Terms: gems never expire, prices in gems are not raised on already-owned gems, purchased items are permanent. For EU/UK buyers add a separate 'deliver now, I understand I lose the 14-day withdrawal right' tick box and still refund unused gems within 14 days."
+   },
+   {
+    "id": "eu-dfa-proposal",
+    "finding": "European Commission proposal for a Digital Fairness Act, COM(2026) 1100 final, dated 11 Nov 2026 (proposal only; would apply 12 months after entry into force, after Parliament and Council adopt it). Would repeal the UCPD and, per the explanatory text: Art. 14 requires the real-world monetary value of items priced in paid-for virtual currency to be shown prominently (estimated at full price without quantity discounts); recital 62 says that where a product is directed at minors (under 18) or the trader knows with reasonable certainty minors use it, virtual currencies should be disabled by default and activated only with parent/guardian approval; Art. 15 requires probability disclosure for variable reward systems, bans paid ones for minors and requires an off switch for everyone; Art. 16 bans pay-to-win and pay-to-progress mechanisms for minors; Art. 17 off-switch for addictive features; Arts. 20-27 require reminders before free-trial conversion and auto-renewal and an easy cancellation facility; drip pricing prohibited. An age rating indicating suitability for under-18s counts as 'directed at minors'.",
+    "source": "https://commission.europa.eu/document/download/0575d59f-554f-4a9e-b54b-e6b717175809_en?filename=Proposal+for+a+Digital+Fairness+Act.pdf",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "This is the direction of travel and it hits exactly this game's profile. Structure new spend so it is future-proof: paid items should be cosmetic, convenience-free extras, expansions or supporter perks, never a paywall on mission progress or a paid speed-up that makes the free path feel broken (no pay-to-progress energy timers, no paid skip of grind that was tuned to hurt). Keep gems locked until a grown-up enables them, per device. Final text may change; re-check before any EU marketing push."
+   },
+   {
+    "id": "uk-loot-boxes-asa",
+    "finding": "UK: no loot box legislation; industry self-regulation via Ukie's 11 principles on paid loot boxes (18 July 2023, 12-month implementation to July 2024), covering loot boxes bought with money or with purchased currency. Government said in January 2026 that legislative options remain under review (secondary source). CAP/ASA 'Guidance on advertising in-game purchases': if virtual currency can only be obtained by purchase, the in-game storefront counts as advertising under the CAP Code; if it can also be earned in-game the storefront is generally outside remit (but app store listings are always in remit). Item value must be clear, bundles with varying price-per-unit are a flagged risk, ads must not imply paying is the only route when a free route exists, and ads must not directly exhort children to buy. ASA enforcement notice on loot box disclosure in app store listings: active monitoring from 26 May 2026; 'Offers In-App Purchases' alone is not enough if loot boxes exist.",
+    "source": "https://www.asa.org.uk/static/4028c436-5861-4035-8d98c148d3c66b7e/Guidance-on-advertising-in-game-purchases.pdf ; https://www.asa.org.uk/static/49fcb813-4d44-44ed-9bdb37d63ae40863/eeaa3db7-45d4-4641-9afecc48b2aae02a/Enforcement-Notice-Disclosure-of-loot-boxes-in-app-stores.pdf ; https://www.gov.uk/guidance/loot-boxes-in-video-games-update-on-improvements-to-industry-led-protections ; https://www.insideglobaltech.com/2023/08/23/ukie-publishes-industry-principles-on-paid-loot-boxes/",
+    "confidence": "likely",
+    "hasNumberOrRule": true,
+    "applyHow": "On the landing page and any store listing state plainly: 'Optional in-game purchases. No random paid items. No ads.' Shop copy for kids' eyes is descriptive only ('Trail hat, 200 gems, about $1.99'), never imperative ('Buy now!', 'Don't miss out!'). If an item can also be earned with bones, say so on the same card."
+   },
+   {
+    "id": "uk-cma",
+    "finding": "I could not find a primary CMA source for 2025-2026 guidance specific to in-game purchases or virtual currency under the DMCC Act. General DMCC drip-pricing and unfair-practice rules exist but were not verified here.",
+    "source": "https://www.asa.org.uk/static/21e9a90d-a7ac-4499-a57c66729cd5c3e1/In-game-purchasing-statement.pdf",
+    "confidence": "unverified",
+    "hasNumberOrRule": false,
+    "applyHow": "Show the full all-in price before Checkout (pack price plus any tax line shown by Stripe); no fees added at the last step. Have UK-specific advice checked before targeting UK buyers."
+   },
+   {
+    "id": "sales-tax-stripe",
+    "finding": "Stripe Tax: monitors Stripe-processed sales per state against economic nexus thresholds and alerts by email/Dashboard, but 'it's up to you to confirm whether registration is actually required'; it does not monitor the home state; alerts start once the account has $10,000 revenue in the previous year. It only calculates/collects tax in states where a registration has been added. Stripe can register on the seller's behalf and file US returns (Tax Complete tiers from $90/month on a 1-year contract). Pay-as-you-go pricing: 0.5% of volume for Checkout/no-code integrations, charged only in jurisdictions where registered (50 cents per transaction via API). Typical thresholds per Stripe guides: $100,000 in sales in most states, sometimes paired with 200 transactions; $500,000 in California, New York and Texas; $250,000 in Alabama. Washington: $100,000 gross sales, previous or current calendar year. Digital goods taxability varies by state. Some states (Stripe names Arizona, Indiana, North Carolina) count non-taxable sales toward thresholds.",
+    "source": "https://docs.stripe.com/tax/monitoring ; https://stripe.com/tax/pricing ; https://stripe.com/guides/introduction-to-us-sales-tax-and-economic-nexus ; https://docs.stripe.com/tax/supported-countries/united-states/collect-tax.md?tax-jurisdiction-united-states=washington",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "Turn on Stripe Tax monitoring now (free until registered), set a digital-goods product tax code on gem packs and passes, and collect billing postal code/state in Checkout so sales are attributed (country-only US sales go 'unattributed' and are not monitored). Below roughly $100k/year into any one state there is normally no out-of-state collection duty; register only when Stripe flags a state. Budget 0.5% of sales in registered states. Thresholds change; confirm with a tax professional before registering."
+   },
+   {
+    "id": "oregon-no-sales-tax",
+    "finding": "Oregon has no general state or local sales/use tax (Oregon DOR; Stripe's Oregon page: 'N/A, no state sales tax registration to add'). Stripe notes an Oregon-based business can still owe sales tax on sales to customers in other states, and Oregon imposes other business taxes such as income tax.",
+    "source": "https://www.oregon.gov/dor/programs/businesses/pages/sales-tax.aspx ; https://docs.stripe.com/tax/supported-countries/united-states/collect-tax.md?tax-jurisdiction-united-states=oregon",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "No sales tax on sales to Oregon players. Do not advertise 'tax-free' game-wide: buyers in other states may be charged once the developer is registered there. Let Stripe Checkout display any tax line automatically."
+   },
+   {
+    "id": "printify-merch-tax",
+    "finding": "Printify Pop-Up Store: the seller is the Merchant of Record for every sale and is responsible for their own tax obligations. Printify help articles conflict on whether sales tax is added to customers' Pop-Up orders (one says not applied to customers, another says applied by default where applicable).",
+    "source": "https://help.printify.com/hc/en-us/articles/37390535647889-What-am-I-responsible-for-as-the-Merchant-of-Record ; https://help.printify.com/hc/en-us/articles/31127647781137-What-should-I-know-about-the-2025-changes-to-my-Pop-Up-Store ; https://help.printify.com/hc/en-us/articles/4483644252433-Which-taxes-apply-when-I-use-Printify",
+    "confidence": "likely",
+    "hasNumberOrRule": false,
+    "applyHow": "Merch sales run outside Stripe, so Stripe Tax will not count them toward nexus thresholds; add merch revenue by state manually when checking thresholds. In-game merch shop should deep-link out to the Pop-Up Store product page (behind the grown-up gate) so checkout, shipping address and returns stay on Printify's flow and no child-side data is collected by the game."
+   },
+   {
+    "id": "stripe-policy-virtual-goods",
+    "finding": "Stripe's restricted-businesses list restricts 'Sale of in-game currency or game items, unless the business is the operator of the virtual world' (so the game's own operator selling its own gems is the permitted case). It restricts stored value/credits issued by anyone other than the seller. Prohibited: games of chance, sweepstakes/contests with monetary or material prizes, and game tournaments with monetary or material prizes. The page says nothing specific about sales to minors.",
+    "source": "https://stripe.com/legal/restricted-businesses",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "Gems must be closed-loop: spendable only in this game, never transferable between players, never cashable, never redeemable for merch discounts with cash value issued by a third party. No paid-entry contests or leaderboard events with merch or cash prizes, and no gem-entry raffles for physical merch (that would look like a prohibited sweepstakes/game of chance on Stripe and re-create a loot box). Free giveaways with no purchase are a separate legal question, not covered here."
+   },
+   {
+    "id": "stripe-disputes",
+    "finding": "Stripe US dispute fee: $15 per dispute received, plus $15 if countered (returned if won), per Stripe pricing page as returned by search. Card network programs: Visa VAMP ratio = (disputes + early fraud warnings) / captured payments; 'excessive' merchant threshold is 1.5% outside CEMEA from April 1 2026 with a count of 1,500; Stripe's table also lists a lower 'non-compliant' level of 0.5% with a count of 5, at which Visa 'may' assess fees. Mastercard Excessive Chargeback Merchant: 100-299 chargebacks and 1.5-2.99% rate, fines from month two starting at $1,000. Monitoring programs count disputes regardless of outcome and do not net out refunds. Stripe's dispute-prevention guidance: clear statement descriptor, clear billing terms and agreement click, easy cancel, flexible refund policy, receipts.",
+    "source": "https://docs.stripe.com/disputes/monitoring-programs ; https://support.stripe.com/questions/monitoring-program-faq ; https://stripe.com/pricing",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "A $15 fee wipes out a $2-$10 gem pack, so refund generously instead of fighting: publish a plain refund policy ('unused gems refunded within 14 days, kid-bought-by-accident refunds on request') with a refund request link in the game and in every receipt. Use a recognizable statement descriptor that names the game. Always email a Stripe receipt. Add a server-side per-card/per-device daily and monthly spending cap (e.g. a low default the grown-up can raise) to limit 'my kid spent $300' disputes. Do not store cards for one-tap repeat buys: require Checkout each time."
+   },
+   {
+    "id": "apple-rules",
+    "finding": "Apple App Review Guidelines (current text): 3.1.1 in-app features such as in-game currencies must use in-app purchase; loot boxes must disclose odds before purchase. 3.1.3(e): physical goods or services consumed outside the app must use purchase methods other than in-app purchase (Apple Pay or card entry). 3.1.1(a): on the United States storefront, apps may include buttons, external links or other calls to action to other purchasing mechanisms without an entitlement; elsewhere that is prohibited without one. 1.3 Kids Category: no links out of the app or purchasing opportunities unless in a designated area behind a parental gate; no third-party analytics/ads (limited exceptions). 5.1.4: the parental gate is not the same as COPPA parental consent.",
+    "source": "https://developer.apple.com/app-store/review/guidelines/",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "If wrapped for iOS: gems, passes and all digital unlocks must go through Apple in-app purchase, or (US storefront only) an external link to the web Stripe checkout; merch must NOT use in-app purchase and should open the merch site or use card/Apple Pay. Keep the two catalogs cleanly separated in code (digital SKU list vs. physical merch list) so the wrapper can swap the payment path per platform. If listed in the Kids Category, both shop and merch links must sit behind Apple's style of parental gate, which the existing grown-up gate already approximates."
+   },
+   {
+    "id": "epic-v-apple-status",
+    "finding": "Epic v. Apple status as of late 2026: US-storefront external purchase links allowed since Apple's May 1 2025 guideline change following the contempt ruling. Ninth Circuit (Dec 2025) upheld contempt but sent the case back so the district court can set a permissible commission on linked-out purchases ('reasonably necessary... but no more') and allowed Apple to require equal rather than greater prominence for external links. The Supreme Court granted certiorari June 30 2026 (No. 25-1311), limited to the contempt question; Apple filed its merits brief Sept 14 2026. Per Apple's filing it is currently charging no commission on link-out purchases. A decision is not expected before roughly mid-2027 (secondary estimate). Whether the district-court remand is stayed is unclear from sources.",
+    "source": "https://www.supremecourt.gov/DocketPDF/25/25-1311/424150/20260914154510009_2026-09-14%20No.%2025-1311%20Apple-Epic%20Merits%20Opening%20Brief.pdf ; https://www.courthousenews.com/apple-denied-supreme-court-bailout-from-sanctions-in-epic-app-store-fight/ ; https://www.macrumors.com/2025/05/01/apple-updates-u-s-app-review-guidelines-epic/",
+    "confidence": "likely",
+    "hasNumberOrRule": true,
+    "applyHow": "The web/PWA with Stripe is the best-margin path and needs no store approval; keep it primary. An iOS wrapper for US users could link out to the same web checkout at 0% Apple commission today, but that could change after the Supreme Court ruling, so do not price gems on the assumption it stays free. Outside the US an iOS wrapper needs Apple IAP for gems."
+   },
+   {
+    "id": "google-play-rules",
+    "finding": "Google Play Payments policy: digital goods, in-app features and virtual currency in Play-distributed apps must use Play billing; Play billing must NOT be used for physical goods; randomized items must disclose odds before purchase. US-specific: since Oct 29 2025 (Epic v. Google injunction, upheld by the Ninth Circuit Sept 12 2025) Google does not require Play Billing for US users and does not prohibit links to outside purchases or telling users about other prices. Google's US programs carry service fees with reporting from Oct 1 2026 (download-fee reporting moved to Feb 1 2027). June 24 2026 Android Developers Blog: from June 30 2026 in the US, EEA and UK the service fee starts at 10% on the first $1M of annual earnings and for auto-renewing subscriptions, plus a 5% billing fee only when Google Play Billing is used (not charged on alternative billing or external links). Google and Epic signed a new settlement March 4 2026 and asked the court for a revised injunction; secondary sources conflict on whether it was approved or later withdrawn (one claims withdrawal July 15 2026).",
+    "source": "https://support.google.com/googleplay/android-developer/answer/9858738 ; https://support.google.com/googleplay/android-developer/answer/15582165?hl=en ; https://android-developers.googleblog.com/2026/06/play-expanded-billing.html ; https://support.google.com/googleplay/android-developer/answer/16470497?hl=en",
+    "confidence": "likely",
+    "hasNumberOrRule": true,
+    "applyHow": "If wrapped for Android (e.g. a Trusted Web Activity): gems sold to US users may use the web Stripe checkout via Google's external links/alternative billing programs, but expect roughly a 10% Google service fee and reporting duties on those sales; merch must stay off Play billing. Exact rates and the settlement status were not confirmed from a court source, so re-read the Play Console Help pages before wrapping. An installable PWA from the developer's own site avoids all of this."
+   },
+   {
+    "id": "state-app-store-age-laws",
+    "finding": "State app store accountability laws require app stores to verify age and get parental consent for minors' downloads and in-app purchases, and require developers to act on age signals: Texas SB 2420 took effect after the Fifth Circuit stayed a preliminary injunction (May 28 2026 per secondary source) and emergency relief was denied in July 2026; Texas also requires developers to assign age ratings to apps and in-app purchases. Utah SB 142 developer obligations were due May 6 2026 (current status unclear). Louisiana delayed to July 1 2027. California AB 1043 takes effect Jan 1 2027 (OS-level age-range signals). Alabama Jan 1 2027. These apply to apps distributed through app stores; applicability to a pure web game was not established by the sources.",
+    "source": "https://www.wiley.law/alert-Key-Developments-With-State-App-Store-Accountability-Acts-as-Texas-Act-Takes-Effect ; https://fpf.org/blog/comparing-enacted-app-store-accountability-acts/ ; https://www.loeb.com/en/insights/publications/2026/06/childrens-online-privacy-2026-state-app-store-design-code-and-social-media-laws",
+    "confidence": "likely",
+    "hasNumberOrRule": true,
+    "applyHow": "Another reason to stay web-first. If a store wrapper ships later, plan to read the store's age-range signal and disable purchasing entirely for accounts flagged as minors without parental approval, on top of the in-game grown-up gate."
+   },
+   {
+    "id": "design-rules-summary",
+    "finding": "Cross-source pattern: every regulator source reviewed converges on the same short list for games minors play: real-money price visible at the point of spending virtual currency (FTC Genshin order, CPC principle 1, CAP guidance, DFA Art. 14); no paid randomized rewards for minors (FTC Genshin under-16 ban, DFA Art. 15); no time-pressure offers aimed at children (CPC Star Stable action); spending disabled by default with parental unlock (CPC principle 7, DFA recital 62); affirmative consent per charge and no retaliation for disputes (FTC Epic order); no direct exhortation of children to buy (CPC principle 7, CAP Code).",
+    "source": "https://commission.europa.eu/document/download/8af13e88-6540-436c-b137-9853e7fe866a_en?filename=Key+principles+on+in-game+virtual+currencies.pdf ; https://www.ftc.gov/news-events/news/press-releases/2025/01/genshin-impact-game-developer-will-be-banned-selling-lootboxes-teens-under-16-without-parental ; https://www.ftc.gov/news-events/news/press-releases/2023/03/ftc-finalizes-order-requiring-fortnite-maker-epic-games-pay-245-million-tricking-users-making",
+    "confidence": "confirmed",
+    "hasNumberOrRule": true,
+    "applyHow": "Safe new spend types for this game: direct-priced cosmetic items and bundles with fixed, visible contents; permanent expansions (new trail area, new business type) sold for dollars; a non-renewing supporter pass; gem packs matched to item prices; physical merch via outbound link, optionally with a free in-game cosmetic code included with a merch order (a fixed, disclosed bonus, not random). Avoid: countdown or 'today only' offers, limited-stock counters, streak-loss pressure tied to paying, paid speed-ups of timers, random rewards, a second paid currency, and any shop prompt that interrupts play. Shop is entered only from a menu, through the grown-up gate, with a per-device spending cap and an emailed receipt for every purchase."
+   }
+  ],
+  "notes": "Method: Firecrawl search/scrape was unavailable (the connected account's credits ran out; the daily allowance resets about 18:40 UTC on 2026-11-16), so all research used WebSearch and WebFetch. No developer or business names were put in any query. No project files were edited; two PDFs (CPC Key Principles and the EU Digital Fairness Act proposal) were saved by the fetch tool and read locally with pdftotext.\n\nPrimary sources read directly: FTC press releases and business blog (Epic, Cognosphere, COPPA amendments), FTC COPPA FAQ, Federal Register ANPRM listing, the CPC Key Principles PDF (full text of all seven principles), the Digital Fairness Act proposal COM(2026) 1100 (explanatory memorandum and recitals 61-65; I did not read the operative articles line by line), Apple App Review Guidelines (first 100k characters), Google Play Payments policy and US policy update page, Android Developers Blog post of 24 June 2026, Stripe restricted businesses list, Stripe Tax monitoring and state pages, Stripe dispute monitoring programs page.\n\nNot confirmed / gaps:\n- Court entry date of the Cognosphere (Genshin) order: not confirmed from a primary source.\n- Any FTC game-specific purchase action in 2026: none found; absence in search results is not proof none exists.\n- Negative Option rulemaking after the April 2026 comment deadline: no later step found; status as of November 2026 is unverified.\n- Epic v. Google settlement: Google's own page confirms a March 4 2026 settlement and request for a revised injunction; approval versus the reported July 2026 withdrawal conflicts across secondary blogs and is unverified. Exact US fee percentages come partly from a search summary of Play Console Help pages, not a full read.\n- Epic v. Apple: Supreme Court docket filings were surfaced by search but not read in full; the 'zero commission currently' and mid-2027 timing statements rest on search summaries.\n- UK CMA guidance specific to in-game purchases: not found. UK January 2026 government position on loot boxes comes from a secondary source.\n- California ARL details and the state app store laws come from law-firm summaries, not statute text. Other states' auto-renewal laws were not individually researched.\n- Stripe $15 dispute fee and Stripe Tax pricing came from search summaries of Stripe pages; check the live pricing page.\n- Printify help articles conflict on whether sales tax is charged to Pop-Up Store customers.\n- Whether Stripe Checkout sends receipts automatically by default was not checked.\n- EC press release page ip_25_831 would not render; Star Stable details come from the search summary and national authority coverage.\n\nThis is research, not legal or tax advice; the COPPA audience classification and any subscription or EU/UK launch should be reviewed by a lawyer, and state tax registration by a tax professional."
+ },
+ {
+  "verdicts": [
+   {
+    "id": "M01",
+    "verdict": "confirmed",
+    "source": "https://en.help.roblox.com/hc/en-us/articles/360000316606-How-to-Redeem-Toy-Virtual-Item-Codes (read via the help centre JSON API, article updated 2026-11-15)",
+    "correction": "All wording matches, including the quoted rule. Small precision: the token or code card inside the plastic packaging is for Jazwares figures; for Approved Merchandiser Program products the packaging or hang tag says where the code card is. Scratch-off applies to covered physical cards."
+   },
+   {
+    "id": "M02",
+    "verdict": "confirmed",
+    "source": "https://en.help.roblox.com/hc/en-us/articles/360000317403-I-have-a-problem-with-a-toy-code-or-virtual-item (JSON API, updated 2026-11-04)",
+    "correction": "List matches. The page also asks for a problem description and the name of the toy. 'Proof of purchase is the fallback' is the finding's interpretation; the page only lists the receipt image among required items."
+   },
+   {
+    "id": "M03",
+    "verdict": "unconfirmed",
+    "source": "https://www.webkinz.com/us_en/pa_top_issues.html",
+    "correction": "Confirmed on Ganz's page: 'Secret codes can only be used once, to adopt one pet.' and 'we are unable to replace a lost Webkinz tag and the Secret Code that comes with it.' NOT confirmed: the quote that an unsealed code 'may already be used' does not appear on that page, and the forum page returned no reply text, so the in-shop code theft and resold-tag reports are unverified. The 'Adoption Center' name was not checked against a primary source."
+   },
+   {
+    "id": "M04",
+    "verdict": "confirmed",
+    "source": "https://support.pokemon.com/hc/en-us/articles/6488400519444-Code-Card-Redemption-FAQ (JSON API, updated 2026-02-13)",
+    "correction": "The official page itself states both details the finding attributed only to the fan wiki: past the soft limit codes 'will grant a small amount of in-game currency instead of the in-game items', and 'Preconstructed Deck - 4 per deck'. Also: other product types are 4 per product if cards are received, or 1 per product if only deck or avatar customisation items; some products differ slightly. Booster 400 and Build & Battle 25 per expansion confirmed. The third-party code resale market was not checked (Bulbapedia returned 403)."
+   },
+   {
+    "id": "M06",
+    "verdict": "confirmed",
+    "source": "https://about.roblox.com/newsroom/2025/05/roblox-launches-shopify-integration-amp-licensing-program ; https://devforum.roblox.com/t/expanding-how-commerce-can-help-you-earn-and-grow-your-communities/3651181",
+    "correction": "Quotes and figures match. The Texas footnote reads 'May vary by state; ages 18 and up required for commerce in Texas.' The companion staff post (2025-05-15) words the pilot as 'over six figures in revenue during the beta', 'nearly 90%' of orders and 'approximately 50% of the orders from repeat customers'. These are company-reported figures for one studio."
+   },
+   {
+    "id": "M07",
+    "verdict": "confirmed",
+    "source": "https://devforum.roblox.com/t/3651181.json (staff post dated 2025-05-15)",
+    "correction": "The post loads and says: 'creators must have a minimum of 100K average DAUs and a total of 1M in Robux earnings for their experience in the last 3 months.' Missing from the finding: the same feature can be unlocked through 'USD 50K of advertising spend in agreement with Roblox', and the post says all eligible Shopify-merchant creators would get it 'in the coming months'. This is the May 2025 rule; whether it still applies in November 2026 is unverified."
+   },
+   {
+    "id": "M08",
+    "verdict": "confirmed",
+    "source": "https://help.printify.com/hc/en-us/articles/12051129478417 ; https://help.printify.com/hc/en-us/articles/37642370602897 ; https://help.printify.com/hc/en-us/articles/33636253950353 ; https://wonderland.printify.me/ (links observed 2026-11-16)",
+    "correction": "All points match. Observed links on a live store: /product/1396592 and /collection/personalized. Useful addition: after a custom domain is connected, the printify.me address 'will remain active' and 'automatically redirect visitors to your custom domain'. Whether product paths are identical on a custom domain was not tested."
+   },
+   {
+    "id": "M09",
+    "verdict": "confirmed",
+    "source": "https://wonderland.printify.me/ (response header fetched 2026-11-16)",
+    "correction": "Header reproduced exactly: content-security-policy: frame-ancestors 'self' https://printify.com https://enterprise.printful.com. Observed on one store on the default domain only; custom-domain behaviour untested. The absence of any embed widget or buy button is a negative that cannot be fully proven; none was found in the help articles or the merchant terms."
+   },
+   {
+    "id": "M10",
+    "verdict": "confirmed",
+    "source": "https://help.printify.com/hc/en-us/articles/25028388602897 ; https://help.printify.com/hc/en-us/articles/25028470142225",
+    "correction": "Matches. Precision: a product discount larger than a product's margin is not blocked; that product is 'automatically excluded from the promotion'. A shipping discount applies only if it is less than the product's profit margin. When both run, the product discount is applied first. Neither article mentions customer-entered coupon codes; their absence elsewhere is unverified."
+   },
+   {
+    "id": "M11",
+    "verdict": "confirmed",
+    "source": "https://printify.com/pop-up-store/ ; https://help.printify.com/hc/en-us/articles/12051908094993",
+    "correction": "Payout rule, formula, Stripe verification and the 7-day first-payout hold all match. Fee wording on the product page is 'ZERO fees: No subscription or listing fees' and 'no monthly fees or setup costs'; the page does not literally say 'no commission' (it says zero fees and contrasts with platforms that charge commission). Store sells in USD only."
+   },
+   {
+    "id": "M12",
+    "verdict": "confirmed",
+    "source": "https://help.printify.com/hc/en-us/articles/37390535647889 ; https://printify.com/terms-storefront-merchant/ (Last updated: October 20, 2026) ; https://help.printify.com/hc/en-us/articles/4483644252433",
+    "correction": "Quotes match (terms section 10 for chargebacks; 18+ in section 3). The terms also let Printify hold reserves, delay settlement and set off amounts owed. 'The terms set no customer age' is a negative I did not fully verify."
+   },
+   {
+    "id": "M13",
+    "verdict": "confirmed",
+    "source": "https://help.printify.com/hc/en-us/articles/14813624741393 ; https://help.printify.com/hc/en-us/articles/50306489950865",
+    "correction": "Matches. Insights also shows per-product views and sales, and excludes the current day. 'Only' GA4 and Meta Pixel means those are the two the article documents. The lack of UTM reporting, order export or a Pop-Up order webhook is absence of documentation, not a stated limit (unverified)."
+   },
+   {
+    "id": "M14",
+    "verdict": "confirmed",
+    "source": "https://help.printify.com/hc/en-us/articles/12051129478417 ; https://help.printify.com/hc/en-us/articles/4483630446865 ; https://help.printify.com/hc/en-us/articles/23524555546641 ; https://help.printify.com/hc/en-us/articles/19768094570385 ; https://help.printify.com/hc/en-us/articles/44241620713105",
+    "correction": "Matches. Precision: the 30 days run from product delivery; orders cannot be edited 'except for personalized products'; US sellers must be in the 50 states, Washington D.C. or Puerto Rico; a published collection is not shown on the homepage until added as a section."
+   },
+   {
+    "id": "M15",
+    "verdict": "confirmed",
+    "source": "https://developers.printify.com/",
+    "correction": "Endpoints, external_id 409, SKU line items, shipping calculation, send to production, 'Cancel an unpaid order', totals in cents, one-year token, OAuth 2.0 and all three limits match. Not checked: that economy shipping is US only (the docs say it needs every product to be economy-eligible) and that address_to is marked required. The catalogue limit is 100 per minute per account, not per token."
+   },
+   {
+    "id": "M16",
+    "verdict": "confirmed",
+    "source": "https://help.printify.com/hc/en-us/articles/4483601124113 ; https://help.printify.com/hc/en-us/articles/4483629894289 ; https://help.printify.com/hc/en-us/articles/4483630446865 ; https://help.printify.com/hc/en-us/articles/4483630572945",
+    "correction": "All points match. These approval settings do not apply to Pop-Up Store orders, which are charged as soon as received."
+   },
+   {
+    "id": "M17",
+    "verdict": "confirmed",
+    "source": "https://help.printify.com/hc/en-us/articles/4483636557841 ; https://help.printify.com/hc/en-us/articles/4483644252433",
+    "correction": "Matches. VAT covers the 27 EU countries, the UK and Norway, including imports into them. Printify also charges local tax on orders printed and shipped within Canada, Australia (10%) and New Zealand (15%). Whether the developer must collect tax from customers is a legal question the articles do not settle."
+   }
+  ]
+ },
+ {
+  "verdicts": [
+   {
+    "id": "ftc-epic-2022",
+    "verdict": "confirmed",
+    "source": "https://www.ftc.gov/news-events/news/press-releases/2023/03/ftc-finalizes-order-requiring-fortnite-maker-epic-games-pay-245-million-tricking-users-making ; https://ftc.gov/news-events/news/press-releases/2023/09/ftc-announces-claims-process-fortnite-players-who-were-charged-unwanted-items ; https://www.pcgamer.com/games/ftc-issues-usd126-million-in-fortnite-refunds-gives-eligible-players-an-extra-2-weeks-to-apply-for-their-money-back",
+    "correction": "All figures check out. FTC release confirms $245M, 4-0 vote, single-button-press charges, children buying without parental consent, accounts locked after card disputes, order bars dark-pattern charging and blocking account access, separate $275M COPPA penalty. Refund rounds: 629,344 payments totalling more than $72M (Dec 2024) and 969,173 payments totalling more than $126M (June 25-26 2025), nearly $200M in total. The 'over 37M notified' figure is from the Sept 2023 claims-process release (emails to more than 37 million people), not from the refund releases. The FTC June 2025 release URL I tried returned 404, so the refund-round figures were confirmed through press coverage quoting the FTC."
+   },
+   {
+    "id": "ftc-genshin-2025",
+    "verdict": "confirmed",
+    "source": "https://www.ftc.gov/news-events/news/press-releases/2025/01/genshin-impact-game-developer-will-be-banned-selling-lootboxes-teens-under-16-without-parental ; https://www.ftc.gov/system/files/ftc_gov/pdf/ferguson-cognosphere-concurrence.pdf",
+    "correction": "Confirmed: Jan 17 2025, $20M, proposed order needing a federal judge's approval. Wording nuances: the release says under-16s need a parent's 'express consent' and that loot boxes must be purchasable with 'real money' (not specifically 'US dollars'); it also requires disclosure of odds AND exchange rates for multi-tier virtual currency, and deletion of under-13 data absent parental consent. The 5-0 vote was to refer the matter to DOJ; BOTH Ferguson and Holyoak concurred on Counts I-II and dissented on Counts III-V. Ferguson's statement: he concurs on the COPPA count and the loot-box-odds deception count and dissents 'as to the rest of the complaint' (three counts)."
+   },
+   {
+    "id": "ftc-genshin-status",
+    "verdict": "unconfirmed",
+    "source": "https://www.ftc.gov/legal-library/browse/cases-proceedings/222-3152-cognosphere-llc-us-v ; https://www.ftc.gov/system/files/ftc_gov/pdf/cognosphere_stiporder.pdf ; https://www.docketalarm.com/blog/2026/06/ftc-locks-in-order-against-illuminate.html",
+    "correction": "I also could not confirm court entry of the Cognosphere order. The FTC case page lists only Jan 17 2025 documents (complaint, stipulation, proposed stipulated order) and no entry date; the page itself does not show the court case number (the stipulation PDF shows C.D. Cal. 2:25-cv-447). One secondary site names the judge as Mark C. Scarsi; not verified against the docket. Sub-facts that do check out: Apitor complaint and proposed order announced Sept 3 2025 (third-party SDK collecting children's geolocation on Android); Illuminate Education order proposed Dec 2025 and finalized June 5 2026 (data security, not a game). The claim 'no FTC game-specific IAP/loot box action in 2026' is a negative I could not prove either way."
+   },
+   {
+    "id": "coppa-dates",
+    "verdict": "confirmed",
+    "source": "https://www.ftc.gov/news-events/news/press-releases/2025/01/ftc-finalizes-changes-childrens-privacy-rule-limiting-companies-ability-monetize-kids-data ; https://www.govinfo.gov/content/pkg/FR-2025-04-22/html/2025-05904.htm ; https://www.cooley.com/news/insight/2026/2026-03-02-ftc-issues-coppa-enforcement-discretion-policy-to-incentivize-use-of-age-verification-technologies",
+    "correction": "Dates confirmed (Jan 16 2025, 5-0; FR April 22 2025; effective June 23 2025; compliance April 22 2026 except some safe-harbor provisions with earlier dates). Important limit on the Feb 25 2026 policy statement (2-0 vote): it covers general-audience and mixed-audience operators that collect data solely to determine age, subject to conditions, and does NOT reach services directed to children. It is enforcement discretion only, does not amend the Rule, and does not bind state attorneys general. A game treated as child-directed cannot rely on it."
+   },
+   {
+    "id": "coppa-child-directed",
+    "verdict": "confirmed",
+    "source": "https://www.ftc.gov/business-guidance/resources/complying-coppa-frequently-asked-questions",
+    "correction": "Confirmed against the FAQ: animated characters are one factor and 'some animated characters are directed to a general audience'; mixed-audience services may age-screen but 'may not block children from participating altogether'; internal-operations support covers maintaining/analysing functioning, authentication, personalization ('game scores, or character choices in virtual worlds') and contextual ads, and 'does not include behavioral advertising'; card consent needs a monetary transaction with 'notification of each discrete transaction to the primary account holder'; 'collecting a 16-digit credit or debit card number alone would not satisfy the method'. Added nuance: a service whose PRIMARY audience is children 'must treat all visitors as children' and generally may not age-screen at all; the age-screen option exists only for mixed-audience services."
+   },
+   {
+    "id": "negative-option-status",
+    "verdict": "confirmed",
+    "source": "https://www.gtlaw.com/en/insights/2026/3/ftc-seeks-comment-on-potential-updates-to-negative-option-rule ; https://www.crowell.com/en/insights/client-alerts/eighth-circuit-cancels-click-to-cancel ; https://cei.org/wp-content/uploads/2026/04/Comments-of-Competitive-Enterprise-Institute-Rule-Concerning-the-Use-of-Prenotification-Negative-Option-Plans-ANPRM-FTC-2026-0265-4.13.26.pdf",
+    "correction": "Confirmed: Eighth Circuit vacatur July 8 2025 (Custom Communications v. FTC) for failing to issue a preliminary regulatory analysis; ANPRM announced March 11 2026, published March 13 2026 (91 FR 12318, docket FTC-2026-0265), comments closed April 13 2026. Not independently checked: the Jan 30 2026 OIRA submission date. I found no NPRM or final rule, but did not search exhaustively past mid-2026, so current status as of Nov 2026 is unverified. Confirmed from law-firm summaries, not the Federal Register text (federalregister.gov blocked the fetch)."
+   },
+   {
+    "id": "state-arl",
+    "verdict": "confirmed",
+    "source": "https://btlaw.com/en/insights/alerts/2025/california-expands-automatic-renewal-law-new-requirements-now-in-effect",
+    "correction": "Confirmed from a law-firm summary only (statute text not read): effective July 1 2025; express affirmative consent; free-to-paid conversions covered; annual reminder stating renewal frequency, amount and how to cancel; cancellation through the same channel used to subscribe. Added detail: proof of consent must be kept for three years or one year after contract termination, whichever is longer. The 'no misrepresentation of material terms' element and the 'reminder in the same medium' detail were not in the source I read: unverified."
+   },
+   {
+    "id": "eu-cpc-principles",
+    "verdict": "confirmed",
+    "source": "https://techinsights.linklaters.com/post/102k6t4/game-changer-eu-introduces-consumer-protection-guidance-for-in-game-virtual-curr ; https://www.lewissilkin.com/insights/2026/10/15/eu-consumer-protection-network-launches-action-involving-nine-video-games-compani-102o5do ; https://commission.europa.eu/news-and-media/news/european-commission-hosts-stakeholders-talks-application-cpc-networks-key-principles-games-virtual-2025-06-03_en",
+    "correction": "Core confirmed via secondary sources (the Commission PDF and press release did not render): published 21 March 2025, non-binding, seven principles, covers currency bought with real money, excludes gameplay-only currency and crypto, real-money price display for currency and items, 14-day withdrawal incl. unused currency, protection of children; Star Stable action launched the same day after a Swedish Consumers' Association complaint. I did not verify the exact wording of each of the seven principles (e.g. 'spending disabled by default', 'whales') against the primary text. One sentence is unsupported: the cited 3 June 2025 Commission page does NOT say dialogue was unsatisfactory or mention nine companies; it only describes a stakeholder workshop. The nine-company coordinated CPC action is real but dates from about 15 October 2026 (loot boxes, dark patterns, direct exhortations to children). 'Commission said dialogue was unsatisfactory' is unverified."
+   },
+   {
+    "id": "eu-dfa-proposal",
+    "verdict": "confirmed",
+    "source": "https://commission.europa.eu/document/download/0575d59f-554f-4a9e-b54b-e6b717175809_en?filename=Proposal+for+a+Digital+Fairness+Act.pdf",
+    "correction": "Verified against the proposal text: COM(2026) 1100 final, Brussels 11.11.2026, 2026/0356 (COD); a Regulation repealing Directive 2005/29/EC (Art. 38); applies '[12 months after the entry into force]'. Art. 14(1) monetary value of items priced in paid-for virtual currency; Art. 14(2) paid-for virtual currencies disabled by default for minors, activated only on parent/guardian approval (this is in the operative article, not only recital 62); Art. 15 probability disclosure, disable tool for all consumers, no paid variable reward systems for minors; Art. 16 no pay-to-progress/pay-to-win for minors; Art. 17 addictive design off-switches; Art. 20 onward free-trial and renewal reminders. Recital 62 confirms an age rating (trader's own, app-store, PEGI or comparable) indicating suitability for under-18s makes a product 'directed at minors'. Nuances: the 'full price without quantity discounts' and prominence language sits in the recitals, Art. 14(1) itself says 'indicate'; the explanatory memorandum describes Art. 17 as giving the off-switch to 'consumers who are not minors' (minors handled under a separate proposed EU KIDS Act); the drip-pricing prohibition is stated in the explanatory summary, I did not locate the operative article number. Loyalty-programme points are excluded from 'virtual currency'. Proposal only; text may change."
+   },
+   {
+    "id": "uk-loot-boxes-asa",
+    "verdict": "confirmed",
+    "source": "https://www.asa.org.uk/static/49fcb813-4d44-44ed-9bdb37d63ae40863/eeaa3db7-45d4-4641-9afecc48b2aae02a/Enforcement-Notice-Disclosure-of-loot-boxes-in-app-stores.pdf ; https://www.asa.org.uk/static/4028c436-5861-4035-8d98c148d3c66b7e/Guidance-on-advertising-in-game-purchases.pdf ; https://www.gov.uk/guidance/loot-boxes-in-video-games-update-on-improvements-to-industry-led-protections ; https://cms.law/en/gbr/legal-updates/loot-boxes-11-new-principles-for-an-industry-led-approach",
+    "correction": "Confirmed from primary PDFs: ASA notice says 'We will begin actively monitoring from 26 May 2026 followed by targeted enforcement action', applies to Apple App Store and Google Play listings, and labels such as 'Offers In-App Purchases' are 'insufficient on their own'. CAP guidance: storefronts using currency that can be earned in-game as well as purchased are 'very unlikely' to be advertising (case-by-case, not an absolute exclusion); storefronts selling currency for real money are in scope; bundle pricing/odd-pricing and direct exhortation to children are covered. Ukie: 11 principles, 18 July 2023, 12-month implementation confirmed. Unverified: the January 2026 government statement (only one low-quality secondary source); the 'ads must not imply paying is the only route' and 'app store listings always in remit' sentences were not located verbatim."
+   },
+   {
+    "id": "uk-cma",
+    "verdict": "unconfirmed",
+    "source": "https://www.grantthornton.co.uk/insights/playing-fair-on-pricing-practices-cma-updates-its-guidance/ ; https://www.gov.uk/government/publications/principles-for-online-and-app-based-games ; https://www.hsfkramer.com/insights/2025-12/uk-consumer-protection-round-up-2025",
+    "correction": "I also found no CMA guidance specific to in-game purchases or virtual currency for 2025-2026. What does exist (secondary sources, not read in full): the DMCC Act unfair commercial practices provisions came into force 6 April 2025; the CMA consulted on price transparency (drip pricing) guidance from 3 July 2025 and published final guidance in November 2025; an older gov.uk 'Principles for online and app-based games' predates the DMCC Act. The source URL attached to this finding is an ASA statement, not a CMA document."
+   },
+   {
+    "id": "sales-tax-stripe",
+    "verdict": "confirmed",
+    "source": "https://docs.stripe.com/tax/monitoring ; https://stripe.com/tax/pricing ; https://stripe.com/guides/introduction-to-us-sales-tax-and-economic-nexus ; https://docs.stripe.com/tax/supported-countries/united-states/collect-tax.md?tax-jurisdiction-united-states=washington ; https://www.avalara.com/us/en/blog/2025/06/states-eliminating-economic-nexus-transaction-thresholds",
+    "correction": "Confirmed on Stripe pages: 'it's up to you to confirm whether registration is actually required'; home US state not monitored; notifications require $10,000 revenue in the previous year; country-only US addresses are 'US unattributed revenue'; Arizona, Indiana, North Carolina count nontaxable sales; Tax Basic 0.5% per transaction (no-code/Checkout) or 50 cents (API), only where registered, registration and filing NOT included; Tax Complete from $90/month on a 1-year contract with registration and filing included. The $90 tier is capped at 2 registrations/yr, 200 transactions/mo, 4 filings/yr; next tier is $430. Washington: $100,000 gross sales, previous or current calendar year. Thresholds: Stripe's guide states $100,000 or 200 transactions for most states and $500,000 for Texas and California; it does not name New York or Alabama. Other sources: New York is $500,000 AND 100 transactions; Alabama $250,000. Several states (incl. California) have dropped transaction-count tests, so '200 transactions' applies to a shrinking set. Monitoring also assumes all sales are taxable at destination."
+   },
+   {
+    "id": "oregon-no-sales-tax",
+    "verdict": "confirmed",
+    "source": "https://www.oregon.gov/dor/programs/businesses/pages/sales-tax.aspx",
+    "correction": "Oregon DOR: 'Oregon doesn't have a general sales or use/transaction tax.' (A vehicle use tax exists, irrelevant here.) The Stripe Oregon page quote was not fetched; the out-of-state obligation point is consistent with Stripe's monitoring docs, which exclude only the home state."
+   },
+   {
+    "id": "stripe-policy-virtual-goods",
+    "verdict": "confirmed",
+    "source": "https://stripe.com/legal/restricted-businesses",
+    "correction": "Confirmed. Restricted: 'Sale of in-game currency or game items, unless the business is the operator of the virtual world' and 'Sale of stored value or credits maintained, accepted, and issued by anyone other than the seller'. Prohibited: 'Games of chance including gambling, internet gambling, casino games, sweepstakes and contests' and 'Games of skill including video game and mobile game tournaments or competitions' with a monetary or material prize. Charity sweepstakes/raffles are a separate restricted category. No mention of minors."
+   },
+   {
+    "id": "stripe-disputes",
+    "verdict": "confirmed",
+    "source": "https://docs.stripe.com/disputes/monitoring-programs ; https://stripe.com/pricing",
+    "correction": "Confirmed: $15.00 per dispute received; $15.00 countered fee, returned for won disputes. VAMP ratio = (disputes + early fraud warnings) / captured payments; excessive threshold 1.5% and count 1,500 outside CEMEA; non-compliant threshold 0.5% and count 5, where Visa 'may assess fees'. Mastercard ECM 100-299 chargebacks and 1.5-2.99%, $1,000 fine in months 2-3. Programs ignore refunds and outcomes. Not found on the page read: the 'from April 1 2026' effective date for the 1.5% threshold (unverified). Extra facts: a transaction appearing as both a fraud warning and a dispute is counted twice; disputes resolved through pre-dispute products are excluded from the VAMP count."
+   },
+   {
+    "id": "apple-rules",
+    "verdict": "confirmed",
+    "source": "https://developer.apple.com/app-store/review/guidelines/",
+    "correction": "Confirmed against current guideline text: 3.1.1 (in-game currencies must use in-app purchase; loot boxes must disclose odds before purchase; IAP-bought currency may not expire); 3.1.1(a) (US storefront apps may include buttons, external links or other calls to action without entitlements, prohibited in other storefronts); 3.1.3(e) (physical goods must use methods other than in-app purchase, such as Apple Pay or card entry); 1.3 (no links out or purchasing opportunities unless behind a parental gate; no PII or device info to third parties; third-party analytics/ads should not be included, limited exceptions); 5.1.4 (parental gate is generally not the same as parental consent under privacy statutes). Only the first 100,000 characters of the page were read."
+   }
+  ]
+ }
+]

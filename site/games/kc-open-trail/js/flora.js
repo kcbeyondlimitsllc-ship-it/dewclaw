@@ -2,9 +2,9 @@
    chunks are skipped entirely. Trees and rocks are solid; bushes and flowers thin
    out on lower quality settings. */
 import { THREE, Geo, rng, TAU } from './util.js';
-import { EXT, LAKE, MOUNTAIN } from './data.js';
+import { EXT, HALF, FIELDS, PATCHES, RIDGE_W } from './data.js';
 
-const CH = 85, NCH = 8;
+const CH = 90, NCH = Math.ceil((EXT * 2) / CH);
 
 export function buildFlora(game, world) {
   const { scene } = game, R = rng(20240);
@@ -25,48 +25,52 @@ export function buildFlora(game, world) {
     else if (kind === 'rock') world.addCircle(x, z, 0.8 * s, world.heightAt(x, z) + 0.95 * s);
   };
   const inRect = (x, z, r) => x >= r[0] && z >= r[1] && x <= r[2] && z <= r[3];
-  const nearPath = (x, z, m) => { for (const [dx, dz] of [[0, 0], [m, 0], [-m, 0], [0, m], [0, -m]]) { const s = world.surfaceAt(x + dx, z + dz); if (s === 1 || s === 2) return true; } return false; };
-  const mh = (x, z) => MOUNTAIN.h * Math.exp(-((x - MOUNTAIN.x) ** 2 + (z - MOUNTAIN.z) ** 2) / (2 * MOUNTAIN.s * MOUNTAIN.s));
-  const TOWN = [-112, -52, 104, 150], PARK = [12, 52, 86, 142], FARM = [-204, 170, -56, 286], BEACH = [172, 140, 254, 180], FIELD = [24, -88, 76, -54], LOTS = [[-30, -94, 8, -76], [-36, 58, -14, 74], [-202, 6, -178, 26], [194, 139, 226, 152], [16, 68, 30, 78], [20, 118, 44, 136]];
+  const nearPath = (x, z, m) => { for (const [dx, dz] of [[0, 0], [m, 0], [-m, 0], [0, m], [0, -m]]) { const s = world.surfaceAt(x + dx, z + dz); if (s === 1 || s === 2 || s === 5) return true; } return false; };
+  const inField = (x, z) => { for (const f of FIELDS) if (x > f[0] - 2 && z > f[1] - 2 && x < f[2] + 2 && z < f[3] + 2) return true; return false; };
+  const inPatch = (x, z) => { for (const f of PATCHES) if (f[5] === 5 && x > f[0] - 1 && z > f[1] - 1 && x < f[2] + 1 && z < f[3] + 1) return true; return false; };
+  const TOWNS = [[-470, -420, -96, -190], [-320, 10, -226, 114], [-150, 296, 9, 505], [120, 236, 330, 505]];
+  const OPEN = [[-200, -188, -96, -120], [-442, -146, -328, -58], [132, 262, 232, 312], [166, 318, 234, 386], [9, 300, 112, 505], [-198, -276, -104, -226], [-268, 432, -230, 470]];   /* lawns: hand-placed trees only */
+  const WOODS = [[-246, -136, 40, 0.42, 0.9], [-232, -456, 70, 0.3, 0.6], [-152, -404, 34, 0.1, 0.8], [360, 440, 60, 0.3, 0.35], [-46, -298, 100, 0.2, 0.9], [-34, -92, 34, 0.12, 0.7], [112, -6, 70, 0.13, 0.8], [-330, -438, 44, 0.22, 0.3]];   /* x, z, r, density, leafy share */
+  /* returns [tree density, share of leafy trees] */
   function zoneDensity(x, z, h) {
+    if (h < 0.9 || inField(x, z) || inPatch(x, z)) return [0, 0];
+    for (const o of OPEN) if (inRect(x, z, o)) return [0.012, 1];
+    if (Math.hypot(x + 330, z + 438) < 15) return [0, 0];
+    for (const w of WOODS) if (Math.hypot(x - w[0], z - w[1]) < w[2] && !(w[0] === -46 && Math.abs(x + 46) > 22)) return [w[3], w[4]];
+    for (const t of TOWNS) if (inRect(x, z, t)) return [0.03, 0.9];
     const r = Math.max(Math.abs(x), Math.abs(z));
-    if (h < 0.9) return [0, 0];
-    if (inRect(x, z, FARM) || inRect(x, z, BEACH) || inRect(x, z, FIELD)) return [0, 0];
-    for (const l of LOTS) if (inRect(x, z, l)) return [0, 0];
-    if (Math.hypot(x + 204, z) < 24) return [0, 0];
-    if (Math.hypot(x + 24, z + 220) < 12) return [0, 0];
-    if (inRect(x, z, PARK)) return [0.1, 1];
-    if (inRect(x, z, TOWN)) return [0.035, 1];
-    if (r > 290) return [0.5, 0.05];
-    if (x < -112 && z > -175 && z < 165) return [0.72, 0.08];
-    const m = mh(x, z);
-    if (m > 5) return [h > 50 ? 0.06 : h > 40 ? 0.25 : 0.55, 0.1];
-    if (world.riverDist(x, z) < 24) return [0.22, 0.8];
-    if (x > 130) return [0.11, 0.6];
-    return [0.14, 0.55];
+    if (r > HALF - 12) return [0.5, 0.08];
+    const dx = world.ridgeDx(x, z);
+    if (dx < RIDGE_W) return [h > 30 ? 0.6 : 0.74, 0.08];
+    if (dx < RIDGE_W + 50) return [0.3, 0.3];
+    const far = world.farShore(x, z); if (far > 0) return [0.2 + far * 0.34, 0.15];
+    if (x > -150 && x < 225 && z > -115 && z < 195) return [0.035, 0.95];                 /* Sauvie Island farmland */
+    if (world.riverDist(x, z) < 26) return [0.2, 0.85];
+    return [0.13, 0.6];
   }
-  for (let i = 0; i < 9500; i++) {
-    const x = (R() - 0.5) * 2 * (EXT - 4), z = (R() - 0.5) * 2 * (EXT - 4), h = world.heightAt(x, z), [d, leafy] = zoneDensity(x, z, h);
+  const SPAN = 2 * (EXT - 4);
+  for (let i = 0; i < 24000; i++) {
+    const x = (R() - 0.5) * SPAN, z = (R() - 0.5) * SPAN, h = world.heightAt(x, z), [d, leafy] = zoneDensity(x, z, h);
     if (R() >= d || nearPath(x, z, 2.6) || world.blockedAt(x, z, h, 2.2)) continue;
-    const kind = R() < leafy ? 'leafy' : 'fir', s = (0.75 + R() * 0.7) * (Math.max(Math.abs(x), Math.abs(z)) > 290 ? 1.35 : 1);
-    add(kind, x, z, s, kind === 'fir' ? [0.85 + R() * 0.3, 0.9 + R() * 0.2, 0.85 + R() * 0.25] : (R() < 0.12 ? [1.5, 1.0, 0.5] : [0.85 + R() * 0.35, 0.9 + R() * 0.2, 0.8 + R() * 0.3]));
+    const kind = R() < leafy ? 'leafy' : 'fir', s = (0.75 + R() * 0.7) * (Math.max(Math.abs(x), Math.abs(z)) > HALF - 10 ? 1.35 : 1);
+    add(kind, x, z, s, kind === 'fir' ? [0.85 + R() * 0.3, 0.9 + R() * 0.2, 0.85 + R() * 0.25] : (R() < 0.2 ? [1.55, 1.0, 0.45] : R() < 0.12 ? [1.5, 1.25, 0.5] : [0.85 + R() * 0.35, 0.9 + R() * 0.2, 0.8 + R() * 0.3]));
   }
-  /* street trees and requested trees */
-  for (const x of [-96, -30, 6, 68]) for (const z of [32.2, 47.8]) if (!world.blockedAt(x, z, 3, 1)) add('leafy', x, z, 0.75, [1, 1, 1]);
-  for (const p of world.plantRequests || []) add(p.kind, p.x, p.z, p.s || 1, p.fruit ? [1.0, 1.05, 0.9] : [1, 1, 1]);
-  for (let i = 0; i < 2600; i++) {
-    const x = (R() - 0.5) * 2 * (EXT - 6), z = (R() - 0.5) * 2 * (EXT - 6), h = world.heightAt(x, z);
-    if (h < -0.4) continue;
-    const m = mh(x, z), d = m > 8 ? 0.5 : world.riverDist(x, z) < 20 || Math.hypot((x - LAKE.x) / LAKE.rx, (z - LAKE.z) / LAKE.rz) < 1.35 ? 0.28 : inRect(x, z, TOWN) || inRect(x, z, FARM) || inRect(x, z, BEACH) ? 0 : 0.05;
+  /* requested trees (street trees, orchards, park specimens) */
+  for (const p of world.plantRequests || []) { const h = world.heightAt(p.x, p.z); if (h < 0.5 || world.blockedAt(p.x, p.z, h, 0.8)) continue; add(p.kind, p.x, p.z, p.s || 1, p.fruit ? [1.0, 1.05, 0.9] : [1, 1, 1]); }
+  for (let i = 0; i < 4200; i++) {
+    const x = (R() - 0.5) * SPAN, z = (R() - 0.5) * SPAN, h = world.heightAt(x, z);
+    if (h < -0.4 || inField(x, z) || inPatch(x, z)) continue;
+    let d = world.riverDist(x, z) < 12 ? 0.22 : Math.hypot(x + 330, z + 438) < 34 ? 0.5 : world.ridgeDx(x, z) < RIDGE_W ? 0.1 : world.farShore(x, z) > 0.3 ? 0.12 : 0.03;
+    for (const t of TOWNS) if (inRect(x, z, t)) d = 0; for (const o of OPEN) if (inRect(x, z, o)) d = 0;
     if (R() >= d || nearPath(x, z, 2.2) || world.blockedAt(x, z, h, 1.6)) continue;
-    add('rock', x, z, 0.5 + R() * 1.1, [0.85 + R() * 0.3, 0.85 + R() * 0.3, 0.85 + R() * 0.3]);
+    add('rock', x, z, 0.5 + R() * 1.1, [0.8 + R() * 0.25, 0.82 + R() * 0.25, 0.88 + R() * 0.25]);
   }
-  for (let i = 0; i < 5200; i++) {
-    const x = (R() - 0.5) * 2 * (EXT - 6), z = (R() - 0.5) * 2 * (EXT - 6), h = world.heightAt(x, z);
-    if (h < 1.0 || h > 46 || nearPath(x, z, 1.4) || inRect(x, z, FIELD)) continue;
-    const town = inRect(x, z, TOWN) && !inRect(x, z, PARK), farm = inRect(x, z, FARM);
-    if (town || farm || inRect(x, z, BEACH) || world.blockedAt(x, z, h, 1.2)) continue;
-    if (R() < 0.42) add('bush', x, z, 0.6 + R() * 0.8, [0.8 + R() * 0.4, 0.9 + R() * 0.2, 0.8 + R() * 0.3]);
+  for (let i = 0; i < 11000; i++) {
+    const x = (R() - 0.5) * SPAN, z = (R() - 0.5) * SPAN, h = world.heightAt(x, z);
+    if (h < 1.0 || nearPath(x, z, 1.4) || inField(x, z) || inPatch(x, z)) continue;
+    let town = false; for (const t of TOWNS) if (inRect(x, z, t)) town = true; let open = false; for (const o of OPEN) if (inRect(x, z, o)) open = true;
+    if ((town && !open && R() < 0.75) || world.blockedAt(x, z, h, 1.2)) continue;
+    if (!open && R() < 0.42) add('bush', x, z, 0.6 + R() * 0.8, [0.8 + R() * 0.4, 0.9 + R() * 0.2, 0.8 + R() * 0.3]);
     else { const c = [[1, 0.35, 0.35], [1, 0.85, 0.3], [1, 1, 1], [0.75, 0.5, 1], [1, 0.6, 0.8]][Math.floor(R() * 5)]; add('flower', x, z, 0.55 + R() * 0.45, c); }
   }
 
@@ -82,7 +86,7 @@ export function buildFlora(game, world) {
   let far = 200, dens = 1;
   return {
     count: total, meshes, trees,
-    setQuality(qv) { far = qv.fog; dens = qv.veg; for (const m of meshes) { const u = m.userData; m.count = solid[u.kind] ? u.full : Math.floor(u.full * dens); m.castShadow = !!qv.shadows && (u.kind === 'fir' || u.kind === 'leafy'); } },
-    update(cam) { for (const m of meshes) { const u = m.userData, dx = Math.max(0, Math.abs(cam.x - u.cx) - CH / 2), dz = Math.max(0, Math.abs(cam.z - u.cz) - CH / 2); const lim = u.kind === 'flower' || u.kind === 'bush' ? Math.min(far, 120) : far + 10; m.visible = dx * dx + dz * dz < lim * lim; } }
+    setQuality(qv) { dens = qv.veg; for (const m of meshes) { const u = m.userData; m.count = solid[u.kind] ? u.full : Math.floor(u.full * dens); m.castShadow = !!qv.shadows && (u.kind === 'fir' || u.kind === 'leafy'); } },
+    update(cam, viewFar) { if (viewFar) far = viewFar; for (const m of meshes) { const u = m.userData, dx = Math.max(0, Math.abs(cam.x - u.cx) - CH / 2), dz = Math.max(0, Math.abs(cam.z - u.cz) - CH / 2); const lim = u.kind === 'flower' || u.kind === 'bush' ? Math.min(far, 120) : far + 10; m.visible = dx * dx + dz * dz < lim * lim; } }
   };
 }
