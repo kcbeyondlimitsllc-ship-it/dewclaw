@@ -23,9 +23,9 @@ import * as store from './store.js';
 export const VERSION = '0.1.0';
 const params = new URLSearchParams(location.search), DEBUG = params.get('debug') === '1';
 const QUALITY = {
-  low: { name: 'low', pr: 1, fog: 120, veg: 0.35, shadows: false, texSize: 1024 },
-  medium: { name: 'medium', pr: 1.5, fog: 175, veg: 0.7, shadows: false, texSize: 2048 },
-  high: { name: 'high', pr: 2, fog: 250, veg: 1, shadows: true, texSize: 2048 }
+  low: { name: 'low', pr: 1, fog: 130, veg: 0.3, shadows: false, texSize: 1024 },
+  medium: { name: 'medium', pr: 1.5, fog: 190, veg: 0.65, shadows: false, texSize: 2048 },
+  high: { name: 'high', pr: 2, fog: 280, veg: 1, shadows: true, texSize: 2048 }
 };
 const $ = id => document.getElementById(id);
 
@@ -43,9 +43,9 @@ function boot() {
   game.save = createSave(game); const had = game.save.load(); const state = game.state = game.save.state;
   if (!had) { const coarse = matchMedia('(pointer: coarse)').matches; state.settings.quality = coarse ? ((navigator.deviceMemory || 4) <= 2 ? 'low' : 'medium') : 'high'; }
   if (params.get('q') && QUALITY[params.get('q')]) state.settings.quality = params.get('q');
-  game.quality = { ...QUALITY[state.settings.quality] }; let resScale = 1;
-  /* sharper ground on desktop-class GPUs only; phones keep the 2048 / 1024 texture */
-  if (state.settings.quality === 'high' && !matchMedia('(pointer: coarse)').matches && renderer.capabilities.maxTextureSize >= 8192) game.quality.texSize = 4096;
+  game.quality = { ...QUALITY[state.settings.quality] }; game.quality.boot = game.quality.name; let resScale = 1;
+  /* the ground texture is painted once at boot: 1024 when booting on Low, 2048 on Medium / High, 4096 on desktop-class GPUs only */
+  { const coarse = matchMedia('(pointer: coarse)').matches, q = state.settings.quality; if (renderer.capabilities.maxTextureSize >= 8192 && q !== 'low' && (!coarse || (q === 'high' && (navigator.deviceMemory || 4) >= 6))) game.quality.texSize = 4096; }
   const input = game.input = createInput(game, canvas);
   game.audio = createAudio(game);
   game.fx = createFx(game);
@@ -57,7 +57,6 @@ function boot() {
   const ui = game.ui = createHud(game);
   const kc = game.kc = createKC(game);
   const npcs = game.npcs = createNPCs(game);
-  game.mischief = npcs.mischief;
   const vehicles = game.vehicles = createVehicles(game);
   const collect = game.collect = createCollect(game);
   /* flat aliases so other modules can write game.addMarker(...) etc. */
@@ -71,19 +70,21 @@ function boot() {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, game.quality.pr) * resScale); renderer.setSize(w, h, false); cam.resize(w, h);
   }
   game.setQuality = (name, manual) => {
-    if (!QUALITY[name]) return; const tex = game.quality.texSize; game.quality = { ...QUALITY[name], texSize: tex }; state.settings.quality = name; resScale = 1;
+    if (!QUALITY[name]) return; const tex = game.quality.texSize, boot = game.quality.boot; game.quality = { ...QUALITY[name], texSize: tex, boot }; state.settings.quality = name; resScale = 1;
     if (manual) { state.settings.autoQuality = false; game.save.save(); }
     world.applyQuality(game.quality); game.fx.setBlobs(true); resize(); bus.emit('quality', { name });
   };
-  world.applyQuality(game.quality); world.setHalloween(state.settings.halloween); resize(); addEventListener('resize', resize);
-  if (state.pos) kc.teleport(state.pos.x, state.pos.z, state.pos.yaw ?? SPAWN.yaw); else kc.teleport(SPAWN.x, SPAWN.z, SPAWN.yaw);
+  world.applyQuality(game.quality); world.setFestival(!!state.flags.festival); bus.on('flag', e => { if (e.key === 'festival') world.setFestival(!!e.value); }); resize(); addEventListener('resize', resize);
+  if (state.pos && Number.isFinite(state.pos.x) && Number.isFinite(state.pos.z)) kc.teleport(state.pos.x, state.pos.z, Number.isFinite(state.pos.yaw) ? state.pos.yaw : SPAWN.yaw); else kc.teleport(SPAWN.x, SPAWN.z, SPAWN.yaw);
+  if (Number.isFinite(state.settings.camDist)) cam.dist = clamp(state.settings.camDist, 2.6, 13);
   cam.yaw = kc.yaw; cam.snap();
-  bus.on('beforeSave', s => { const r = kc.ride; s.pos = { x: +(r ? r.x : kc.pos.x).toFixed(2), z: +(r ? r.z : kc.pos.z).toFixed(2), yaw: +kc.yaw.toFixed(2) }; });
+  bus.on('beforeSave', s => { const r = kc.ride, x = r ? r.x : kc.pos.x, z = r ? r.z : kc.pos.z; if (!Number.isFinite(x) || !Number.isFinite(z)) return; s.pos = { x: +x.toFixed(2), z: +z.toFixed(2), yaw: Number.isFinite(kc.yaw) ? +kc.yaw.toFixed(2) : SPAWN.yaw }; if (!ui.photo) s.settings.camDist = +clamp(cam.dist, 2.6, 13).toFixed(2); });
 
   /* other agents' modules: each exports init(game) */
   for (const [name, mod] of [['economy', economy], ['missions', missions], ['shop', shop], ['store', store]]) { try { game.modules[name] = (mod.init && mod.init(game)) || mod; } catch (e) { console.error('[module ' + name + ']', e); } }
 
   /* ---------- loop ---------- */
+  const frameStats = { n: 0, sum: 0, max: 0, cpuSum: 0 };
   let last = performance.now(), acc1 = 0, saveT = 0, ema = 16, slowT = 0, coolT = 8, pausedDraw = 0, fpsEma = 60;
   function sim(dt) {
     game.time += dt; input.poll(dt);
@@ -108,8 +109,9 @@ function boot() {
     if (ui.photo) { input.poll(dt); if (input.pressed.pause || input.pressed.photo) ui.photoMode(false); if (input.pressed.interact || input.pressed.jump) ui.snap(); input.enabled = true; cam.update(dt, input); world.update(0, cam.three.position, kc.pos); input.endFrame(); render(); return; }
     if (game.paused) { input.poll(dt); if (input.pressed.pause && ui.current && ui.current.dismissable !== false) ui.closeModal(); input.endFrame(); pausedDraw -= dt; if (pausedDraw <= 0) { pausedDraw = 0.5; render(); } return; }
     input.enabled = !ui.modalOpen;
-    const steps = Math.min(3, Math.ceil(dt / 0.034)); for (let i = 0; i < steps; i++) sim(dt / steps);
+    const c0 = performance.now(); const steps = Math.min(3, Math.ceil(dt / 0.034)); for (let i = 0; i < steps; i++) sim(dt / steps);
     render();
+    frameStats.n++; frameStats.sum += raw * 1000; frameStats.max = Math.max(frameStats.max, raw * 1000); frameStats.cpuSum += performance.now() - c0;
     /* automatic step-down when frames stay slow */
     ema += (raw * 1000 - ema) * 0.05; fpsEma = 1000 / ema; coolT -= raw;
     if (state.settings.autoQuality && coolT <= 0) {
@@ -123,7 +125,7 @@ function boot() {
   for (const ev of ['pointerdown', 'keydown', 'touchend']) addEventListener(ev, () => game.audio.unlock(), { passive: true });
 
   playBtn.disabled = false; playBtn.textContent = had ? 'Continue' : 'Play';
-  playBtn.addEventListener('click', () => { game.audio.unlock(); game.audio.sfx('ui'); cam.yaw = kc.yaw; cam.snap(); ui.start(); if (!had) { ui.toast('Welcome to Cedar Hollow! Follow your nose.', { icon: 'paw', ms: 4200 }); } });
+  playBtn.addEventListener('click', () => { game.audio.unlock(); game.audio.sfx('ui'); cam.yaw = kc.yaw; cam.snap(); ui.start(); if (!had) { ui.toast('Welcome to St. Helens! Follow your nose.', { icon: 'paw', ms: 4200 }); } });
   requestAnimationFrame(frame);
   window.dispatchEvent(new CustomEvent('kc-open-trail-ready', { detail: { version: VERSION } }));
 
@@ -135,11 +137,11 @@ function boot() {
     window.__ot = {
       game, ready: true, events: log,
       state: () => ({ version: VERSION, started: ui.started, paused: game.paused, modal: ui.current ? ui.current.id || true : null, photo: ui.photo, pos: { x: kc.pos.x, y: kc.pos.y, z: kc.pos.z, yaw: kc.yaw }, speed: kc.speed, onGround: kc.onGround, swimming: kc.swimming, sprinting: kc.sprinting, sit: kc.sit, stamina: kc.stamina, staminaMax: kc.staminaMax,
-        ride: kc.ride ? kc.ride.id : null, rideSpeed: kc.ride ? kc.ride.speed : 0, carrying: kc.carried.map(i => i.id), zone: api.zone && api.zone.id, prompt: api.prompt && api.prompt.label, wallet: { ...state.wallet }, mischief: npcs.mischief.level, chasing: npcs.mischief.chasing, time: world.time, day: world.day, night: world.night, rain: world.rain,
+        ride: kc.ride ? kc.ride.id : null, rideSpeed: kc.ride ? kc.ride.speed : 0, carrying: kc.carried.map(i => i.id), zone: api.zone && api.zone.id, prompt: api.prompt && api.prompt.label, wallet: { ...state.wallet }, festival: world.festival, flags: { ...state.flags }, time: world.time, day: world.day, night: world.night, rain: world.rain,
         quality: state.settings.quality, resScale, fps: Math.round(fpsEma), cam: { yaw: cam.yaw, pitch: cam.pitch, dist: cam.cur, x: cam.three.position.x, y: cam.three.position.y, z: cam.three.position.z }, mods: { ...kc.mods }, stats: { ...state.stats }, collected: collect.counts(), ground: world.heightAt(kc.pos.x, kc.pos.z) }),
       start: () => { if (!ui.started) playBtn.click(); },
       teleport: (x, z, yaw) => { kc.teleport(x, z, yaw); if (yaw != null) cam.yaw = yaw; cam.snap(); },
-      give: (o = {}) => { for (const k of ['bones', 'gems']) if (o[k]) game.wallet.add(k, o[k], 'debug'); return { ...state.wallet }; },
+      give: (o = {}) => { game.economy.grant(o, 'debug'); return { ...state.wallet }; },
       setTime: t => { world.setTime(t); },
       setRain: v => world.setRain(v),
       setQuality: q => { state.settings.autoQuality = false; game.setQuality(q); },
@@ -147,7 +149,9 @@ function boot() {
       step: (n = 1, dt = 1 / 30) => { input.enabled = !ui.modalOpen; for (let i = 0; i < n; i++) sim(dt); render(); return true; },
       info: () => { render(); const r = renderer.info.render; return { calls: r.calls, triangles: r.triangles, geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures }; },
       press: a => input.press(a), hold: (code, down) => { if (down) input.debugKeys.add(code); else input.debugKeys.delete(code); },
-      mischief: n => npcs.mischief.add(n, 'debug'), clearMischief: () => npcs.mischief.clear(),
+      festival: on => game.economy.setFlag('festival', on !== false), setFlag: (k, v) => game.economy.setFlag(k, v), grant: (what, src) => game.economy.grant(what, src || 'debug'),
+      districts: () => api.districts.map(z => ({ id: z.id, name: z.name })), zoneAt: (x, z) => world.zoneAt(x, z).id, surfaceAt: (x, z) => world.SURF[world.surfaceAt(x, z)], heightAt: (x, z) => world.heightAt(x, z),
+      frameStats: () => ({ ...frameStats }), resetFrameStats: () => { frameStats.n = 0; frameStats.sum = 0; frameStats.max = 0; frameStats.cpuSum = 0; },
       enter: id => vehicles.enter(id), exit: () => vehicles.exit(), rides: () => vehicles.rides.map(r => ({ id: r.id, kind: r.kind, x: r.x, z: r.z, y: r.y })),
       save: () => game.save.save(), toast: t => ui.toast(t),
       startMission: id => { const m = game.modules.missions; return m && m.start ? m.start(id) : false; },

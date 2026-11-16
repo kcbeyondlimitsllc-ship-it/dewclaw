@@ -5,10 +5,11 @@ import { WATER_Y } from './data.js';
 
 export function createCamera(game) {
   const cam3 = new THREE.PerspectiveCamera(60, 1, 0.2, 900);
-  const cam = { three: cam3, yaw: Math.PI / 2, pitch: 0.34, dist: 6.5, cur: 6.5, mode: 'follow', manualT: 9, target: new THREE.Vector3(), shake: 0, lift: 0 };
+  const cam = { three: cam3, yaw: Math.PI / 2, pitch: 0.34, dist: 6.5, cur: 6.5, mode: 'follow', manualT: 9, target: new THREE.Vector3(), shake: 0, lift: 0, lookUp: 0.25, restPitch: 0.34, tall: null };
   const dir = new THREE.Vector3(), p = new THREE.Vector3(), look = new THREE.Vector3();
   let tgtInit = false;
-  cam.resize = (w, h) => { cam3.aspect = w / h; cam.baseFov = w < h ? 74 : 60; cam3.fov = cam.baseFov; cam3.updateProjectionMatrix(); };
+  /* portrait: KC sits in the lower-middle of the screen (the look point is above her) and the camera rides a little lower, so the tall screen fills with town and sky instead of bare ground under the thumb buttons */
+  cam.resize = (w, h) => { const tall = w < h; cam3.aspect = w / h; cam.baseFov = tall ? 72 : 60; cam.lookUp = tall ? 1.55 : 0.25; cam.restPitch = tall ? 0.25 : 0.34; if (tall !== cam.tall && cam.manualT > 1) cam.pitch = cam.restPitch; cam.tall = tall; cam3.fov = cam.baseFov; cam3.updateProjectionMatrix(); };
   /* solid things (buildings, big trunks) shorten the boom; hills only lift it, so the view rises over a slope instead of zooming into KC */
   let liftNeed = 0;
   function freeDist(tx, ty, tz, want) {
@@ -33,7 +34,7 @@ export function createCamera(game) {
     if (cam.mode === 'follow' && cam.manualT > (ride ? 0.8 : 1.6) && kc.speed > 1.2) {
       const heading = ride ? ride.yaw + (ride.speed < -0.2 ? Math.PI : 0) : kc.yaw, d = angDiff(cam.yaw, heading);
       if (Math.abs(d) < 2.5) cam.yaw += d * Math.min(1, dt * (ride ? 2.2 : 0.9));
-      cam.pitch = lerp(cam.pitch, ride ? 0.3 : 0.34, Math.min(1, dt * 0.35));
+      cam.pitch = lerp(cam.pitch, ride ? cam.restPitch - 0.04 : cam.restPitch, Math.min(1, dt * 0.35));
     }
     const base = ride ? ride.cfg.camY : (kc.swimming ? 1.0 : 1.05), tx = kc.pos.x, ty = kc.pos.y + base, tz = kc.pos.z;
     if (!tgtInit) { cam.target.set(tx, ty, tz); tgtInit = true; }
@@ -48,7 +49,7 @@ export function createCamera(game) {
     p.copy(cam.target).addScaledVector(dir, cam.cur); p.y += cam.lift;
     const floor = Math.max(game.world.heightAt(p.x, p.z) + 0.4, WATER_Y + 0.28); if (p.y < floor) p.y = floor;
     if (cam.shake > 0) { cam.shake -= dt; p.x += (Math.random() - 0.5) * 0.12; p.y += (Math.random() - 0.5) * 0.12; }
-    cam3.position.copy(p); look.copy(cam.target); look.y += 0.25; cam3.lookAt(look);
+    cam3.position.copy(p); look.copy(cam.target); look.y += cam.mode === 'photo' ? 0.25 : lerp(0.25, cam.lookUp, clamp((cam.cur - 1.5) / 4, 0, 1)); cam3.lookAt(look);
     const fov = cam.baseFov + (kc.sprinting ? 7 : 0) + (ride ? Math.min(6, Math.abs(ride.speed) * 0.4) : 0);
     if (Math.abs(cam3.fov - fov) > 0.05) { cam3.fov = lerp(cam3.fov, fov, damp(5, dt)); cam3.updateProjectionMatrix(); }
   };

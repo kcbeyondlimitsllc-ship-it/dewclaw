@@ -2,7 +2,7 @@
    chunks are skipped entirely. Trees and rocks are solid; bushes and flowers thin
    out on lower quality settings. */
 import { THREE, Geo, rng, TAU } from './util.js';
-import { EXT, HALF, FIELDS, PATCHES, RIDGE_W } from './data.js';
+import { EXT, HALF, FIELDS, PATCHES, RIDGE_W, CLEARINGS } from './data.js';
 
 const CH = 90, NCH = Math.ceil((EXT * 2) / CH);
 
@@ -21,13 +21,15 @@ export function buildFlora(game, world) {
   const add = (kind, x, z, s, tint) => {
     const cx = Math.min(NCH - 1, Math.max(0, Math.floor((x + EXT) / CH))), cz = Math.min(NCH - 1, Math.max(0, Math.floor((z + EXT) / CH))), k = cx + '|' + cz + '|' + kind;
     (lists[k] ||= { kind, cx, cz, items: [] }).items.push({ x, y: world.heightAt(x, z), z, s, ry: R() * TAU, tint });
-    if (kind === 'fir' || kind === 'leafy') { world.addCircle(x, z, 0.42 * s); trees.push([x, z, kind === 'fir' ? 0 : 1, s]); }
+    if (kind === 'fir' || kind === 'leafy') { world.addCircle(x, z, 0.42 * s); trees.push([x, z, kind === 'fir' ? 0 : 1, s]);
+      /* the camera keeps out of the foliage (slightly shrunk, so brushing a canopy does not make it jump) */
+      const y = world.heightAt(x, z); world.addView(kind === 'fir' ? { x, z, r: 2.0 * s, bottom: y + 1.5 * s, top: y + 7.4 * s, shape: 'cone' } : { x, z, r: 2.25 * s, bottom: y + 2.0 * s, top: y + 5.8 * s, shape: 'ball' }); }
     else if (kind === 'rock') world.addCircle(x, z, 0.8 * s, world.heightAt(x, z) + 0.95 * s);
   };
   const inRect = (x, z, r) => x >= r[0] && z >= r[1] && x <= r[2] && z <= r[3];
   const nearPath = (x, z, m) => { for (const [dx, dz] of [[0, 0], [m, 0], [-m, 0], [0, m], [0, -m]]) { const s = world.surfaceAt(x + dx, z + dz); if (s === 1 || s === 2 || s === 5) return true; } return false; };
   const inField = (x, z) => { for (const f of FIELDS) if (x > f[0] - 2 && z > f[1] - 2 && x < f[2] + 2 && z < f[3] + 2) return true; return false; };
-  const inPatch = (x, z) => { for (const f of PATCHES) if (f[5] === 5 && x > f[0] - 1 && z > f[1] - 1 && x < f[2] + 1 && z < f[3] + 1) return true; return false; };
+  const inPatch = (x, z) => { for (const c of CLEARINGS) if ((x - c[0]) ** 2 + (z - c[1]) ** 2 < c[2] * c[2]) return true; for (const f of PATCHES) if ((f[5] === 5 || f[5] === 3) && x > f[0] - 1 && z > f[1] - 1 && x < f[2] + 1 && z < f[3] + 1) return true; return false; };
   const TOWNS = [[-470, -420, -96, -190], [-320, 10, -226, 114], [-150, 296, 9, 505], [120, 236, 330, 505]];
   const OPEN = [[-200, -188, -96, -120], [-442, -146, -328, -58], [132, 262, 232, 312], [166, 318, 234, 386], [9, 300, 112, 505], [-198, -276, -104, -226], [-268, 432, -230, 470]];   /* lawns: hand-placed trees only */
   const WOODS = [[-246, -136, 40, 0.42, 0.9], [-232, -456, 70, 0.3, 0.6], [-152, -404, 34, 0.1, 0.8], [360, 440, 60, 0.3, 0.35], [-46, -298, 100, 0.2, 0.9], [-34, -92, 34, 0.12, 0.7], [112, -6, 70, 0.13, 0.8], [-330, -438, 44, 0.22, 0.3]];   /* x, z, r, density, leafy share */
@@ -49,7 +51,7 @@ export function buildFlora(game, world) {
     return [0.13, 0.6];
   }
   const SPAN = 2 * (EXT - 4);
-  for (let i = 0; i < 24000; i++) {
+  for (let i = 0; i < 32000; i++) {
     const x = (R() - 0.5) * SPAN, z = (R() - 0.5) * SPAN, h = world.heightAt(x, z), [d, leafy] = zoneDensity(x, z, h);
     if (R() >= d || nearPath(x, z, 2.6) || world.blockedAt(x, z, h, 2.2)) continue;
     const kind = R() < leafy ? 'leafy' : 'fir', s = (0.75 + R() * 0.7) * (Math.max(Math.abs(x), Math.abs(z)) > HALF - 10 ? 1.35 : 1);

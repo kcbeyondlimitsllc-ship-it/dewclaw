@@ -27,8 +27,10 @@ export const LAKES = [
 export const ISLANDS = [{ id: 'sand', name: 'Sand Island', e: [-46, -298, 19, 92], h: 2.3 }];
 /* painted (ankle-deep) creek, no carve */
 export const CREEK = [[-505, -96], [-440, -84], [-390, -92], [-330, -70], [-282, -66], [-246, -60]];
-/* rails beside the highway (painted, with a parked freight train at Linnton) */
-export const RAIL = [[-436, -535], [-436, -150], [-430, -62], [-336, 48], [-236, 148], [-136, 248], [-118, 300]];
+/* the railway beside Highway 30, always on the river side of it; it ends at a buffer stop in the Linnton yard.
+   A freight train (invented livery, no logos) shuttles along it: see TRAIN and js/vehicles.js */
+export const RAIL = [[-436, -535], [-436, -150], [-430, -62], [-336, 48], [-236, 148], [-156, 228]];
+export const TRAIN = { cars: 5, gap: 13.2, speed: 8.5, dwell: 22, from: 62, endPad: 6 };   /* from / endPad: how far the consist stays from each end of the rail */
 
 /* ---------- terrain shaping ---------- */
 /* soft bumps [x, z, height, sigma] */
@@ -41,13 +43,14 @@ export const BUMPS = [
 /* flat pads [x, z, radius, edge, height] applied after bumps */
 export const PADS = [
   [28, 250, 9, 30, 7.95], [172, 250, 9, 26, 7.95],          /* St. Johns Bridge abutments */
-  [86, 470, 5, 16, 4.1], [178, 470, 5, 16, 4.1],            /* Morrison-style bridge ends */
+  [86, 470, 5, 16, 4.1], [178, 470, 5, 16, 4.1],            /* Hawthorne Bridge ends */
+  [78, 432, 5, 15, 4.1], [164, 432, 5, 15, 4.1],            /* Tilikum Crossing ends */
   [-62, 212, 5, 14, 3.9], [-62, 153, 5, 14, 3.9],           /* Wapato Bridge ends */
   [-250, 452, 26, 30, 33],                                  /* mansion viewpoint */
   [360, 440, 16, 20, 23],                                   /* Mt. Tabor summit */
   [-330, -438, 13, 9, 2.2],                                 /* quarry floor */
   [-246, -132, 9, 10, 11.5],                                /* Nob Hill viewpoint */
-  [-152, -404, 14, 12, 7.2]                                 /* Grey Cliffs lawn */
+  [-152, -404, 14, 12, 7.2], [-128, -404, 13, 5, 7.2]       /* Grey Cliffs lawn, carried east to the cliff edge above the river */
 ];
 /* flat (low-noise) rectangles [x0, z0, x1, z1, edge] */
 export const FLATS = [
@@ -56,7 +59,7 @@ export const FLATS = [
   [-150, 290, 110, 505, 18],       /* Portland west side */
   [120, 240, 320, 500, 18],        /* Portland east side */
   [-40, 0, 140, 140, 22],          /* Wapato Patch Farm */
-  [-180, 230, -110, 300, 14]       /* Linnton */
+  [-200, 224, -110, 304, 14]       /* Linnton */
 ];
 /* crest of the Tualatin hills / Forest Park ridge: [x, z]; land west of it stays high */
 export const RIDGE = [[-560, 40], [-430, 170], [-330, 285], [-262, 400], [-250, 540]];
@@ -66,7 +69,12 @@ export const SPAWN = { x: -168, z: -166, yaw: Math.PI / 2 };
 export const PLAZA = { x: -170, z: -250 };          /* Lantern Stack */
 export const COURTHOUSE = { x: -121, z: -250 };
 export const SJB = { x0: 28, x1: 172, z: 250, top: 8, w: 11 };
-export const MORRISON = { x0: 86, x1: 178, z: 470, top: 4.2, w: 10 };
+export const MORRISON = { x0: 86, x1: 178, z: 470, top: 4.2, w: 10 };   /* Hawthorne Bridge */
+export const TILIKUM = { x0: 78, x1: 164, z: 432, top: 4.2, w: 9 };      /* car-free bridge: walkers, wheels, paws and the tram */
+/* the Heron Line: an invented two-stop tram (made-up name and colours) between Waterfront Park and the east bank */
+export const TRAM = { id: 'tram', name: 'Heron Line', z: 432, x0: 18, x1: 232, stops: [{ x: 26, name: 'Waterfront Park' }, { x: 224, name: 'Eastbank' }], speed: 8, dwell: 11 };
+/* no trees here: view corridors from the two viewpoints, and the tram line */
+export const CLEARINGS = [[-226, -131, 15], [-206, -126, 14], [-188, -120, 12], [-224, 452, 15], [-205, 452, 14], [-186, 452, 12], [-128, -404, 15]];
 export const WAPATO = { x: -62, z0: 153, z1: 212, top: 4.0, w: 9 };
 export const LIGHTHOUSE = { x: -34, z: -92 };
 export const MANSION = { x: -252, z: 448 };
@@ -86,8 +94,8 @@ export const ROADS = [
   { id: 'sauvieE', name: 'Sauvie Island Road', kind: 'road', w: 8, pts: [[-62, 153], [-45, 100], [18, 60], [50, 40]] },
   { id: 'bridgeW', name: 'Bridge Avenue', kind: 'road', w: 9, pts: [[-105, 320], [-40, 290], [2, 258], [28, 250]] },
   { id: 'eastside', name: 'Willamette Blvd', kind: 'road', w: 9, pts: [[172, 250], [225, 255], [245, 300], [245, 400], [250, 470]] },
-  { id: 'morrisonW', name: 'Morrison Street', kind: 'road', w: 9, pts: [[-100, 470], [5, 470], [86, 470]] },
-  { id: 'morrisonE', name: 'Morrison Street', kind: 'road', w: 9, pts: [[178, 470], [250, 470], [318, 460]] },
+  { id: 'morrisonW', name: 'Hawthorne Blvd', kind: 'road', w: 9, pts: [[-100, 470], [5, 470], [86, 470]] },
+  { id: 'morrisonE', name: 'Hawthorne Blvd', kind: 'road', w: 9, pts: [[178, 470], [250, 470], [318, 460]] },
   { id: 'burnside', name: 'Burnside Street', kind: 'road', w: 8, pts: [[-100, 390], [5, 390]] },
   { id: 'naito', name: 'Naito Parkway', kind: 'road', w: 8, pts: [[2, 258], [5, 300], [5, 390], [5, 470], [5, 505]] },
   /* gravel */
@@ -110,6 +118,7 @@ export const ROADS = [
   { id: 'wildwood', name: 'Wildwood Trail', kind: 'trail', w: 3.4, pts: [[-158, 268], [-196, 296], [-232, 300], [-250, 330], [-218, 356], [-240, 388], [-282, 400], [-272, 430], [-256, 440]] },
   { id: 'tabor', name: 'Mt. Tabor Loop', kind: 'trail', w: 3.4, pts: [[318, 460], [330, 420], [364, 408], [392, 432], [386, 466], [352, 478], [324, 462], [348, 444], [360, 440]] },
   { id: 'cathedral', name: 'Cathedral Park Path', kind: 'walk', w: 3.4, pts: [[190, 262], [170, 284], [140, 290], [150, 306], [196, 306], [228, 290]] },
+  { id: 'tramway', name: 'Heron Line', kind: 'walk', w: 5, pts: [[12, 432], [78, 432], [164, 432], [240, 432]] },
   { id: 'farmtrail', name: 'Maze Path', kind: 'trail', w: 3.2, pts: [[50, 40], [40, 62], [10, 70]] }
 ];
 
@@ -125,14 +134,16 @@ export const ZONES = [
   { id: 'sand', name: 'Sand Island', ellipse: [-46, -298, 24, 98] },
   { id: 'oldtown', name: 'Riverfront Old Town', rect: [-232, -342, -96, -188] },
   { id: 'mccormick', name: 'McCormick Park', rect: [-442, -146, -328, -58] },
-  { id: 'mill', name: 'The Paper Mill', rect: [-392, -58, -322, 8] },
-  { id: 'sthelens', name: 'St. Helens', rect: [-440, -400, -232, -146] },
+  { id: 'mill', name: 'The Paper Mill', rect: [-392, -60, -296, 12] },
+  { id: 'sthelens', name: 'St. Helens', rect: [-505, -505, -96, -118] },
   { id: 'scappoose', name: 'Scappoose', rect: [-318, 12, -226, 112] },
   { id: 'lighthouse', name: 'Warrior Rock Light', circle: [-34, -92, 22] },
   { id: 'farm', name: 'Wapato Patch Farm', rect: [-36, 4, 136, 136] },
   { id: 'islandbeach', name: 'Island Beach', rect: [150, 20, 215, 90] },
   { id: 'wildlife', name: 'Sauvie Island Wildlife Area', rect: [40, -70, 175, 30] },
-  { id: 'stjohns', name: 'St. Johns Bridge', rect: [20, 242, 180, 258] },
+  { id: 'stjohns', name: 'St. Johns Bridge', rect: [9, 242, 182, 258] },
+  { id: 'tilikum', name: 'Tilikum Crossing', rect: [72, 426.5, 170, 437.5] },
+  { id: 'hawthorne', name: 'Hawthorne Bridge', rect: [82, 464, 182, 476] },
   { id: 'cathedral', name: 'Cathedral Park', rect: [128, 258, 232, 314] },
   { id: 'chimney', name: 'Chimney Park', rect: [164, 316, 236, 388] },
   { id: 'carts', name: 'Food Cart Pod', rect: [258, 396, 306, 458] },
@@ -141,27 +152,29 @@ export const ZONES = [
   { id: 'square', name: 'Pioneer Courthouse Square', rect: [-90, 398, -6, 462] },
   { id: 'makers', name: 'Bridgeside Makers Market', rect: [12, 476, 86, 500] },
   { id: 'waterfront', name: 'Waterfront Park', fn: (x, z, h, w) => x > 9 && x < 110 && z > 300 && z < 505 && h > 0.2 },
-  { id: 'downtown', name: 'Downtown Portland', rect: [-150, 296, 9, 505] },
-  { id: 'linnton', name: 'Linnton', rect: [-184, 226, -104, 300] },
-  { id: 'forestpark', name: 'Forest Park', fn: (x, z, h, w) => z > 200 && w.ridgeDx(x, z) < 96 },
-  { id: 'eastside', name: 'St. Johns', rect: [120, 236, 330, 505] },
+  { id: 'linnton', name: 'Linnton', rect: [-198, 224, -112, 302] },
+  { id: 'downtown', name: 'Downtown Portland', rect: [-150, 240, 9, 505] },
+  { id: 'forestpark', name: 'Forest Park', fn: (x, z, h, w) => z > 200 && (w.ridgeDx(x, z) < 96 || (x < -150 && w.ridgeDx(x, z) < 190)) },
   { id: 'sauvie', name: 'Sauvie Island', fn: (x, z, h, w) => h > 0.2 && x > -150 && x < 250 && z > -112 && z < 205 && w.riverSd(x, z, 'channel') > 0 && w.riverSd(x, z, 'columbia') > 0 && w.riverSd(x, z, 'willamette') > 0 && (x + 0.5 * z > -150) },
   { id: 'columbia', name: 'Columbia River', fn: (x, z, h, w) => h < 0.2 && w.riverSd(x, z, 'columbia') < 12 },
   { id: 'channel', name: 'Multnomah Channel', fn: (x, z, h, w) => h < 0.2 && w.riverSd(x, z, 'channel') < 12 },
   { id: 'willamette', name: 'Willamette River', fn: (x, z, h, w) => h < 0.2 && w.riverSd(x, z, 'willamette') < 12 },
-  { id: 'hwy30', name: 'Highway 30', fn: (x, z, h, w) => w.roadDist('hwy30', x, z) < 30 },
+  { id: 'stjohnstown', name: 'St. Johns', rect: [120, 222, 330, 318] },
+  { id: 'eastside', name: 'Eastside', rect: [120, 318, 330, 505] },
+  { id: 'hwy30', name: 'Highway 30', fn: (x, z, h, w) => w.roadDist('hwy30', x, z) < 34 },
   { id: 'farshore', name: 'The Far Shore', fn: (x, z, h, w) => w.riverSd(x, z, 'columbia') > 0 && (x > 100 && z < 60) },
   { id: 'tualatin', name: 'Tualatin Hills', fn: (x, z, h, w) => w.ridgeDx(x, z) < 96 },
-  { id: 'valley', name: 'Columbia County', fn: () => true }
+  { id: 'bottoms', name: 'Scappoose Bottoms', fn: (x, z) => x < -140 && z > -118 && z < 236 },
+  { id: 'valley', name: 'Lower Columbia', fn: () => true }
 ];
 /* names drawn on the minimap and the big map: [name, x, z, big?] */
 export const DISTRICT_LABELS = [
   ['St. Helens', -330, -300, 1], ['Old Town', -206, -300], ['Courthouse Plaza', -160, -262], ['Columbia View Park', -150, -152], ['Sand Island', -46, -300], ['North Marina', -112, -358],
   ['Grey Cliffs', -156, -410], ['Dalton Lake', -232, -456], ['Old Quarry', -330, -440], ['Nob Hill', -246, -118], ['McCormick Park', -386, -100], ['Paper Mill', -356, -26],
   ['Highway 30', -398, 30], ['Scappoose', -272, 62, 1], ['Columbia River', 60, -330, 1], ['Multnomah Channel', -160, 60], ['Sauvie Island', 60, 110, 1], ['Wapato Patch Farm', 50, 66],
-  ['Warrior Rock Light', -34, -100], ['Wildlife Area', 108, -44], ['Island Beach', 180, 56], ['Linnton', -150, 262], ['St. Johns Bridge', 100, 240], ['Cathedral Park', 180, 290],
+  ['Warrior Rock Light', -34, -100], ['Wildlife Area', 108, -44], ['Island Beach', 180, 56], ['Linnton', -176, 262], ['St. Johns Bridge', 100, 240], ['Cathedral Park', 180, 290],
   ['Chimney Park', 200, 352], ['Forest Park', -230, 340, 1], ['Pittock Mansion', -250, 466], ['Portland', -50, 320, 1], ['Pioneer Courthouse Sq.', -50, 430], ['Waterfront Park', 46, 420],
-  ['Makers Market', 48, 492], ['Food Carts', 282, 428], ['Mt. Tabor', 360, 452], ['Willamette River', 112, 372], ['Tualatin Hills', -420, 330, 1], ['The Far Shore', 300, -280, 1]
+  ['Makers Market', 48, 492], ['Tilikum Crossing', 121, 424], ['Hawthorne Bridge', 132, 478], ['St. Johns', 262, 276], ['Food Carts', 282, 428], ['Mt. Tabor', 360, 452], ['Willamette River', 112, 372], ['Tualatin Hills', -420, 330, 1], ['The Far Shore', 300, -280, 1]
 ];
 
 /* ---------- buildings. w = size along x, d = size along z, f = side the door faces (s = +z, n = -z, e = +x, w = -x) ---------- */
@@ -218,8 +231,9 @@ export const BUILDINGS = [
   shop('bikes', -246, 68, 'w', 'Channel Cyclery', P.teal, 0xffd27a),
   house(-240, 92, 'w'), house(-306, 16, 'e'),
   /* Linnton */
-  { id: 'linnton1', x: -170, z: 240, w: 20, d: 12, h: 6, col: 0x8a8f96, roof: 'gable', f: 's', sign: 'Linnton Feed Dock', kind: 'cabin', roofCol: 0x5a5f66 },
-  { id: 'linnton2', x: -130, z: 286, w: 14, d: 10, h: 5, col: P.wood, roof: 'gable', f: 'w', sign: 'Trailhead Cafe', kind: 'cabin', roofCol: 0x3f5f3f },
+  /* both stand well back from Highway 30, on the Forest Park side (an invented farm-supply shed and cafe, not modelled on any real shop) */
+  { id: 'linnton1', x: -184, z: 238, w: 20, d: 12, h: 6, col: 0x8a8f96, roof: 'gable', f: 's', sign: 'River Road Farm Supply', kind: 'cabin', roofCol: 0x5a5f66 },
+  { id: 'linnton2', x: -153, z: 293, w: 10, d: 14, h: 5, col: P.wood, roof: 'gable', f: 'e', sign: 'Trailhead Cafe', kind: 'cabin', roofCol: 0x3f5f3f },
   /* Sauvie Island */
   { id: 'barn', x: 76, z: 60, w: 20, d: 14, h: 8, col: P.barn, roof: 'gable', f: 'w', sign: 'Wapato Patch Farm', kind: 'barn', roofCol: 0x5a5a5e },
   { id: 'farmhouse', x: 32, z: 20, w: 13, d: 10, h: 5.4, col: P.white, roof: 'gable', f: 's', kind: 'house', roofCol: 0x7a3a3a },
@@ -230,11 +244,11 @@ export const BUILDINGS = [
   { id: 'farm3', x: 150, z: 110, w: 16, d: 12, h: 7, col: P.barn, roof: 'gable', f: 'w', kind: 'barn', sign: 'East Shore Orchard', roofCol: 0x5a5a5e },
   /* ===== Portland, west side ===== */
   block('books', -50, 352, 62, 40, 11, P.brick, 's', { sign: 'Rain City Books', kind: 'bookshop' }),
-  block('twr1', -130, 336, 24, 26, 20, 0x9fb0bf, 'e', { sign: 'Stumptown Hotel' }),
+  block('twr1', -130, 336, 24, 26, 20, 0x9fb0bf, 'e', { sign: 'Hotel Fernfall' }),
   block('twr2', -130, 368, 24, 26, 30, 0x7f8f9f, 'e'),
   block('twr3', -130, 404, 24, 30, 24, 0xc9b99f, 'e', { sign: 'Bridge City Bank' }),
   block('twr4', -130, 468, 24, 30, 34, 0x8fa6b8, 'e'),
-  block('twr5', -68, 490, 30, 20, 26, 0xb5563f, 'n', { sign: 'The Rose Building', neon: true }),
+  block('twr5', -68, 490, 30, 20, 26, 0xb5563f, 'n', { sign: 'The Puddle Works', neon: true }),
   block('twr6', -28, 490, 26, 20, 18, 0xd8c8a4, 'n'),
   shop('donut', -84, 322, 's', 'Good Dog Donuts', P.rose, 0xffffff, { w: 12, d: 12 }),
   shop('ramen', -14, 322, 's', 'Umbrella Noodle Bar', P.navy, 0xd9534f, { w: 12, d: 12 }),
@@ -262,7 +276,7 @@ export const CARTS = [
   [268, 408, 'Biscuit Wheel', 0xf0b860, Math.PI / 2], [268, 422, 'Noodle Tail', 0xd9534f, Math.PI / 2], [268, 436, 'Good Bowl', 0x4fae8f, Math.PI / 2], [268, 450, 'Waffle Wag', 0xf0c040, Math.PI / 2],
   [298, 412, 'Smoke & Stick', 0x8a4fae, -Math.PI / 2], [298, 428, 'Pup Cup Creamery', 0x8fb8d8, -Math.PI / 2], [298, 444, 'Rice Paper Kite', 0xe07a5a, -Math.PI / 2]
 ];
-/* painted ground patches: [x0, z0, x1, z1, colour, surface] surface: 5 paving, 0 none */
+/* painted ground patches: [x0, z0, x1, z1, colour, surface] surface: 5 paving, 3 sand, 0 none */
 export const PATCHES = [
   [-198, -274, -146, -228, '#b9a58f', 5],       /* courthouse plaza */
   [-134, -270, -108, -230, '#c9c0ae', 5],       /* courthouse forecourt */
@@ -274,7 +288,7 @@ export const PATCHES = [
   [-396, -112, -350, -74, '#8fcf70', 0],        /* off-leash meadow */
   [-378, -52, -330, 6, '#8d8a84', 5],           /* mill yard */
   [-304, 30, -280, 52, '#6a6c72', 5],           /* fuel forecourt */
-  [-190, 228, -112, 258, '#8d8a84', 5],         /* Linnton yard */
+  [-198, 228, -172, 262, '#8d8a84', 5],         /* Linnton yard */
   [-86, 400, -14, 460, '#b5694f', 5],           /* Pioneer Courthouse Square brick */
   [12, 476, 84, 498, '#cfc6b4', 5],             /* makers market paving */
   [132, 262, 232, 312, '#7fc668', 0],           /* Cathedral Park */
@@ -282,7 +296,9 @@ export const PATCHES = [
   [258, 398, 306, 458, '#a9a295', 5],           /* food cart pod gravel */
   [-264, 436, -236, 466, '#c9c0ae', 5],         /* mansion terrace */
   [28, 6, 96, 44, '#b59a6a', 0],                /* farm yard */
-  [-10, 398, 0, 412, '#6a6c72', 5]              /* square parking bay */
+  [-10, 398, 0, 412, '#6a6c72', 5],             /* square parking bay */
+  [14, 426, 38, 438, '#c9c0ae', 5], [212, 426, 238, 438, '#c9c0ae', 5],   /* tram stops */
+  [152, 22, 222, 88, '#dcc890', 3]              /* Island Beach sand */
 ];
 /* crop fields: [x0, z0, x1, z1, kind] kind: pumpkin, corn, rows, pasture, orchard */
 export const FIELDS = [
@@ -296,10 +312,10 @@ export const RIDEABLES = [
   { id: 'board-park', kind: 'skateboard', x: -160, z: -160, yaw: 0.6 },
   { id: 'board-skatepark', kind: 'skateboard', x: -412, z: -122, yaw: 2 },
   { id: 'board-waterfront', kind: 'skateboard', x: 30, z: 446, yaw: 0 },
-  { id: 'canoe-dock', kind: 'canoe', x: -80, z: -212, yaw: 0 },
+  { id: 'canoe-dock', kind: 'canoe', x: -71, z: -215.2, yaw: Math.PI / 2 },
   { id: 'canoe-sand', kind: 'canoe', x: -73, z: -300, yaw: 3.1 },
   { id: 'canoe-cathedral', kind: 'canoe', x: 114, z: 296, yaw: 0.3 },
-  { id: 'canoe-beach', kind: 'canoe', x: 184, z: 40, yaw: 1.2 },
+  { id: 'canoe-beach', kind: 'canoe', x: 226, z: 46, yaw: 1.2 },
   { id: 'van-park', kind: 'van', x: -181, z: -177, yaw: Math.PI / 2 },
   { id: 'van-scappoose', kind: 'van', x: -292, z: 22, yaw: 0.3 },
   { id: 'van-portland', kind: 'van', x: -6, z: 404, yaw: Math.PI },
@@ -353,7 +369,8 @@ export const PED_ROUTES = [
   { pts: [[18, 481], [78, 481]], n: 3, where: 'makers' },
   { pts: [[-158, 268], [-196, 296], [-232, 300], [-250, 330], [-218, 356], [-240, 388], [-282, 400], [-272, 430], [-256, 440]], n: 3, hiker: true, where: 'forestpark' },
   { pts: [[-262, 440], [-240, 440], [-240, 462], [-262, 462]], loop: true, n: 2, where: 'mansion' },
-  { pts: [[-176, 250], [-128, 252], [-126, 276]], n: 1, worker: true, where: 'linnton' }
+  { pts: [[-178, 252], [-164, 262], [-144, 284]], n: 1, worker: true, where: 'linnton' },
+  { pts: [[30, 437.4], [70, 436], [84, 435.2], [160, 435.2], [206, 437.4]], n: 2, where: 'tilikum' }
 ];
 /* what people say when KC says hi, by where they are (all original lines) */
 export const CHATTER = {
@@ -384,7 +401,8 @@ export const CHATTER = {
   makers: ['Hand-stamped tags, made while you wag.', 'This bandana would suit you. Blue brings out your collar.'],
   forestpark: ['Wildwood Trail goes on for miles. Pace yourself.', 'Big trees, soft trail, good smells.'],
   mansion: ['Sunrise from this terrace is worth the climb.', 'You can see the whole city, and the mountain past it.'],
-  linnton: ['Gateway to Portland, right here. Trailhead is across the road.']
+  linnton: ['Gateway to Portland, right here. The Wildwood Trail starts behind the cafe.'],
+  tilikum: ['No cars on this bridge. Just feet, wheels, paws and the tram.', 'The Heron Line stops at both ends. Dogs ride free.']
 };
 export const DOG_SPOTS = [
   { x: -372, z: -92, r: 14, name: 'Biscuit', coat: 0x8a5a3a, ear: 0x5a3a24, belly: 0xc9a27a, s: 0.9 },
@@ -410,7 +428,7 @@ export const CRITTERS = [
 export const GOLDEN_BALLS = [
   [-170, -243], [-121, -226], [-222, -296], [-102, -208], [-150, -148], [-46, -372], [-44, -224], [-152, -412], [-268, -470], [-330, -440], [-246, -132], [-420, -92],
   [-356, -12], [-272, 96], [-374, 60], [-34, -98], [2, 100], [94, 104], [112, -40], [190, 60], [-62, 182], [100, 250], [100, 242], [160, 294],
-  [200, 380], [282, 452], [360, 440], [-250, 462], [-232, 304], [-50, 428], [-50, 372], [60, 396], [46, 494], [132, 470], [-160, 246], [300, -200]
+  [200, 380], [282, 452], [360, 440], [-250, 462], [-232, 304], [-50, 428], [-50, 372], [60, 396], [46, 494], [132, 470], [-176, 254], [300, -200]
 ];
 export const DIG_SPOTS = [
   [-46, -340], [-50, -262], [-42, -236], [-160, -144], [-112, -130], [-252, -112], [-400, -80], [-360, -96], [-322, -430], [-210, -436], [-148, -396], [-330, 0],
@@ -443,12 +461,12 @@ export const SIGNPOSTS = [
   { id: 'hwy', x: -438, z: -214, title: 'Highway 30', text: 'South-east for Scappoose, Sauvie Island and Portland. Stay on the verge, pup: the road is for wheels.', ry: Math.PI / 2 },
   { id: 'scappoose', x: -286, z: 18, title: 'Scappoose', text: 'Rest stop: fuel, treats and a noticeboard. Portland is down the highway; St. Helens is back the way you came.' },
   { id: 'stand', x: -366, z: 62, title: 'Highway Farm Stand', text: 'Apples, squash and bandanas. Honesty box on the counter.' },
-  { id: 'wapato', x: -54, z: 218, title: 'Wapato Bridge', text: 'The only road onto Sauvie Island. Wapato is the island\'s old name, after a plant whose roots fed people here for thousands of years.', ry: Math.PI / 2 },
+  { id: 'wapato', x: -54, z: 218, title: 'Wapato Bridge', text: 'The only road onto Sauvie Island. Farms, beaches and the smallest lighthouse in Oregon are all on the far side.', ry: Math.PI / 2 },
   { id: 'farm', x: 40, z: 34, title: 'Wapato Patch Farm', text: 'Pumpkins, a corn maze and hay bales to climb. A dog-friendly farm: please do not herd anything unless asked nicely.' },
   { id: 'wildlife', x: 52, z: -18, title: 'Sauvie Island Wildlife Area', text: 'Sturgeon Lake and the marshes belong to the birds. Walk the loop and see who is home.' },
   { id: 'warrior', x: -26, z: -82, title: 'Warrior Rock Light', text: 'Oregon\'s smallest lighthouse, at the north tip of the island. Reach it by canoe from St. Helens or by the long flat trail.' },
   { id: 'beach', x: 164, z: 60, title: 'Island Beach', text: 'Driftwood, sand and the wide Columbia. Ships pass close: wave with your tail.' },
-  { id: 'linnton', x: -152, z: 266, title: 'Linnton', text: 'River industry on one side, Forest Park on the other. The Wildwood Trail starts across the road.' },
+  { id: 'linnton', x: -156, z: 262, title: 'Linnton', text: 'River industry on one side, Forest Park on the other. The railway ends here, and the Wildwood Trail starts beside the cafe.' },
   { id: 'wildwood', x: -164, z: 272, title: 'Wildwood Trail', text: 'Forest Park\'s long trail. Follow it uphill through the firs to the mansion viewpoint.' },
   { id: 'stjohns', x: 20, z: 258, title: 'St. Johns Bridge', text: 'Opened 1931. A steel suspension bridge with tall pointed towers, high above the Willamette. Cathedral Park is under the far end.' },
   { id: 'cathedral', x: 196, z: 268, title: 'Cathedral Park', text: 'Named for the arches of the bridge overhead. Off-leash area by the water; the dock has a canoe.' },
@@ -459,5 +477,7 @@ export const SIGNPOSTS = [
   { id: 'books', x: -50, z: 380, title: 'Rain City Books', text: 'A whole block of books. Lost-and-found box by the door: somebody is always missing a bookmark.' },
   { id: 'waterfront', x: 14, z: 396, title: 'Waterfront Park', text: 'Lawn, fountain and a promenade along the Willamette. Frisbees have right of way.', ry: Math.PI / 2 },
   { id: 'makers', x: 14, z: 480, title: 'Bridgeside Makers Market', text: 'Collars, tags and bandanas from the people who make them. Open under the bridge, rain or shine.' },
+  { id: 'tilikum', x: 72, z: 438.4, title: 'Tilikum Crossing', text: 'A bridge with no cars at all: walkers, wheels, paws and the Heron Line tram share it. Hop on the tram at either end.' },
+  { id: 'tramstop', x: 218, z: 439.2, title: 'Heron Line: Eastbank', text: 'The tram runs back and forth over Tilikum Crossing to Waterfront Park. Dogs ride free. The food carts are just across the road.' },
   { id: 'mansion', x: -238, z: 446, title: 'Pittock Mansion', text: 'A 1914 house on the hilltop, now owned by the city. On a clear morning the mountain floats above the skyline.', ry: Math.PI / 2 }
 ];

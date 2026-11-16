@@ -4,7 +4,8 @@
    layer. Real public landmarks are drawn from scratch in a generic low-poly
    style; every business name is invented for this game. */
 import { THREE, Geo, rng, TAU, lerp, clamp } from './util.js';
-import { EXT, BUILDINGS, STALLS, CARTS, SIGNPOSTS, WATER_Y, PLAZA, COURTHOUSE, SJB, MORRISON, WAPATO, LIGHTHOUSE, MAZE } from './data.js';
+import { EXT, BUILDINGS, STALLS, CARTS, SIGNPOSTS, WATER_Y, PLAZA, COURTHOUSE, SJB, MORRISON, WAPATO, LIGHTHOUSE, MAZE, RAIL, TILIKUM, TRAM, CROSSWALKS } from './data.js';
+import { smoothPath } from './util.js';
 
 const CH = 170, NCH = Math.ceil((EXT * 2) / CH);
 const C = { wood: 0x9a6a42, woodD: 0x6e4a2e, woodL: 0xc49a6a, stone: 0x9a9a94, stoneD: 0x77777a, metal: 0x4a4f58, white: 0xf4f4ef, glass: 0x9fc4d8, door: 0x6a4630, red: 0xd9534f, green: 0x4f8f4f, yellow: 0xf0c040, blue: 0x3f7fd6, orange: 0xf08a2a, dark: 0x2a2c30, leaf: 0x4f9a4f, hay: 0xe0c060, sand: 0xdcc890, pink: 0xf08fb0 };
@@ -12,11 +13,12 @@ const C = { wood: 0x9a6a42, woodD: 0x6e4a2e, woodL: 0xc49a6a, stone: 0x9a9a94, s
 export function buildScenery(game, world) {
   const { scene } = game;
   /* ---------- sign atlas ---------- */
-  const AT = 2048, atlasCv = document.createElement('canvas'); atlasCv.width = atlasCv.height = AT; const ax = atlasCv.getContext('2d');
-  ax.fillStyle = '#fff'; ax.fillRect(0, 0, AT, 36);
-  { const gr = ax.createRadialGradient(960, 104, 2, 960, 104, 62); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.5, 'rgba(255,255,255,.35)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); ax.fillStyle = '#000'; ax.fillRect(894, 38, 130, 132); ax.fillStyle = gr; ax.fillRect(896, 40, 128, 128); }
-  const BLOB = [896 / AT, 1 - 168 / AT, 1, 1 - 40 / AT];
-  let shelfX = 2, shelfY = 40; const ROWH = 60;
+  /* 2048 px, or 1024 px (everything drawn at half size) when the game boots on Low: a quarter of the memory */
+  const AT = game.quality && game.quality.boot === 'low' ? 1024 : 2048, SC = AT / 2048, atlasCv = document.createElement('canvas'); atlasCv.width = atlasCv.height = AT; const ax = atlasCv.getContext('2d');
+  ax.fillStyle = '#fff'; ax.fillRect(0, 0, AT, 36 * SC);
+  { const gr = ax.createRadialGradient(960 * SC, 104 * SC, 2 * SC, 960 * SC, 104 * SC, 62 * SC); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.5, 'rgba(255,255,255,.35)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); ax.fillStyle = '#000'; ax.fillRect(894 * SC, 38 * SC, 130 * SC, 132 * SC); ax.fillStyle = gr; ax.fillRect(896 * SC, 40 * SC, 128 * SC, 128 * SC); }
+  const BLOB = [896 / 2048, 1 - 168 / 2048, 1024 / 2048, 1 - 40 / 2048];
+  let shelfX = 2, shelfY = Math.round(40 * SC); const ROWH = Math.round(60 * SC);
   const atlasTex = new THREE.CanvasTexture(atlasCv); atlasTex.colorSpace = THREE.SRGBColorSpace; atlasTex.anisotropy = 4;
   const signCache = new Map();
   function makeSign(text, o = {}) {
@@ -24,15 +26,15 @@ export function buildScenery(game, world) {
     const r = makeSign0(text, o); signCache.set(ck, r); return r;
   }
   function makeSign0(text, o = {}) {
-    const font = `800 ${o.size || 34}px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`;
-    ax.font = font; const w = Math.min(860, Math.ceil(ax.measureText(text).width) + 36);
-    const limit = shelfY < 172 ? 890 : AT - 2; if (w > limit - 4) return { u0: 0.4, v0: 0.99, u1: 0.6, v1: 0.995, aspect: 4 };
+    const font = `800 ${Math.round((o.size || 34) * SC)}px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`;
+    ax.font = font; const w = Math.min(Math.round(860 * SC), Math.ceil(ax.measureText(text).width) + Math.round(36 * SC));
+    const limit = shelfY < 172 * SC ? Math.round(890 * SC) : AT - 2; if (w > limit - 4) return { u0: 0.4, v0: 0.99, u1: 0.6, v1: 0.995, aspect: 4 };
     if (shelfX + w > limit) { shelfX = 2; shelfY += ROWH + 4; }
     if (shelfY + ROWH > AT) return { u0: 0.4, v0: 0.99, u1: 0.6, v1: 0.995, aspect: 4 };
     const x = shelfX, y = shelfY; shelfX += w + 4;
     ax.fillStyle = o.bg || '#2f3a33'; ax.fillRect(x, y, w, ROWH);
-    ax.strokeStyle = o.fg || '#fff7df'; ax.lineWidth = 3; ax.strokeRect(x + 4.5, y + 4.5, w - 9, ROWH - 9);
-    ax.fillStyle = o.fg || '#fff7df'; ax.font = font; ax.textAlign = 'center'; ax.textBaseline = 'middle'; ax.fillText(text, x + w / 2, y + ROWH / 2 + 2, w - 24);
+    ax.strokeStyle = o.fg || '#fff7df'; ax.lineWidth = 3 * SC; ax.strokeRect(x + 4.5 * SC, y + 4.5 * SC, w - 9 * SC, ROWH - 9 * SC);
+    ax.fillStyle = o.fg || '#fff7df'; ax.font = font; ax.textAlign = 'center'; ax.textBaseline = 'middle'; ax.fillText(text, x + w / 2, y + ROWH / 2 + 2 * SC, w - 24 * SC);
     atlasTex.needsUpdate = true;
     return { u0: (x + 1) / AT, v0: 1 - (y + ROWH - 1) / AT, u1: (x + w - 1) / AT, v1: 1 - (y + 1) / AT, aspect: w / ROWH };
   }
@@ -41,13 +43,16 @@ export function buildScenery(game, world) {
 
   /* ---------- chunk geos ---------- */
   const chunks = new Map();
-  const chunkAt = (x, z) => { const k = Math.floor((x + EXT) / CH) + NCH * Math.floor((z + EXT) / CH); let c = chunks.get(k); if (!c) chunks.set(k, c = { g: new Geo(), gl: new Geo() }); return c; };
+  const chunkAt = (x, z) => { const k = Math.floor((x + EXT) / CH) + NCH * Math.floor((z + EXT) / CH); let c = chunks.get(k); if (!c) chunks.set(k, c = { g: new Geo(), gl: new Geo(), d: new Geo() }); return c; };
   const footprints = [], decks = [], anim = [];
   const hAt = (x, z) => world.heightAt(x, z);
   const R = rng(4242);
 
   /* ctx: where a builder writes. Baked props go to chunks, spawned props to their own geo. */
-  const baked = { pick: (x, z) => chunkAt(x, z), col: [], solid: true };
+  const baked = { pick: (x, z) => chunkAt(x, z), col: [], solid: true, views: [], extra: [], anims: [] };
+  /* a prop's own animated mesh (a flame, say): tracked on the ctx so a spawned prop can take it away again */
+  const own = (ctx, mesh, fn) => { scene.add(mesh); (ctx.extra ||= []).push(mesh); if (fn) { anim.push(fn); (ctx.anims ||= []).push(fn); } };
+  const view = (ctx, v) => { const q = world.addView(v); (ctx.views ||= []).push(q); return q; };
   const P = {};
 
   /* text board facing local +z, centred at (0, y, z) */
@@ -207,6 +212,7 @@ export function buildScenery(game, world) {
     else if (KIND[b.kind]) KIND[b.kind](g, gl, b, lw, ld, h, zf, win);
     g.notf(); gl.notf();
     if (ctx.solid) ctx.col.push(world.addBox(b.x - b.w / 2, b.z - b.d / 2, b.x + b.w / 2, b.z + b.d / 2));
+    if (b.kind === 'cinema') { /* keep the camera out of the marquee */ const fx = Math.sin(ry), fz = Math.cos(ry), cx = b.x + fx * (zf + 2), cz = b.z + fz * (zf + 2), hx = Math.abs(fx) * 2 + Math.abs(fz) * 6.6, hz = Math.abs(fz) * 2 + Math.abs(fx) * 6.6; view(ctx, { box: [cx - hx, cz - hz, cx + hx, cz + hz], bottom: y0 + 2.7, top: y0 + 4.3 }); }
     footprints.push([b.x - b.w / 2, b.z - b.d / 2, b.x + b.w / 2, b.z + b.d / 2]);
   };
 
@@ -270,6 +276,7 @@ export function buildScenery(game, world) {
     for (let i = 0; i < 5; i++) g.box(-1.5 + i * 0.75, 1.1, 0.2, 0.5, 0.2, 0.5, [s.col, C.yellow, C.woodL, C.white, C.orange][i]);
     gl.tf(s.x, y, s.z, 0, sr, 0); gl.box(0, 2.9, 0, 0.3, 0.2, 0.3, 0xffe0a0); gl.notf(); g.notf(); pool(ctx, s.x + Math.sin(sr) * 1.5, s.z + Math.cos(sr) * 1.5, 4);
     if (ctx.solid) { if (Math.abs(Math.sin(sr)) < 0.1) ctx.col.push(world.addBox(s.x - 2, s.z - 0.8, s.x + 2, s.z + 0.8, y + 1.0)); else for (const t of [-1.3, 0, 1.3]) ctx.col.push(world.addCircle(s.x + Math.cos(sr) * t, s.z - Math.sin(sr) * t, 0.9, y + 1.0)); }
+    view(ctx, { x: s.x, z: s.z, r: 2.5, bottom: y - 0.5, top: y + 3.7 });   /* the camera stays outside the awning */
   };
   P.tent = (ctx, x, z, col, ry = 0) => {
     const { g } = ctx.pick(x, z), y = hAt(x, z); g.tf(x, y, z, 0, ry, 0); g.gable(0, 0, 0, 3.2, 2.8, 1.9, col, false, 0x3a3a3a); g.box(0, 0.03, 0, 3.2, 0.06, 2.8, 0x4a4a4a); g.notf();
@@ -283,8 +290,8 @@ export function buildScenery(game, world) {
     const { g } = ctx.pick(x, z), y = hAt(x, z); g.tf(x, y, z); for (let i = 0; i < 8; i++) { const a = (i / 8) * TAU; g.ball(Math.cos(a) * 0.8, 0.12, Math.sin(a) * 0.8, 0.24, 0.18, 0.24, C.stone, 5, 3, true); }
     for (let i = 0; i < 3; i++) { g.tf(x, y + 0.18, z, Math.PI / 2, (i / 3) * Math.PI, 0); g.cyl(0, -0.55, 0, 0.1, 0.1, 1.1, 5, 0x4a3020); } g.notf();
     const fg = new Geo(); fg.cyl(0, 0, 0, 0.36, 0, 1.0, 6, 0xffa030); fg.cyl(0.12, 0, 0.1, 0.2, 0, 0.7, 5, 0xffe070); fg.cyl(-0.14, 0, -0.08, 0.18, 0, 0.6, 5, 0xff6a20);
-    const flame = new THREE.Mesh(fg.build(), new THREE.MeshBasicMaterial({ vertexColors: true })); flame.position.set(x, y + 0.2, z); scene.add(flame);
-    anim.push((dt, night, t) => { flame.scale.set(1 + Math.sin(t * 11) * 0.12, 0.9 + Math.sin(t * 17 + 1) * 0.2 + night * 0.25, 1 + Math.cos(t * 13) * 0.12); flame.rotation.y = t * 2; });
+    const flame = new THREE.Mesh(fg.build(), new THREE.MeshBasicMaterial({ vertexColors: true })); flame.position.set(x, y + 0.2, z);
+    own(ctx, flame, (dt, night, t) => { flame.scale.set(1 + Math.sin(t * 11) * 0.12, 0.9 + Math.sin(t * 17 + 1) * 0.2 + night * 0.25, 1 + Math.cos(t * 13) * 0.12); flame.rotation.y = t * 2; });
     pool(ctx, x, z, 8, 0xffa860);
     if (ctx.solid) ctx.col.push(world.addCircle(x, z, 0.95, y + 0.3));
   };
@@ -354,6 +361,7 @@ export function buildScenery(game, world) {
     for (let i = -3; i <= 3; i++) { g.box(i * 1.2, 5.1, 3.1, 0.14, 0.14, 0.14, 0xfff0c0); gl.box(i * 1.2, 5.1, 3.1, 0.2, 0.2, 0.2, 0xffd070); }
     g.box(0, 0.2, 3.6, 3, 0.4, 1.2, C.wood); g.notf(); gl.notf(); pool(ctx, x + Math.sin(ry) * 3, z + Math.cos(ry) * 3, 7);
     if (ctx.solid) { const c = Math.abs(Math.cos(ry)) > 0.5; ctx.col.push(world.addBox(x - (c ? 4.5 : 3), z - (c ? 3 : 4.5), x + (c ? 4.5 : 3), z + (c ? 3 : 4.5), y + 0.8)); ctx.col.push(world.addBox(x + Math.sin(ry) * 3.6 - 1.5, z + Math.cos(ry) * 3.6 - 1.5, x + Math.sin(ry) * 3.6 + 1.5, z + Math.cos(ry) * 3.6 + 1.5, y + 0.4)); }
+    { const c = Math.abs(Math.cos(ry)) > 0.5; view(ctx, { box: [x - (c ? 4.9 : 3.5), z - (c ? 3.5 : 4.9), x + (c ? 4.9 : 3.5), z + (c ? 3.5 : 4.9)], bottom: y + 4.1, top: y + 5.8 }); }
   };
   /* dog agility set, laid out along +x from (x, z) */
   P.agility = (ctx, x, z) => {
@@ -392,11 +400,11 @@ export function buildScenery(game, world) {
   const fest = { g: new Geo(), gl: new Geo() }, festCtx = { pick: () => fest, col: [], solid: false };
 
   /* a bridge deck with kerbs, rails and colliders; axis 'x' or 'z' */
-  function deck(axis, a0, a1, c, w, top, col = 0x5d6068) {
+  function deck(axis, a0, a1, c, w, top, col = 0x5d6068, o = {}) {
     const mid = (a0 + a1) / 2, len = a1 - a0, t = baked.pick(axis === 'x' ? mid : c, axis === 'x' ? c : mid).g; t.notf();
     const bx = (u, v, y, su, sv, sy, cc, tc) => (axis === 'x' ? t.box(u, y, v, su, sy, sv, cc, tc) : t.box(v, y, u, sv, sy, su, cc, tc));
-    bx(mid, c, top - 0.35, len, w, 0.7, 0x7a7f86, col); for (const s of [-1, 1]) { bx(mid, c + s * (w / 2 - 0.7), top + 0.06, len, 1.4, 0.12, 0xcfc8ba); bx(mid, c + s * (w / 2 - 0.08), top + 0.55, len, 0.16, 1.1, 0x5f8f7a); }
-    for (let u = a0 + 2; u < a1; u += 4.8) bx(u, c, top + 0.012, 2.2, 0.26, 0.02, 0xf0d98a);
+    bx(mid, c, top - 0.35, len, w, 0.7, 0x7a7f86, col); for (const s of [-1, 1]) { bx(mid, c + s * (w / 2 - 0.7), top + 0.06, len, 1.4, 0.12, 0xcfc8ba); bx(mid, c + s * (w / 2 - 0.08), top + 0.55, len, 0.16, 1.1, o.rail || 0x5f8f7a); }
+    if (!o.noDash) for (let u = a0 + 2; u < a1; u += 4.8) bx(u, c, top + 0.012, 2.2, 0.26, 0.02, 0xf0d98a);
     const add = (u0, v0, u1, v1, tp, bt) => baked.col.push(axis === 'x' ? world.addBox(u0, v0, u1, v1, tp, bt) : world.addBox(v0, u0, v1, u1, tp, bt));
     add(a0, c - w / 2, a1, c + w / 2, top, top - 0.8); for (const s of [-1, 1]) add(a0, c + s * (w / 2 - 0.08) - 0.1, a1, c + s * (w / 2 - 0.08) + 0.1, top + 1.1, top - 0.6);
     decks.push(axis === 'x' ? [a0, c - w / 2, a1, c + w / 2] : [c - w / 2, a0, c + w / 2, a1]);
@@ -446,7 +454,7 @@ export function buildScenery(game, world) {
   /* riverwalk + Courthouse Dock */
   for (let z = -326; z <= -200; z += 21) { P.lamp(ctx, -99.4, z, { h: 3.4, r: 6 }); if (z % 2) P.bench(ctx, -105.2, z + 10, Math.PI / 2); }
   P.rail(ctx, -98.4, -300, -98.4, -226, hAt(-99, -260), 1.0, C.metal);
-  P.deck(ctx, -99, -214, -72, -210, 1.0); P.crate(ctx, -101, -217); P.crate(ctx, -102.3, -217.6, 0.7, 0x7fa6c0); P.signpost(ctx, -97, -206.5, 'Canoes: hop in!', { ry: Math.PI / 2, bg: '#3f6f8f' });
+  P.deck(ctx, -99, -214, -66, -210, 1.0); P.crate(ctx, -101, -217); P.crate(ctx, -102.3, -217.6, 0.7, 0x7fa6c0); P.signpost(ctx, -97, -206.5, 'Canoes: hop in!', { ry: Math.PI / 2, bg: '#3f6f8f' });
   /* Columbia View Park: stage, splash pad, lawn, parking */
   P.stage(ctx, -150, -150, Math.PI, 0x4f7f6f);
   for (let i = 0; i < 6; i++) { const a = (i / 6) * TAU, { g } = ctx.pick(-122, -164); g.notf(); g.cyl(-122 + Math.cos(a) * 3.4, hAt(-122, -164), -164 + Math.sin(a) * 3.4, 0.09, 0.07, 0.5 + (i % 2) * 0.5, 5, 0x9fd8f4); }

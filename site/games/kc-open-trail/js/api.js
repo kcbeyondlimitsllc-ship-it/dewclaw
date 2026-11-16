@@ -14,7 +14,30 @@ export function createApi(game) {
     get: cur => state.wallet[cur] || 0,
     can: (cur, n) => (state.wallet[cur] || 0) >= n,
     add(cur, n, reason = '') { if (!(cur in state.wallet) || !Number.isFinite(n) || n === 0) return state.wallet[cur] || 0; const before = state.wallet[cur]; state.wallet[cur] = Math.max(0, Math.round(before + n)); bus.emit('wallet', { currency: cur, amount: state.wallet[cur], delta: state.wallet[cur] - before, reason }); return state.wallet[cur]; },
-    spend(cur, n, reason = '') { if (!game.wallet.can(cur, n)) return false; game.wallet.add(cur, -n, reason); return true; }
+    spend(cur, n, reason = '') { if (!(cur in state.wallet) || !Number.isFinite(n) || n < 0 || !game.wallet.can(cur, n)) return false; if (n > 0) game.wallet.add(cur, -n, reason); return true; }
+  };
+
+  /* ---- economy seam: the default implementation the economy / shop modules build on or replace ----
+     grant({ bones, gems, items: [id | { id, n }] }, source), owns(id), catalog (array the economy module fills),
+     setFlag(key, value) / getFlag(key): saved world flags; the core reacts to 'festival'. */
+  game.economy = {
+    catalog: [],
+    grant(what, source = '') {
+      what = what && typeof what === 'object' ? what : {};
+      const out = { bones: 0, gems: 0, items: [] }, list = Array.isArray(what.items) ? what.items : what.items && typeof what.items === 'object' ? [what.items] : typeof what.items === 'string' ? [what.items] : [];
+      for (const cur of ['bones', 'gems']) if (Number.isFinite(what[cur]) && what[cur] !== 0) { const before = state.wallet[cur]; game.wallet.add(cur, what[cur], source); out[cur] = state.wallet[cur] - before; }
+      for (const it of list) { const id = typeof it === 'string' ? it : it && it.id, raw = it && typeof it === 'object' && it.n != null ? Math.floor(Number(it.n)) : 1; if (!id || typeof id !== 'string') continue; if (!Number.isFinite(raw) || raw < 1) continue; const n = raw, cur = state.owned[id]; state.owned[id] = n > 1 || typeof cur === 'number' ? (typeof cur === 'number' ? cur : cur ? 1 : 0) + n : true; out.items.push(id); }
+      bus.emit('grant', { ...out, source }); return out;
+    },
+    owns: id => !!state.owned[id],
+    setFlag(key, value = true) { if (state.flags[key] === value) return value; state.flags[key] = value; bus.emit('flag', { key, value }); return value; },
+    getFlag: key => state.flags[key]
+  };
+  /* ---- shop seam: tabs registered here appear in the Shop screen (pause menu) once there is at least one ---- */
+  game.shop = {
+    tabs: [],
+    registerTab(tab) { if (!tab || !tab.id) throw new Error('shop tab needs an id'); const i = game.shop.tabs.findIndex(t => t.id === tab.id); if (i >= 0) game.shop.tabs[i] = tab; else game.shop.tabs.push(tab); bus.emit('shopTab', { id: tab.id }); return () => { const k = game.shop.tabs.indexOf(tab); if (k >= 0) game.shop.tabs.splice(k, 1); }; },
+    open: id => game.ui && game.ui.shop && game.ui.shop(id)
   };
 
   /* ---- interactables: { id, x, z | getPos(), r, label | () => string, icon, prio, enabled(), onInteract() } ---- */

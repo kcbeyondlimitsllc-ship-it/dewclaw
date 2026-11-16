@@ -2,11 +2,11 @@
    colliders, districts, sky / day-night / weather, far-off volcanoes and the
    festival fog. Buildings and props live in scenery.js, trees in flora.js. */
 import { THREE, Geo, clamp, lerp, smooth, fbm, segDist, polyDist, smoothPath, rng, TAU } from './util.js';
-import { HALF, EXT, WATER_Y, BASE_Y, RIVERS, LAKES, ISLANDS, CREEK, RAIL, BUMPS, PADS, FLATS, RIDGE, RIDGE_H, RIDGE_W, ROADS, ZONES, PATCHES, FIELDS } from './data.js';
+import { HALF, EXT, WATER_Y, BASE_Y, RIVERS, LAKES, ISLANDS, CREEK, RAIL, BUMPS, PADS, FLATS, RIDGE, RIDGE_H, RIDGE_W, ROADS, ZONES, PATCHES, FIELDS, PLAZA } from './data.js';
 import { buildScenery } from './scenery.js';
 import { buildFlora } from './flora.js';
 
-const N = 180, CELL = (EXT * 2) / N;
+const N = 144, CELL = (EXT * 2) / N;
 const softRect = (x, z, x0, z0, x1, z1, e) => smooth(x0 - e, x0, x) * (1 - smooth(x1, x1 + e, x)) * smooth(z0 - e, z0, z) * (1 - smooth(z1, z1 + e, z));
 
 export function createWorld(game) {
@@ -72,7 +72,7 @@ export function createWorld(game) {
     const c = document.createElement('canvas'); c.width = c.height = SG; const x = c.getContext('2d', { willReadFrequently: true });
     const px = v => (v + EXT) / SCELL;
     x.fillStyle = '#000'; x.fillRect(0, 0, SG, SG); x.lineCap = 'round'; x.lineJoin = 'round';
-    x.fillStyle = '#00f'; for (const p of PATCHES) if (p[5] === 5) x.fillRect(px(p[0]), px(p[1]), (p[2] - p[0]) / SCELL, (p[3] - p[1]) / SCELL);
+    for (const p of PATCHES) if (p[5] === 5 || p[5] === 3) { x.fillStyle = p[5] === 5 ? '#00f' : '#ff0'; x.fillRect(px(p[0]), px(p[1]), (p[2] - p[0]) / SCELL, (p[3] - p[1]) / SCELL); }
     const stroke = (path, w, col) => { x.strokeStyle = col; x.lineWidth = Math.max(1.5, w / SCELL); x.beginPath(); path.forEach((p, i) => i ? x.lineTo(px(p[0]), px(p[1])) : x.moveTo(px(p[0]), px(p[1]))); x.stroke(); };
     for (const r of world.roads) if (r.kind === 'walk') stroke(r.path, r.w, '#00f');
     for (const r of world.roads) if (r.kind === 'trail' || r.kind === 'gravel') stroke(r.path, r.w, '#0f0');
@@ -80,7 +80,7 @@ export function createWorld(game) {
     const d = x.getImageData(0, 0, SG, SG).data;
     for (let j = 0; j < SG; j++) for (let i = 0; i < SG; i++) {
       const o = (j * SG + i) * 4, wx = -EXT + (i + 0.5) * SCELL, wz = -EXT + (j + 0.5) * SCELL, h = world.heightAt(wx, wz);
-      surf[j * SG + i] = h < -0.05 ? 4 : d[o] > 120 ? 1 : d[o + 1] > 120 ? 2 : d[o + 2] > 120 ? 5 : h < 1.1 ? 3 : 0;
+      surf[j * SG + i] = h < -0.05 ? 4 : d[o] > 120 && d[o + 1] > 120 ? 3 : d[o] > 120 ? 1 : d[o + 1] > 120 ? 2 : d[o + 2] > 120 ? 5 : h < 1.1 ? 3 : 0;
     }
   }
   world.surfaceAt = (x, z) => surf[clamp(((z + EXT) / SCELL) | 0, 0, SG - 1) * SG + clamp(((x + EXT) / SCELL) | 0, 0, SG - 1)];
@@ -160,8 +160,30 @@ export function createWorld(game) {
     return b;
   };
 
-  /* camera only minds big solid things (buildings, big trunks, tents), never lamp posts or saplings */
+  /* view volumes: things the camera must not end up inside although KC can walk under or through them
+     (tree canopies, stall and stage roofs, a marquee). { x, z, r, bottom, top, shape: 'cone' | 'ball' | 'cyl' } or { box: [minx, minz, maxx, maxz], bottom, top } */
+  const vgrid = new Map();
+  world.addView = v => {
+    const b = v.box || [v.x - v.r, v.z - v.r, v.x + v.r, v.z + v.r], cells = [];
+    for (let i = Math.floor(b[0] / CS); i <= Math.floor(b[2] / CS); i++) for (let j = Math.floor(b[1] / CS); j <= Math.floor(b[3] / CS); j++) { const k = key(i + 1000, j + 1000); let a = vgrid.get(k); if (!a) vgrid.set(k, a = []); a.push(v); cells.push(a); }
+    v.remove = () => { for (const a of cells) { const n = a.indexOf(v); if (n >= 0) a.splice(n, 1); } };
+    return v;
+  };
+  const viewBlocked = (x, z, y) => {
+    const a = vgrid.get(key(Math.floor(x / CS) + 1000, Math.floor(z / CS) + 1000)); if (!a) return false;
+    for (let n = 0; n < a.length; n++) {
+      const v = a[n]; if (y < v.bottom || y > v.top) continue;
+      if (v.box) { if (x > v.box[0] && x < v.box[2] && z > v.box[1] && z < v.box[3]) return true; continue; }
+      const d2 = (x - v.x) ** 2 + (z - v.z) ** 2;
+      if (v.shape === 'cone') { const rr = v.r * (1 - (y - v.bottom) / (v.top - v.bottom)); if (d2 < rr * rr) return true; }
+      else if (v.shape === 'ball') { const dy = (y - (v.bottom + v.top) / 2) / ((v.top - v.bottom) / 2); if (d2 / (v.r * v.r) + dy * dy < 1) return true; }
+      else if (d2 < v.r * v.r) return true;
+    }
+    return false;
+  };
+  /* camera only minds big solid things (buildings, big trunks, tents) and the view volumes above, never lamp posts or saplings */
   world.camBlocked = (x, z, y) => {
+    if (viewBlocked(x, z, y + 0.3)) return true;
     let b = false;
     world.queryColliders(x, z, 0.4, c => {
       if (b || c.top <= y || c.bottom >= y + 0.3 || c.top - c.bottom < 2.5) return;   /* decks and low props never block the view */
@@ -207,15 +229,15 @@ export function createWorld(game) {
     /* lawns, lots, plazas */
     for (const p of PATCHES) rect(p[0], p[1], p[2], p[3], p[4]);
     /* brick joints on the two squares */
-    x.strokeStyle = 'rgba(60,30,20,.22)'; x.lineWidth = Math.max(1, 0.12 * k);
-    for (const [x0, z0, x1, z1] of [[-198, -274, -146, -228], [-86, 400, -14, 460]]) { for (let a = x0; a <= x1; a += 2) { x.beginPath(); x.moveTo(px(a), px(z0)); x.lineTo(px(a), px(z1)); x.stroke(); } for (let a = z0; a <= z1; a += 2) { x.beginPath(); x.moveTo(px(x0), px(a)); x.lineTo(px(x1), px(a)); x.stroke(); } }
+    x.strokeStyle = 'rgba(60,30,20,.13)'; x.lineWidth = Math.max(1, 0.12 * k);
+    for (const [x0, z0, x1, z1] of [[-198, -274, -146, -228], [-86, 400, -14, 460]]) { for (let a = x0; a <= x1; a += 4) { x.beginPath(); x.moveTo(px(a), px(z0)); x.lineTo(px(a), px(z1)); x.stroke(); } for (let a = z0; a <= z1; a += 4) { x.beginPath(); x.moveTo(px(x0), px(a)); x.lineTo(px(x1), px(a)); x.stroke(); } }
     /* plaza ring around the Lantern Stack, splash pad, skate lines */
     x.fillStyle = '#d6c7ad'; x.beginPath(); x.arc(px(-170), px(-250), 8 * k, 0, 7); x.fill(); x.strokeStyle = '#8a5a42'; x.lineWidth = 0.5 * k; x.beginPath(); x.arc(px(-170), px(-250), 8 * k, 0, 7); x.stroke();
     x.fillStyle = '#7fc4e8'; x.beginPath(); x.arc(px(-122), px(-164), 6 * k, 0, 7); x.fill(); x.strokeStyle = '#eaf6ff'; x.lineWidth = 0.4 * k; for (const rr of [2, 4]) { x.beginPath(); x.arc(px(-122), px(-164), rr * k, 0, 7); x.stroke(); }
     x.fillStyle = '#c9b98f'; x.fillRect(px(-388), px(-104), 22 * k, 16 * k);   /* agility sand */
     /* creek and rails */
     stroke(CREEK, 4.2, 'rgba(120,150,110,.8)'); stroke(CREEK, 2.8, '#78b6d6'); stroke(CREEK, 0.5, 'rgba(255,255,255,.5)', [1.5, 3]);
-    stroke(RAIL, 4, '#8f8878'); stroke(RAIL, 2.9, '#5a4a3a', [0.5, 1.1]); stroke(RAIL, 1.7, '#4a4e55'); stroke(RAIL, 1.2, '#8f8878'); stroke(RAIL, 1.2, '#5a4a3a', [0.5, 1.1]);
+    stroke(RAIL, 4.2, '#8f8878'); stroke(RAIL, 3.4, '#9a9488');   /* ballast bed only: sleepers and rails are real geometry (scenery.js), which stays sharp */
     for (const r of world.roads) if (r.kind === 'trail') { stroke(r.path, r.w + 0.8, 'rgba(120,96,60,.55)'); stroke(r.path, r.w, '#c4a26c'); }
     for (const r of world.roads) if (r.kind === 'gravel') { stroke(r.path, r.w + 1, '#8a8474'); stroke(r.path, r.w, '#b3ab98'); }
     for (const r of world.roads) if (r.kind === 'walk') { stroke(r.path, r.w + 0.6, '#a39c8c'); stroke(r.path, r.w, '#d2cab8'); }
@@ -277,24 +299,25 @@ export function createWorld(game) {
   /* far-off volcanoes: they ride with the camera so they always sit on the horizon */
   const peaks = (() => {
     const g = new Geo(), R = rng(1980);
+    /* each peak is a stack of rings; the lowest, widest ring is the colour of the horizon haze, so the mountain rises out of the haze instead of hanging above the rim hills */
     const peak = (ang, dist, baseR, h, topR, cols, crater) => {
-      const cx = Math.sin(ang) * dist, cz = -Math.cos(ang) * dist, seg = 14, prof = [[0, 1], [0.3, 0.62], [0.58, 0.36], [0.8, 0.17], [1, 0]], jit = [];
-      for (let i = 0; i < seg; i++) jit.push(0.86 + R() * 0.3);
-      const P = (ri, i) => { const [t, f] = prof[ri], r = (topR + (baseR - topR) * f) * (ri === prof.length - 1 ? 1 : jit[i % seg]), a = (i / seg) * TAU; return [cx + Math.cos(a) * r, -14 + t * h * (ri === prof.length - 1 ? 0.94 + 0.08 * jit[(i * 3) % seg] : 1), cz + Math.sin(a) * r]; };
-      for (let ri = 0; ri < prof.length - 1; ri++) for (let i = 0; i < seg; i++) { const c = cols[ri]; g.quad(P(ri, i), P(ri + 1, i), P(ri + 1, i + 1), P(ri, i + 1), (i + ri) % 2 ? c[0] : c[1], [cx, h * 0.3, cz]); }
-      for (let i = 0; i < seg; i++) g.tri(P(4, i), [cx, -14 + h * (crater ? 0.9 : 1.02), cz], P(4, i + 1), crater ? 0xdfe6ee : 0xffffff, [cx, 0, cz]);
+      const cx = Math.sin(ang) * dist, cz = -Math.cos(ang) * dist, seg = 16, prof = [[-0.06, 1.7], [0.1, 1.08], [0.32, 0.62], [0.58, 0.36], [0.8, 0.17], [1, 0]], last = prof.length - 1, jit = [];
+      for (let i = 0; i < seg; i++) jit.push(0.88 + R() * 0.26);
+      const P = (ri, i) => { const [t, f] = prof[ri], r = (topR + (baseR - topR) * f) * (ri === last || ri === 0 ? 1 : jit[i % seg]), a = (i / seg) * TAU; return [cx + Math.cos(a) * r, -16 + t * h * (ri === last ? 0.94 + 0.08 * jit[(i * 3) % seg] : 1), cz + Math.sin(a) * r]; };
+      for (let ri = 0; ri < last; ri++) for (let i = 0; i < seg; i++) { const c = cols[ri]; g.quad(P(ri, i), P(ri + 1, i), P(ri + 1, i + 1), P(ri, i + 1), (i + ri) % 2 ? c[0] : c[1], [cx, h * 0.3, cz]); }
+      for (let i = 0; i < seg; i++) g.tri(P(last, i), [cx, -16 + h * (crater ? 0.9 : 1.02), cz], P(last, i + 1), crater ? 0xdfe6ee : 0xffffff, [cx, 0, cz]);
     };
-    const C1 = [[0x5a7684, 0x52707e], [0x7f96a6, 0x748c9c], [0xc3ced8, 0xb4c2ce], [0xffffff, 0xf0f4f8]];
-    peak(0.72, 520, 205, 124, 50, C1, true);                                   /* Mount St. Helens, north-east: broad, flat-topped */
-    peak(1.02, 575, 120, 78, 20, [[0x6a8492, 0x62808e], [0x8fa4b2, 0x869cac], [0xd0d8e0, 0xc4d0da], [0xffffff, 0xf4f6fa]], false);   /* Mount Adams, further off behind it */
-    peak(1.98, 540, 150, 138, 5, C1, false);                                   /* Mount Hood, east-south-east: sharp */
+    const HAZE = [0xd3e2ee, 0xcfdfec], C1 = [HAZE, [0x9db0bd, 0x97abb9], [0x8fa5b3, 0x869dac], [0xc3ced8, 0xb4c2ce], [0xffffff, 0xf0f4f8]];
+    peak(0.72, 540, 150, 74, 40, C1, true);                                   /* Mount St. Helens, north-east: broad, flat-topped */
+    peak(1.04, 580, 84, 44, 14, [HAZE, [0xa9bac6, 0xa3b5c2], [0x9fb2bf, 0x98acba], [0xd0d8e0, 0xc4d0da], [0xffffff, 0xf4f6fa]], false);   /* Mount Adams, further off behind it */
+    peak(1.98, 560, 118, 78, 5, C1, false);                                  /* Mount Hood, east-south-east: sharp, on a broad base */
     const m = new THREE.Mesh(g.build(), new THREE.MeshBasicMaterial({ vertexColors: true, fog: false, depthWrite: false })); m.frustumCulled = false; m.renderOrder = -9; m.name = 'peaks'; scene.add(m); return m;
   })();
   const hemi = new THREE.HemisphereLight(0xffffff, 0x556644, 1.2); scene.add(hemi);
   const sun = new THREE.DirectionalLight(0xffffff, 2.4); scene.add(sun); scene.add(sun.target);
   sun.shadow.mapSize.set(1024, 1024); sun.shadow.camera.left = -42; sun.shadow.camera.right = 42; sun.shadow.camera.top = 42; sun.shadow.camera.bottom = -42; sun.shadow.camera.near = 10; sun.shadow.camera.far = 260; sun.shadow.bias = -0.0015; sun.shadow.normalBias = 0.6;
   scene.fog = new THREE.Fog(0xcfe6f5, 60, 200);
-  const festFog = new THREE.Color(0xb9a6a0), white = new THREE.Color(0xffffff); let fogBase = 200, festK = 0;
+  const festFog = new THREE.Color(0xb9a6a0), white = new THREE.Color(0xffffff); let fogBase = 200, festK = 0, festHere = 0;
   world.sun = sun; world.hemi = hemi; world.sunDir = sunDir;
 
   const KEYS = [
@@ -321,12 +344,12 @@ export function createWorld(game) {
     const day = t >= 6 && t < 19.5, ang = day ? ((t - 6) / 13.5) * Math.PI : (((t + 24 - 19.5) % 24) / 10.5) * Math.PI;
     sunDir.set(Math.cos(ang) * 0.85, Math.max(0.16, Math.sin(ang)), 0.42).normalize();
     skyMat.uniforms.top.value.copy(cTop); skyMat.uniforms.hor.value.copy(cHor); skyMat.uniforms.sunDir.value.copy(sunDir); skyMat.uniforms.glow.value.copy(cSun).multiplyScalar(day ? 1 : 0.55);
-    scene.fog.color.copy(cHor); if (festK > 0) scene.fog.color.lerp(festFog, festK * 0.35 * (1 - world.night * 0.6));
+    scene.fog.color.copy(cHor); if (festHere > 0) scene.fog.color.lerp(festFog, festHere * 0.35 * (1 - world.night * 0.6));
     peaks.position.copy(camPos); peaks.position.y = 0; peaks.material.color.copy(white).lerp(cHor, 0.42).multiplyScalar(1 - world.night * 0.55 - world.rain * 0.25); peaks.visible = world.rain < 0.75;
     sun.color.copy(cSun); sun.intensity = si; hemi.intensity = hi; hemi.color.copy(cAmb); hemi.groundColor.setRGB(cAmb.r * 0.45, cAmb.g * 0.5, cAmb.b * 0.42);
     sun.target.position.copy(focus); sun.position.copy(focus).addScaledVector(sunDir, 120);
     sky.position.copy(camPos); stars.position.copy(camPos); stars.renderOrder = -9.5; stars.material.opacity = world.night * 0.9 * (1 - world.rain);
-    cloudMat.color.copy(cHor).lerp(new THREE.Color(0xffffff), 0.55 * (1 - world.night)).multiplyScalar(1 - world.rain * 0.25); cloudMat.opacity = 0.55 + world.rain * 0.35;
+    cloudMat.color.copy(cHor).lerp(white, 0.55 * (1 - world.night)).multiplyScalar(1 - world.rain * 0.25); cloudMat.opacity = 0.55 + world.rain * 0.35;
     water.material.color.setRGB(0.55 + 0.45 * (1 - world.night), 0.6 + 0.4 * (1 - world.night), 0.7 + 0.3 * (1 - world.night));
     const ph = world.phaseOf(t); if (ph !== lastPhase) { if (lastPhase) game.bus.emit('timeOfDay', { phase: ph, time: t, day: world.day }); lastPhase = ph; }
   }
@@ -343,7 +366,7 @@ export function createWorld(game) {
   const flora = buildFlora(game, world);
   world.scenery = scenery; world.flora = flora;
   world.mapCanvas = (() => {
-    const S = game.quality.texSize >= 2048 ? 2048 : 1024, c = document.createElement('canvas'); c.width = c.height = S; const x = c.getContext('2d'); x.drawImage(world.groundCanvas, 0, 0, S, S);
+    const S = game.quality.name === 'low' ? 1024 : 2048, c = document.createElement('canvas'); c.width = c.height = S; const x = c.getContext('2d'); x.drawImage(world.groundCanvas, 0, 0, S, S);
     const k = S / (2 * EXT), px = v => (v + EXT) * k;
     for (const t of flora.trees) { x.fillStyle = t[2] ? 'rgba(58,128,62,.8)' : 'rgba(38,92,58,.8)'; x.beginPath(); x.arc(px(t[0]), px(t[1]), 1.6 * t[3] * k, 0, 7); x.fill(); }
     x.fillStyle = '#b08a5a'; for (const b of scenery.decks) x.fillRect(px(b[0]), px(b[1]), (b[2] - b[0]) * k, (b[3] - b[1]) * k);
@@ -352,8 +375,11 @@ export function createWorld(game) {
     return c;
   })();
   world.mapScale = world.mapCanvas.width / (2 * EXT);
+  /* the painted ground now lives on the GPU and in the map copy: give its big CPU-side canvas back (a lost context reloads the page, so it is never re-uploaded) */
+  try { game.renderer.initTexture(groundTex); world.groundCanvas.width = world.groundCanvas.height = 1; world.groundCanvas = null; } catch (e) { /* keep the canvas */ }
 
-  const setFog = () => { const far = fogBase * lerp(1, 0.62, festK); scene.fog.near = far * lerp(0.42, 0.12, festK); scene.fog.far = far; world.viewFar = far; };
+  /* the festival mist belongs to old town: full strength around the plaza, gone a few blocks out, thin by day and thick after dark */
+  const setFog = () => { const far = fogBase * lerp(1, lerp(0.72, 0.62, world.night), festHere); scene.fog.near = far * lerp(0.42, lerp(0.4, 0.14, world.night), festHere); scene.fog.far = far; world.viewFar = far; };
   world.applyQuality = q => {
     fogBase = q.fog; setFog();
     game.renderer.shadowMap.enabled = !!q.shadows; sun.castShadow = !!q.shadows;
@@ -380,7 +406,8 @@ export function createWorld(game) {
     }
     if (!game.state.settings.rain) rainTarget = 0;
     world.rain += clamp(rainTarget - world.rain, -dt * 0.1, dt * 0.1);
-    const fk = world.festival ? 1 : 0; if (festK !== fk) { festK += clamp(fk - festK, -dt * 0.5, dt * 0.5); setFog(); }
+    const fk = world.festival ? 1 : 0; if (festK !== fk) festK += clamp(fk - festK, -dt * 0.5, dt * 0.5);
+    { const h = festK > 0 ? festK * (1 - smooth(170, 330, Math.hypot(focus.x - PLAZA.x, focus.z - PLAZA.z))) : 0; if (h !== festHere || h > 0) { festHere = h; setFog(); } }
     applySky(camPos, focus);
     waterTex.offset.x += dt * 0.006; waterTex.offset.y += dt * 0.011;
     rainMesh.visible = world.rain > 0.02;
@@ -398,6 +425,5 @@ export function createWorld(game) {
     camPosPrev.copy(camPos);
   };
   world.setTime = t => { world.time = ((t % 24) + 24) % 24; };
-  world.repaint = () => { groundTex.needsUpdate = true; };
   return world;
 }

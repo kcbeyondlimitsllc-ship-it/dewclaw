@@ -9,7 +9,8 @@ export function createInput(game, canvas) {
     moveX: 0, moveY: 0, sprint: false, camX: 0, camY: 0, zoom: 0, enabled: true, touch: false, lastDevice: 'keyboard',
     pressed: {}, held: {}, stick: { active: false, id: -1, ox: 0, oy: 0, x: 0, y: 0 }
   };
-  const keys = new Set(); let camDX = 0, camDY = 0, zoom = 0, mouseDrag = false, camTouch = -1, lx = 0, ly = 0, pinch = 0;
+  const keys = new Set(); let camDX = 0, camDY = 0, zoom = 0, mouseDrag = false, camTouch = -1, cam2 = -1, lx = 0, ly = 0, pinch = 0, stickT = 0;
+  const pts = new Map();   /* live touch positions, for the two-finger pinch that zooms the camera */
   const btn = {}; const padPrev = [];
   const press = a => { input.pressed[a] = true; };
   input.press = press;
@@ -23,15 +24,25 @@ export function createInput(game, canvas) {
     if (e.code.startsWith('Arrow')) e.preventDefault();
   });
   addEventListener('keyup', e => keys.delete(e.code));
-  addEventListener('blur', () => { keys.clear(); for (const k in btn) btn[k] = false; input.stick.active = false; mouseDrag = false; camTouch = -1; });
+  addEventListener('blur', () => { keys.clear(); for (const k in btn) btn[k] = false; input.stick.active = false; mouseDrag = false; camTouch = cam2 = -1; pinch = 0; pts.clear(); });
 
+  /* show the thumb controls straight away on touch devices (and on the first touch anywhere on hybrids) */
+  const touchOn = () => { input.touch = true; document.body.classList.add('touch'); };
+  try { if (matchMedia('(pointer: coarse)').matches) touchOn(); } catch (e) { /* ignore */ }
+  addEventListener('pointerdown', e => { if (e.pointerType === 'touch') { touchOn(); input.lastDevice = 'touch'; } }, { passive: true, capture: true });
   canvas.addEventListener('contextmenu', e => e.preventDefault());
   canvas.addEventListener('pointerdown', e => {
     if (e.pointerType === 'touch') {
       input.touch = true; input.lastDevice = 'touch'; document.body.classList.add('touch');
       const left = e.clientX < innerWidth / 2, stickSide = game.state.settings.leftHanded ? !left : left;
-      if (stickSide && !input.stick.active && game.cam.mode !== 'photo') { Object.assign(input.stick, { active: true, id: e.pointerId, ox: e.clientX, oy: e.clientY, x: 0, y: 0 }); }
-      else if (camTouch === -1) { camTouch = e.pointerId; lx = e.clientX; ly = e.clientY; }
+      pts.set(e.pointerId, [e.clientX, e.clientY]);
+      if (stickSide && !input.stick.active && game.cam.mode !== 'photo') { Object.assign(input.stick, { active: true, id: e.pointerId, ox: e.clientX, oy: e.clientY, x: 0, y: 0 }); stickT = performance.now(); }
+      else if (camTouch === -1) {
+        camTouch = e.pointerId; lx = e.clientX; ly = e.clientY;
+        /* two fingers landing together on the stick side are a pinch, not a move: hand the first finger over to the camera */
+        const st = input.stick; if (stickSide && st.active && performance.now() - stickT < 350 && Math.hypot(st.x, st.y) < 0.4) { cam2 = st.id; st.active = false; st.id = -1; st.x = st.y = 0; pinch = 0; }
+      }
+      else if (cam2 === -1 && e.pointerId !== input.stick.id) { cam2 = e.pointerId; pinch = 0; }
       try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
     } else { mouseDrag = true; lx = e.clientX; ly = e.clientY; input.lastDevice = 'keyboard'; try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ } }
     e.preventDefault();
@@ -40,11 +51,21 @@ export function createInput(game, canvas) {
     if (e.pointerType === 'touch') {
       const s = input.stick;
       if (s.active && e.pointerId === s.id) { const R = 56; let dx = e.clientX - s.ox, dy = e.clientY - s.oy; const l = Math.hypot(dx, dy); if (l > R) { s.ox += dx - (dx / l) * R; s.oy += dy - (dy / l) * R; dx = (dx / l) * R; dy = (dy / l) * R; } s.x = dx / R; s.y = dy / R; }
+      else if (cam2 !== -1 && (e.pointerId === camTouch || e.pointerId === cam2)) {
+        pts.set(e.pointerId, [e.clientX, e.clientY]); const a = pts.get(camTouch), b = pts.get(cam2);
+        if (a && b) { const d = Math.max(12, Math.hypot(a[0] - b[0], a[1] - b[1])); if (pinch > 0) zoom += clamp(pinch / d - 1, -0.25, 0.25); pinch = d; }
+        if (e.pointerId === camTouch) { lx = e.clientX; ly = e.clientY; }
+      }
       else if (e.pointerId === camTouch) { camDX += (e.clientX - lx) * 0.0065; camDY += (e.clientY - ly) * 0.005; lx = e.clientX; ly = e.clientY; }
     } else if (mouseDrag) { camDX += (e.clientX - lx) * 0.0052; camDY += (e.clientY - ly) * 0.004; lx = e.clientX; ly = e.clientY; }
   });
   const up = e => {
-    if (e.pointerType === 'touch') { if (e.pointerId === input.stick.id) { input.stick.active = false; input.stick.id = -1; input.stick.x = input.stick.y = 0; } if (e.pointerId === camTouch) camTouch = -1; }
+    if (e.pointerType === 'touch') {
+      pts.delete(e.pointerId);
+      if (e.pointerId === input.stick.id) { input.stick.active = false; input.stick.id = -1; input.stick.x = input.stick.y = 0; }
+      if (e.pointerId === cam2) { cam2 = -1; pinch = 0; }
+      else if (e.pointerId === camTouch) { camTouch = cam2; cam2 = -1; pinch = 0; const q = pts.get(camTouch); if (q) { lx = q[0]; ly = q[1]; } }
+    }
     else mouseDrag = false;
   };
   canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up); canvas.addEventListener('lostpointercapture', up);

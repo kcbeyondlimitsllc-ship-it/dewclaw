@@ -1,19 +1,22 @@
 /* Shared game state + localStorage persistence (versioned key, tolerant load). */
-export const SAVE_KEY = 'kc-open-trail-save-v1';
+export const SAVE_KEY = 'kc-open-trail-save-v2';   /* v1 was the pre-St. Helens prototype map; its positions and ids do not carry over */
+export const SAVE_VERSION = 2;
 
 export function defaultState() {
   return {
-    v: 1,
+    v: SAVE_VERSION,
     wallet: { bones: 0, gems: 0 },
     owned: {},            /* itemId -> true / count   (shop agent) */
     upgrades: {},         /* upgradeId -> level       (economy agent) */
     equipped: {},         /* slot -> itemId: bandana, harness, hat, tag, trail, skin:<rideable> */
-    stats: { distance: 0, bones: 0, balls: 0, digs: 0, barks: 0, pets: 0, photos: 0, jumps: 0, swims: 0, rides: 0, caught: 0, escapes: 0, days: 1, playTime: 0 },
+    stats: { distance: 0, bones: 0, balls: 0, digs: 0, barks: 0, pets: 0, photos: 0, jumps: 0, swims: 0, rides: 0, talks: 0, bells: 0, fetches: 0, days: 1, playTime: 0 },
     collected: { balls: [], photos: [], signs: [], zones: [] },
     pos: null,            /* {x,z,yaw} */
     time: 9.5,
     day: 1,
-    settings: { quality: 'medium', autoQuality: true, sound: 0.8, music: 0.5, invertY: false, invertX: false, leftHanded: false, rain: true, halloween: false },
+    settings: { quality: 'medium', autoQuality: true, sound: 0.8, music: 0.5, invertY: false, invertX: false, leftHanded: false, muted: false, rain: true, camDist: 6.5 },
+    rides: {},            /* rideId -> { x, z, yaw } for skateboards, canoes and vans left away from home */
+    flags: {},            /* world flags set through game.economy.setFlag (e.g. festival: true) */
     modules: {}           /* moduleId -> any JSON, owned by that module */
   };
 }
@@ -32,11 +35,12 @@ function merge(def, src) {
   if (typeof def === 'number' && !Number.isFinite(src)) return def;
   return src;
 }
+const clamp01 = v => Math.min(1, Math.max(0, v));
 const openMap = v => { const o = {}; if (v && typeof v === 'object' && !Array.isArray(v)) for (const k of Object.keys(v).slice(0, 2000)) o[k] = v[k]; return o; };
 
 export function createSave(game) {
   const state = defaultState();
-  let storageOk = true, lastError = null;
+  let storageOk = true, lastError = null, frozen = false;
   const api = {
     state, key: SAVE_KEY,
     load() {
@@ -47,11 +51,16 @@ export function createSave(game) {
         const data = JSON.parse(raw);
         if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('not an object');
         const def = defaultState(), m = merge(def, data);
-        m.owned = openMap(data.owned); m.upgrades = openMap(data.upgrades); m.equipped = openMap(data.equipped); m.modules = openMap(data.modules);
+        m.owned = openMap(data.owned); m.upgrades = openMap(data.upgrades); m.equipped = openMap(data.equipped); m.modules = openMap(data.modules); m.flags = openMap(data.flags);
         m.wallet.bones = Math.max(0, Math.floor(m.wallet.bones)); m.wallet.gems = Math.max(0, Math.floor(m.wallet.gems));
         if (!['low', 'medium', 'high'].includes(m.settings.quality)) m.settings.quality = 'medium';
-        if (m.pos && !(Number.isFinite(m.pos.x) && Number.isFinite(m.pos.z))) m.pos = null;
-        m.time = ((m.time % 24) + 24) % 24; m.v = 1;
+        /* pos is rebuilt from numbers only: a damaged yaw (string, object, NaN) must never reach the camera */
+        if (m.pos && Number.isFinite(m.pos.x) && Number.isFinite(m.pos.z)) m.pos = { x: Math.min(499, Math.max(-499, m.pos.x)), z: Math.min(499, Math.max(-499, m.pos.z)), yaw: Number.isFinite(m.pos.yaw) ? m.pos.yaw : Math.PI / 2 }; else m.pos = null;
+        m.time = ((m.time % 24) + 24) % 24; m.v = SAVE_VERSION;
+        m.day = Math.min(99999, Math.max(1, Math.floor(m.day))); m.stats.days = Math.min(99999, Math.max(1, Math.floor(m.stats.days)));
+        for (const k of Object.keys(m.stats)) if (m.stats[k] < 0) m.stats[k] = def.stats[k];
+        m.settings.sound = clamp01(m.settings.sound); m.settings.music = clamp01(m.settings.music); m.settings.camDist = Math.min(13, Math.max(2.6, m.settings.camDist));
+        m.rides = {}; { const r = openMap(data.rides); for (const k of Object.keys(r).slice(0, 64)) { const v = r[k]; if (v && Number.isFinite(v.x) && Number.isFinite(v.z) && Math.abs(v.x) < 500 && Math.abs(v.z) < 500) m.rides[k] = { x: v.x, z: v.z, yaw: Number.isFinite(v.yaw) ? v.yaw : 0 }; } }
         for (const k of Object.keys(state)) delete state[k];
         Object.assign(state, m);
         return true;
@@ -62,7 +71,7 @@ export function createSave(game) {
       }
     },
     save() {
-      if (!storageOk) return false;
+      if (!storageOk || frozen) return false;
       try { game.bus.emit('beforeSave', state); localStorage.setItem(SAVE_KEY, JSON.stringify(state)); game.bus.emit('saved', state); return true; }
       catch (e) { lastError = String(e); return false; }
     },
@@ -70,7 +79,9 @@ export function createSave(game) {
       const s = defaultState(), keep = state.settings;
       for (const k of Object.keys(state)) delete state[k];
       Object.assign(state, s); state.settings = keep;
-      api.save();
+      /* written as it is: no beforeSave, so nobody puts KC's old position back; nothing saves again before the reload */
+      frozen = true;
+      try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); return true; } catch (e) { lastError = String(e); return false; }
     },
     /* per-module storage for the mission / economy / shop agents */
     moduleData(id, defaults = {}) {

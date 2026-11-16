@@ -1,7 +1,7 @@
 {
   "name": "KC: Open Trail",
   "short_name": "Open Trail",
-  "description": "Roam Cedar Hollow with KC: a free-roam 3D dog adventure.",
+  "description": "Roam St. Helens, Oregon, and on to Portland with KC: a free-roam 3D dog adventure.",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",

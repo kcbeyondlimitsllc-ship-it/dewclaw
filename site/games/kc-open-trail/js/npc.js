@@ -1,7 +1,7 @@
-/* Life in Cedar Hollow: pedestrians who wave and pet KC, other dogs that play,
-   critters that scatter, and the friendly ranger with the mischief meter. */
+/* Life along the river: townspeople who wave, chat and pet KC, other dogs
+   that play, and wildlife that scatters. */
 import { THREE, Geo, clamp, lerp, lerpAngle, angDiff, damp, rng, TAU, smoothPath } from './util.js';
-import { PED_ROUTES, DOG_SPOTS, CRITTERS, RANGER_POST, FLOWER_BEDS, WATER_Y, HALF } from './data.js';
+import { PED_ROUTES, DOG_SPOTS, CRITTERS, CHATTER, WATER_Y, HALF } from './data.js';
 import { buildDog, animateDog, dogMaterial } from './kc.js';
 
 const SKIN = [0xf2c9a0, 0xe0ac7e, 0xc68a5a, 0x9a6a42, 0x6e4a2e, 0xf6d6b8];
@@ -16,8 +16,7 @@ export function buildPerson(look) {
   g.cyl(0, 1.46, 0, 0.07, 0.07, 0.08, 6, look.skin); g.ball(0, 1.66, 0, 0.15, 0.17, 0.155, look.skin, 7, 5);
   g.ball(0, 1.72, -0.02, 0.162, 0.14, 0.165, look.hair, 7, 4); if (look.long) g.box(0, 1.52, -0.12, 0.26, 0.3, 0.08, look.hair);
   for (const s of [-1, 1]) g.ball(s * 0.055, 1.67, 0.14, 0.02, 0.024, 0.012, 0x2a2a2a, 4, 3);
-  if (look.hat === 'ranger') { g.cyl(0, 1.78, 0, 0.3, 0.3, 0.03, 10, 0x7a6a3a); g.cyl(0, 1.8, 0, 0.16, 0.13, 0.16, 8, 0x7a6a3a); g.box(0, 1.25, 0.13, 0.08, 0.08, 0.02, 0xf0c040); }
-  else if (look.hat === 'cap') { g.ball(0, 1.76, 0, 0.165, 0.1, 0.17, look.hatCol, 7, 3); g.box(0, 1.74, 0.2, 0.2, 0.02, 0.14, look.hatCol); }
+  if (look.hat === 'cap') { g.ball(0, 1.76, 0, 0.165, 0.1, 0.17, look.hatCol, 7, 3); g.box(0, 1.74, 0.2, 0.2, 0.02, 0.14, look.hatCol); }
   else if (look.hat === 'straw') { g.cyl(0, 1.78, 0, 0.34, 0.34, 0.03, 10, 0xe0c060); g.cyl(0, 1.8, 0, 0.16, 0.14, 0.12, 8, 0xe0c060); }
   if (look.pack) g.box(0, 1.2, -0.2, 0.34, 0.46, 0.16, look.packCol || 0x4f6f3f);
   const body = new THREE.Mesh(g.build(), mat); root.add(body);
@@ -31,7 +30,7 @@ export function randomLook(R, over = {}) {
 
 export function createNPCs(game) {
   const { world, bus, state, fx, kc, scene } = game, R = rng(555);
-  const npcs = { peds: [], dogs: [], groups: [], ranger: null, mischief: { level: 0, heat: 0, timer: 0, chasing: false } };
+  const npcs = { peds: [], dogs: [], groups: [] };
   const hereY = (x, z, y) => world.groundAt(x, z, y + 0.4);
 
   /* ---------------- pedestrians ---------------- */
@@ -39,19 +38,25 @@ export function createNPCs(game) {
     const pts = route.loop ? smoothPath([...route.pts, route.pts[0]], 6) : smoothPath(route.pts, 6);
     const p = buildPerson(look), ped = { id: 'ped-' + npcs.peds.length, name, parts: p, pts, loop: !!route.loop, idx: Math.floor(R() * (pts.length - 1)), dir: R() < 0.5 ? 1 : -1, x: 0, z: 0, y: 0, yaw: 0, speed: 1.25 + R() * 0.5, state: 'walk', t: R() * 10, timer: 0, cool: 0, petCool: 0, side: (R() - 0.5) * 1.6, anim: 0, home: route };
     ped.x = pts[ped.idx][0]; ped.z = pts[ped.idx][1]; ped.y = world.heightAt(ped.x, ped.z); scene.add(p.root); npcs.peds.push(ped);
-    game.api.addInteractable({ id: ped.id, getPos: () => ped, r: 2.4, label: () => 'Say hi to ' + ped.name, icon: 'hand', prio: 2, enabled: () => ped.state !== 'pet' && ped.petCool <= 0 && !kc.ride && p.root.visible, onInteract: () => pet(ped) });
+    game.api.addInteractable({ id: ped.id, getPos: () => ped, r: 2.4, label: () => 'Talk to ' + ped.name, icon: 'hand', prio: 2, enabled: () => ped.state !== 'pet' && ped.petCool <= 0 && !kc.ride && p.root.visible, onInteract: () => talk(ped) });
     return ped;
+  }
+  /* a short line of chat (by where they are walking), then a pat */
+  function talk(ped) {
+    const pool = [...(CHATTER[ped.home.where] || []), ...(CHATTER[ped.home.where] || []), ...CHATTER.any], line = pool[(ped.said = (ped.said ?? Math.floor(R() * pool.length)) + 1) % pool.length];
+    game.ui.toast(ped.name + ': \u201c' + line + '\u201d', { icon: 'hand', ms: 4200 }); bus.emit('npcTalk', { id: ped.id, name: ped.name, line, where: ped.home.where }); pet(ped);
   }
   function pet(ped) {
     ped.state = 'pet'; ped.timer = 2.2; ped.petCool = 14; kc.petT = 2.4; kc.sit = true; state.stats.pets++;
     fx.burst('heart', kc.pos.x, kc.pos.y + 1.2, kc.pos.z, 7); game.audio.sfx('pet');
     bus.emit('npcPet', { id: ped.id, name: ped.name, x: ped.x, z: ped.z });
   }
-  PED_ROUTES.forEach((r, ri) => { for (let i = 0; i < r.n; i++) { const over = r.hiker ? { pack: true, hat: R() < 0.6 ? 'cap' : null, packCol: SHIRT[Math.floor(R() * SHIRT.length)] } : r.farmer ? { hat: 'straw', shirt: 0x3f7fd6, pants: 0x3a4a6a } : r.beach ? { pants: [0xf08a2a, 0x3f9fd6, 0xd9534f][i % 3] } : {}; addPed(r, i, randomLook(R, over), NAMES[npcs.peds.length % NAMES.length]); } });
+  PED_ROUTES.forEach((r, ri) => { for (let i = 0; i < r.n; i++) { const over = r.hiker ? { pack: true, hat: R() < 0.6 ? 'cap' : null, packCol: SHIRT[Math.floor(R() * SHIRT.length)] } : r.farmer ? { hat: 'straw', shirt: 0x3f7fd6, pants: 0x3a4a6a } : r.worker ? { hat: 'cap', hatCol: 0xf0c040, shirt: 0xf08a2a, pants: 0x3a4a6a } : r.beach ? { pants: [0xf08a2a, 0x3f9fd6, 0xd9534f][i % 3] } : {}; addPed(r, i, randomLook(R, over), NAMES[npcs.peds.length % NAMES.length]); } });
 
   function updatePed(ped, dt) {
     const p = ped.parts, dx = kc.pos.x - ped.x, dz = kc.pos.z - ped.z, dk = Math.hypot(dx, dz);
-    p.root.visible = dk < 95; if (!p.root.visible && dk > 130) { /* far away: just advance cheaply */ }
+    if (dk > 170) { p.root.visible = false; return; }     /* far away: frozen until KC comes near */
+    p.root.visible = dk < 95;
     ped.t += dt; if (ped.cool > 0) ped.cool -= dt; if (ped.petCool > 0) ped.petCool -= dt;
     let moving = false;
     if (ped.state === 'walk') {
@@ -90,7 +95,7 @@ export function createNPCs(game) {
     fx.blob(ped.x, ped.y, ped.z, 0.42);
   }
   /* anyone a vehicle should stop for */
-  npcs.obstacles = out => { for (const p of npcs.peds) if (p.parts.root.visible) out.push(p); for (const d of npcs.dogs) out.push(d); if (npcs.ranger && npcs.ranger.parts.root.visible) out.push(npcs.ranger); for (const g of npcs.groups) if (g.active && (g.kind === 'chicken' || g.kind === 'sheep')) for (const c of g.items) out.push(c); return out; };
+  npcs.obstacles = out => { for (const p of npcs.peds) if (p.parts.root.visible) out.push(p); for (const d of npcs.dogs) out.push(d); for (const g of npcs.groups) if (g.active && (g.kind === 'chicken' || g.kind === 'sheep')) for (const c of g.items) out.push(c); return out; };
   npcs.stepAside = (o, fx_, fz) => { if (!o.parts || !o.pts || o.state === 'pet') return; o.state = 'aside'; o.timer = 1.1; const s = ((o.x - fx_.x) * -fz.z + (o.z - fx_.z) * fz.x) > 0 ? 1 : -1; o.ax = -fz.z * s; o.az = fz.x * s; };
 
   /* ---------------- other dogs ---------------- */
@@ -102,6 +107,7 @@ export function createNPCs(game) {
   }
   function updateDog(d, dt) {
     const dk = Math.hypot(kc.pos.x - d.x, kc.pos.z - d.z), hk = Math.hypot(kc.pos.x - d.home.x, kc.pos.z - d.home.z);
+    if (dk > 170) { d.parts.root.visible = false; return; }
     d.parts.root.visible = dk < 95; d.t += dt; if (d.bark > 0) d.bark -= dt; if (d.playCool > 0) d.playCool -= dt;
     if (d.barkIn > 0) { d.barkIn -= dt; if (d.barkIn <= 0) { d.bark = 0.35; if (dk < 40) game.audio.sfx('bark', { pitch: 0.75 + d.home.s * 0.35, vol: clamp(1 - dk / 40, 0.1, 0.7) }); } }
     const wantPlay = dk < 10 && hk < d.home.r * 2.2 && !kc.swimming && !kc.ride;
@@ -177,65 +183,7 @@ export function createNPCs(game) {
   }
   for (const k in meshes) { const m = meshes[k].mesh; for (let i = 0; i < m.count; i++) { m4.makeScale(0, 0, 0); m.setMatrixAt(i, m4); } }
 
-  /* ---------------- ranger + mischief ---------------- */
-  const M = npcs.mischief;
-  const rg = { id: 'ranger', name: 'Ranger Juniper', parts: buildPerson({ skin: SKIN[2], hair: HAIR[0], shirt: 0x6f8f4f, pants: 0x4a4a36, h: 1.02, hat: 'ranger', long: true }), x: RANGER_POST.x, z: RANGER_POST.z, y: 0, yaw: Math.PI, t: 0, anim: 0, speed: 0, r: 0.4, stuck: 0 };
-  rg.y = world.heightAt(rg.x, rg.z); scene.add(rg.parts.root); npcs.ranger = rg;
-  M.add = (n = 1, reason = 'mischief') => {
-    const before = Math.floor(M.level); M.level = clamp(M.level + n, 0, 3); M.timer = 0;
-    if (!M.chasing) { M.chasing = true; game.audio.sfx('whistle'); const d = Math.hypot(kc.pos.x - rg.x, kc.pos.z - rg.z);
-      if (d > 70) { /* she was "nearby": start from behind the camera, on dry land */ for (let i = 0; i < 16; i++) { const a = game.cam.yaw + Math.PI + (i % 2 ? 1 : -1) * i * 0.2, x = kc.pos.x + Math.sin(a) * 42, z = kc.pos.z + Math.cos(a) * 42, h = world.heightAt(x, z); if (h > WATER_Y + 0.3 && !world.blockedAt(x, z, h, 0.6) && Math.abs(x) < HALF - 5 && Math.abs(z) < HALF - 5) { rg.x = x; rg.z = z; rg.y = h; break; } } }
-      game.ui.toast('Uh oh! ' + rg.name + ' is coming with the leash. Outrun her!', { icon: 'whistle', kind: 'warn' }); bus.emit('chaseStart', { level: M.level, reason }); }
-    if (Math.floor(M.level) !== before) bus.emit('mischief', { level: M.level, reason });
-    return M.level;
-  };
-  M.clear = (silent) => { const was = M.chasing; M.level = 0; M.chasing = false; M.timer = 0; bus.emit('mischief', { level: 0 }); if (was && !silent) bus.emit('chaseEnd', {}); };
-  M.fine = level => Math.min(state.wallet.bones, 5 * Math.max(1, Math.ceil(level)));
-  function caught() {
-    const level = M.level, fine = M.fine(level); game.wallet.add('bones', -fine, 'caught'); state.stats.caught++;
-    while (kc.carried.length) { const d = kc.drop(true); bus.emit('confiscated', { item: d.item, id: d.item.id, kind: d.item.kind }); }
-    M.clear(true); game.audio.sfx('caught');
-    game.ui.fade(() => { kc.teleport(RANGER_POST.x - 2, RANGER_POST.z + 3.5, Math.PI); rg.x = RANGER_POST.x; rg.z = RANGER_POST.z; rg.y = world.heightAt(rg.x, rg.z); rg.yaw = Math.PI; });
-    game.ui.toast(fine > 0 ? `Leash on! ${rg.name} walked KC back to the station. -${fine} bones` : `Leash on! ${rg.name} walked KC back to the station.`, { icon: 'whistle', kind: 'warn', ms: 4500 });
-    bus.emit('caught', { level, fine });
-  }
-  bus.on('dig', e => { for (const [bx, bz, bw, bd] of FLOWER_BEDS) if (Math.abs(e.x - bx) < bw / 2 + 0.6 && Math.abs(e.z - bz) < bd / 2 + 0.6) { fx.burst('leaf', e.x, kc.pos.y + 0.3, e.z, 10, { color: 0xff8fb0 }); game.ui.toast('Oops, the flower bed!', { icon: 'dig' }); M.add(1, 'flowerbed'); return; } });
-  function updateRanger(dt) {
-    const dx = kc.pos.x - rg.x, dz = kc.pos.z - rg.z, d = Math.hypot(dx, dz); rg.t += dt; let moving = false, wave = false;
-    rg.parts.root.visible = d < 110;
-    if (M.chasing) {
-      const inVan = kc.ride && kc.ride.kind === 'van', sp = (5.4 + Math.ceil(M.level) * 0.75);
-      if (d > 1.3) {
-        const step = sp * dt, pos = { x: rg.x + (dx / d) * step, z: rg.z + (dz / d) * step }; const hit = world.resolve(pos, 0.4, rg.y, 1.6);
-        if (hit) { rg.stuck += dt; if (rg.stuck > 0.25) { const s = Math.sin(rg.t * 0.5) > 0 ? 1 : -1; pos.x += (-dz / d) * s * step * 1.5; pos.z += (dx / d) * s * step * 1.5; world.resolve(pos, 0.4, rg.y, 1.6); } } else rg.stuck = Math.max(0, rg.stuck - dt);
-        const g = world.groundAt(pos.x, pos.z, rg.y + 0.4);
-        if (g > WATER_Y - 0.25 && g - rg.y < 0.75) { rg.x = pos.x; rg.z = pos.z; moving = true; }
-        rg.yaw = lerpAngle(rg.yaw, Math.atan2(dx, dz), damp(8, dt));
-      }
-      const close = d < 1.5 && Math.abs(kc.pos.y - rg.y) < 1.6;
-      if (close && !inVan && !kc.swimming && !game.ui.fading) caught();
-      else {
-        const hidden = d > 30 || kc.swimming || inVan;
-        M.timer = hidden ? M.timer + dt * (inVan || d > 60 ? 2 : 1) : Math.max(0, M.timer - dt * 0.5);
-        if (M.timer > 9) { M.timer = 0; M.level = Math.max(0, Math.ceil(M.level) - 1); bus.emit('mischief', { level: M.level });
-          if (M.level <= 0) { M.chasing = false; state.stats.escapes++; game.ui.toast('KC gave the ranger the slip!', { icon: 'paw', kind: 'good' }); bus.emit('escaped', {}); bus.emit('chaseEnd', {}); } }
-      }
-    } else {
-      const hx = RANGER_POST.x - rg.x, hz = RANGER_POST.z - rg.z, hd = Math.hypot(hx, hz);
-      if (hd > 1) { if (d > 80) { rg.x = RANGER_POST.x; rg.z = RANGER_POST.z; } else { const pos = { x: rg.x + (hx / hd) * 2.2 * dt, z: rg.z + (hz / hd) * 2.2 * dt }; world.resolve(pos, 0.4, rg.y, 1.6); if (world.heightAt(pos.x, pos.z) > WATER_Y) { rg.x = pos.x; rg.z = pos.z; } rg.yaw = lerpAngle(rg.yaw, Math.atan2(hx, hz), damp(6, dt)); moving = true; } }
-      else if (d < 6) { rg.yaw = lerpAngle(rg.yaw, Math.atan2(dx, dz), damp(5, dt)); wave = d < 4; }
-    }
-    rg.y = lerp(rg.y, hereY(rg.x, rg.z, rg.y), damp(12, dt));
-    if (!rg.parts.root.visible) return;
-    const p = rg.parts, k = damp(12, dt); p.root.position.set(rg.x, rg.y, rg.z); p.root.rotation.y = rg.yaw;
-    let ll = 0, lr = 0, al = 0, ar = 0, arz = 0;
-    if (moving) { rg.anim += dt * (M.chasing ? 13 : 6); const s = Math.sin(rg.anim), a = M.chasing ? 0.95 : 0.5; ll = s * a; lr = -s * a; al = -s * a * 0.8; ar = M.chasing ? -1.3 : s * a * 0.8; }
-    if (wave) arz = 2.5 + Math.sin(rg.t * 10) * 0.3;
-    p.legL.rotation.x = lerp(p.legL.rotation.x, ll, k); p.legR.rotation.x = lerp(p.legR.rotation.x, lr, k); p.armL.rotation.x = lerp(p.armL.rotation.x, al, k); p.armR.rotation.x = lerp(p.armR.rotation.x, ar, k); p.armR.rotation.z = lerp(p.armR.rotation.z, arz, k);
-    fx.blob(rg.x, rg.y, rg.z, 0.42);
-  }
-
-  npcs.update = dt => { for (const p of npcs.peds) updatePed(p, dt); for (const d of npcs.dogs) updateDog(d, dt); for (const k in meshes) meshes[k].on = false; for (const g of npcs.groups) { updateGroup(g, dt); if (g.active) meshes[g.kind].on = true; } for (const k in meshes) meshes[k].mesh.visible = meshes[k].on; updateRanger(dt); };
+  npcs.update = dt => { for (const p of npcs.peds) updatePed(p, dt); for (const d of npcs.dogs) updateDog(d, dt); for (const k in meshes) meshes[k].on = false; for (const g of npcs.groups) { updateGroup(g, dt); if (g.active) meshes[g.kind].on = true; } for (const k in meshes) meshes[k].mesh.visible = meshes[k].on; };
   npcs.addPed = (route, look, name) => addPed({ n: 1, ...route }, 0, look || randomLook(R), name || NAMES[npcs.peds.length % NAMES.length]);
   return npcs;
 }

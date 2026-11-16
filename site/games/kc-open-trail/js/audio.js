@@ -19,7 +19,7 @@ export function createAudio(game) {
     engOsc = ctx.createOscillator(); engOsc.type = 'sawtooth'; engOsc.frequency.value = 55; const ef = ctx.createBiquadFilter(); ef.type = 'lowpass'; ef.frequency.value = 260; engGain = ctx.createGain(); engGain.gain.value = 0; engOsc.connect(ef); ef.connect(engGain); engGain.connect(sfxBus); engOsc.start();
     unlocked = true; A.applyVolume(); nextBeat = ctx.currentTime + 0.3;
   };
-  A.applyVolume = () => { if (!ctx) return; const s = S(); sfxBus.gain.value = clamp(s.sound, 0, 1); ambBus.gain.value = clamp(s.sound, 0, 1) * 0.7; musicBus.gain.value = clamp(s.music, 0, 1) * 0.55; };
+  A.applyVolume = () => { if (!ctx) return; const s = S(); master.gain.value = s.muted ? 0 : 1; sfxBus.gain.value = clamp(s.sound, 0, 1); ambBus.gain.value = clamp(s.sound, 0, 1) * 0.7; musicBus.gain.value = clamp(s.music, 0, 1) * 0.55; };
   A.suspend = () => { if (ctx && ctx.state === 'running') ctx.suspend(); };
   A.resume = () => { if (ctx && unlocked && ctx.state === 'suspended') ctx.resume(); };
 
@@ -42,10 +42,13 @@ export function createAudio(game) {
     dig: () => { for (let i = 0; i < 6; i++) noise('bandpass', 700 + Math.random() * 500, 400, 0.11, 0.18, i * 0.2); },
     shake: () => { for (let i = 0; i < 7; i++) noise('highpass', 2200, 3200, 0.06, 0.1, i * 0.1); },
     honk: (o) => { const v = (o.vol ?? 1) * 0.16; tone('square', 392, 392, 0.22, v); tone('square', 494, 494, 0.22, v); },
+    bell: (o) => { const v = (o.vol ?? 1) * 0.22; for (const [f, g, d] of [[196, 1, 2.6], [392, 0.5, 2.0], [588, 0.3, 1.4], [823, 0.16, 0.9]]) tone('sine', f, f * 0.995, d, v * g); noise('bandpass', 900, 500, 0.06, v * 0.5, 0, 3); },
     whistle: () => { for (let i = 0; i < 8; i++) tone('sine', i % 2 ? 2300 : 2050, i % 2 ? 2300 : 2050, 0.06, 0.12, i * 0.055); },
     pet: () => { tone('sine', 660, 660, 0.25, 0.12); tone('sine', 990, 990, 0.3, 0.1, 0.12); },
     caught: () => { [440, 370, 311, 262].forEach((f, i) => tone('triangle', f, f, 0.2, 0.16, i * 0.13)); },
     ui: () => tone('sine', 620, 620, 0.05, 0.1),
+    ding: (o) => { const v = (o.vol ?? 1) * 0.14; tone('sine', 1320, 1320, 0.35, v); tone('sine', 1760, 1760, 0.3, v * 0.7, 0.16); },
+    horn: (o) => { const v = (o.vol ?? 1) * 0.13; tone('sawtooth', 311, 311, 0.7, v); tone('sawtooth', 370, 370, 0.7, v * 0.9); tone('sawtooth', 466, 466, 0.7, v * 0.7); },
     door: () => { noise('lowpass', 300, 120, 0.12, 0.3); tone('sine', 110, 70, 0.1, 0.2, 0.02); },
     eat: () => { for (let i = 0; i < 4; i++) noise('bandpass', 900, 500, 0.07, 0.16, i * 0.12, 2); },
     shutter: () => { noise('highpass', 3000, 1500, 0.05, 0.25); noise('highpass', 2500, 1200, 0.06, 0.2, 0.09); },
@@ -66,6 +69,8 @@ export function createAudio(game) {
   function pluck(f, t, vol, dur = 0.5) { const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'triangle'; o.frequency.value = f; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); o.connect(g); g.connect(musicBus); o.start(t); o.stop(t + dur + 0.05); }
   function schedule() {
     const night = game.world.night, spb = 60 / (night > 0.5 ? 66 : 88) / 2;
+    /* after a pause (the clock keeps running while update() is not called) skip the missed beats instead of playing them all at once */
+    if (nextBeat < ctx.currentTime - 0.5) nextBeat = ctx.currentTime + 0.1;
     while (nextBeat < ctx.currentTime + 0.25) {
       const bar = Math.floor(beat / 8) % 4, step = beat % 8, ch = CHORDS[bar], t = nextBeat;
       if (step === 0) { pluck(hz(ch[0] - 12), t, 0.2, spb * 7); for (const n of ch) { const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine'; o.frequency.value = hz(n); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.045, t + spb * 2); g.gain.linearRampToValueAtTime(0.0001, t + spb * 8); o.connect(g); g.connect(musicBus); o.start(t); o.stop(t + spb * 8 + 0.05); } }

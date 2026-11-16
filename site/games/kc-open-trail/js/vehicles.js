@@ -53,7 +53,7 @@ function rideGeo(kind, skin) {
 const CFG = {
   skateboard: { max: 13, acc: 8, turn: 3.4, r: 0.5, seat: [0, 0.2, -0.05], camY: 1.2, camDist: 0.6, label: 'Hop on the skateboard', name: 'Skateboard', land: true },
   canoe: { max: 7.5, acc: 4, turn: 2.0, r: 0.8, seat: [0, 0.02, 0.2], camY: 1.2, camDist: 1.5, label: 'Hop in the canoe', name: 'Canoe', water: true },
-  van: { max: 15, acc: 6.5, turn: 1.7, r: 1.75, seat: [0.5, 1.12, 0.9], camY: 2.4, camDist: 4, label: 'Ride shotgun in the van', name: 'Camper van', land: true }
+  van: { max: 19, acc: 6.5, turn: 1.7, r: 1.75, seat: [0.5, 1.12, 0.9], camY: 2.4, camDist: 4, label: 'Ride shotgun in the van', name: 'Camper van', land: true }
 };
 
 export function createVehicles(game) {
@@ -105,7 +105,6 @@ export function createVehicles(game) {
   /* ---------------- rideables ---------------- */
   for (const d of RIDEABLES) {
     const cfg = CFG[d.kind], home = { x: d.x, z: d.z, yaw: d.yaw };
-    if (d.dock && world.dockCanoe) { home.x = world.dockCanoe.x; home.z = world.dockCanoe.z; }
     const mesh = new THREE.Mesh(rideGeo(d.kind, V.skins[d.kind]), mat); mesh.name = d.id; scene.add(mesh);
     const r = { id: d.id, kind: d.kind, cfg, mesh, home, x: home.x, z: home.z, y: 0, yaw: home.yaw, speed: 0, vy: 0, air: false, r: cfg.r, active: false, honkT: 0, roll: 0, pitch: 0, t: 0 };
     r.y = cfg.water ? WATER_Y : world.groundAt(r.x, r.z, 200); V.rides.push(r);
@@ -155,7 +154,8 @@ export function createVehicles(game) {
       else { turnTo = want; target = cfg.max * mag * (Math.abs(diff) > 1.6 ? 0.35 : 1); } }
     const surf = world.surfaceAt(r.x, r.z);
     if (r.kind === 'skateboard') target *= surf === 1 || surf === 2 || surf === 5 ? 1 : world.groundAt(r.x, r.z, r.y + 0.3) > world.heightAt(r.x, r.z) + 0.1 ? 1 : 0.62;
-    if (r.kind === 'van') target *= surf === 1 ? 1 : surf === 2 ? 0.85 : 0.7;
+    /* the van is a road vehicle: fine on asphalt and bridge decks, slow on gravel and paving, crawling on grass and sand */
+    if (r.kind === 'van') target *= surf === 1 || world.groundAt(r.x, r.z, r.y + 0.3) > world.heightAt(r.x, r.z) + 0.1 ? 1 : surf === 2 || surf === 5 ? 0.7 : 0.32;
     /* nobody gets bumped: brake for anyone in front and let them step aside */
     if (cfg.land && Math.abs(r.speed) > 0.3) {
       const s = Math.sign(r.speed), fxx = Math.sin(r.yaw) * s, fzz = Math.cos(r.yaw) * s;
