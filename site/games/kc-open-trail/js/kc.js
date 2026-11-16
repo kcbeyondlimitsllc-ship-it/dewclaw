@@ -79,6 +79,27 @@ const HATS = {
   flower: (g, c = 0xff8fb0) => { for (let i = 0; i < 6; i++) { const a = (i / 6) * TAU; g.ball(Math.cos(a) * 0.14, 0, Math.sin(a) * 0.14, 0.05, 0.035, 0.05, i % 2 ? c : 0xffffff, 5, 3); } }
 };
 
+/* body outfits (slot 'outfit'): simple shapes built round her torso, in body space (torso centre about 0, 0.53, 0; nose towards +z).
+   Modules add more with kc.registerOutfit(id, (geo, color) => ...). */
+const both = (g, a, b, c, col) => { g.tri(a, b, c, col); g.tri(a, c, b, col); };
+const OUTFITS = {
+  cape: (g, c = 0xc9483a) => { const q = (a, b2, c2, d) => { both(g, a, b2, c2, c); both(g, a, c2, d, c); };
+    q([-0.16, 0.775, 0.22], [0.16, 0.775, 0.22], [0.2, 0.755, -0.4], [-0.2, 0.755, -0.4]);                                   /* along her back */
+    for (const s of [-1, 1]) q([s * 0.16, 0.775, 0.22], [s * 0.2, 0.755, -0.4], [s * 0.31, 0.52, -0.46], [s * 0.26, 0.6, 0.16]);   /* draped sides */
+    q([-0.2, 0.755, -0.4], [0.2, 0.755, -0.4], [0.31, 0.52, -0.6], [-0.31, 0.52, -0.6]);                                     /* the tail of the cape */
+    g.tf(0, 0.715, 0.375, Math.PI / 2 - 0.55, 0, 0); g.cyl(0, -0.035, 0, 0.16, 0.16, 0.07, 9, c, c, 1, 0); g.notf(); g.ball(0, 0.6, 0.47, 0.035, 0.035, 0.03, 0xffd23c, 5, 3); },
+  wings: (g, c = 0x3a3046) => { for (const s of [-1, 1]) { both(g, [s * 0.08, 0.76, 0.14], [s * 0.62, 1.0, -0.02], [s * 0.1, 0.72, -0.2], c); both(g, [s * 0.62, 1.0, -0.02], [s * 0.5, 0.74, -0.26], [s * 0.1, 0.72, -0.2], c); } g.box(0, 0.775, -0.02, 0.2, 0.03, 0.3, c); },
+  vest: (g, c = 0xf08a2a) => { g.tf(0, 0.54, 0.26, Math.PI / 2, 0, 0); g.cyl(0, -0.4, 0, 0.228, 0.243, 0.38, 10, c, c, 1, 0); g.notf(); g.box(0, 0.79, 0.04, 0.1, 0.02, 0.34, 0xfff3c0); },
+  sheet: (g, c = 0xf4f4ef) => { g.ball(0, 0.6, -0.04, 0.3, 0.3, 0.52, c, 8, 5); for (const s of [-1, 1]) g.box(s * 0.31, 0.5, 0.05, 0.02, 0.5, 0.6, c); for (const s of [-1, 1]) g.ball(s * 0.12, 0.84, 0.2, 0.04, 0.02, 0.05, 0x2a2c30, 5, 3); },
+  pumpkinsuit: (g, c = 0xf08a2a) => { g.ball(0, 0.56, -0.04, 0.31, 0.28, 0.4, c, 8, 5, true); g.cyl(0, 0.82, -0.04, 0.045, 0.03, 0.1, 5, 0x4f7f3f); g.box(0.08, 0.86, -0.04, 0.16, 0.015, 0.08, 0x5f9f4f); },
+  scarecrow: (g, c = 0x9a6a42) => { g.tf(0, 0.54, 0.24, Math.PI / 2, 0, 0); g.cyl(0, -0.36, 0, 0.228, 0.24, 0.34, 10, c, c, 1, 0); g.notf(); for (let i = 0; i < 8; i++) { const a = (i / 8) * TAU; g.box(Math.cos(a) * 0.2, 0.62 + Math.sin(a) * 0.2, 0.33, 0.05, 0.05, 0.14, 0xe0c060); } g.box(0.12, 0.76, 0.02, 0.1, 0.02, 0.1, 0xd9534f); g.box(-0.1, 0.77, -0.12, 0.09, 0.02, 0.09, 0x3f7fd6); },
+  saddlebags: (g, c = 0x6f8f4f) => { for (const s of [-1, 1]) { g.box(s * 0.25, 0.55, -0.06, 0.11, 0.2, 0.3, c, 0x4f6f3f); g.box(s * 0.25, 0.66, -0.06, 0.12, 0.03, 0.31, 0x3a2a1a); } g.box(0, 0.775, -0.06, 0.5, 0.03, 0.12, 0x3a2a1a); },
+  scarf: (g, c = 0x3f7fd6) => { g.tf(0, 0.715, 0.375, Math.PI / 2 - 0.55, 0, 0); g.cyl(0, -0.05, 0, 0.165, 0.165, 0.1, 9, c, c, 1, 0); g.notf(); g.box(0.1, 0.56, 0.47, 0.08, 0.26, 0.03, c); },
+  lanternvest: (g, c = 0x3a4f7a) => { g.tf(0, 0.54, 0.26, Math.PI / 2, 0, 0); g.cyl(0, -0.4, 0, 0.228, 0.243, 0.38, 10, c, c, 1, 0); g.notf(); for (const s of [-1, 1]) for (const z of [-0.06, 0.12]) g.box(s * 0.245, 0.58, z, 0.02, 0.09, 0.07, 0xffe27a); }
+};
+const MOD_MUL = ['speed', 'stamina', 'jump', 'magnet', 'sniff', 'carry', 'swim', 'bones'], MOD_ADD = ['carryAdd'];
+const baseMods = () => ({ speed: 1, stamina: 1, jump: 1, magnet: 1, sniff: 1, carry: 1, swim: 1, bones: 1, carryAdd: 0 });
+
 export function createKC(game) {
   const { world, bus, state, fx } = game;
   const parts = buildDog(KC_COLORS, { scale: 1.3 });
@@ -89,15 +110,21 @@ export function createKC(game) {
     onGround: true, swimming: false, sprinting: false, exhausted: false, stamina: 100, staminaMax: 100,
     sit: false, bark: 0, dig: 0, shake: 0, wet: 0, ride: null, carried: [], frozen: false, speed: 0, phase: 0, t: 0, petT: 0,
     base: { walk: 3.4, run: 6.6, sprint: 11, jump: 7.6, drain: 20, regen: 17, magnet: 1.7 },
-    mods: { speed: 1, stamina: 1, jump: 1, magnet: 1, carry: 1, swim: 1, bones: 1 },
-    modSources: new Map(), cosmetics: { bandana: null, harness: null, collar: null, hat: null, tag: null, trail: null }, hats: HATS,
+    mods: baseMods(),
+    modSources: new Map(), cosmetics: { bandana: null, harness: null, collar: null, hat: null, tag: null, trail: null, outfit: null }, hats: HATS, outfits: OUTFITS,
     safe: { x: SPAWN.x, z: SPAWN.z }
   };
-  let coyote = 0, sinceSprint = 9, safeT = 0, stepT = 0, trailT = 0, hatMesh = null, autoShake = 0;
+  let coyote = 0, sinceSprint = 9, safeT = 0, stepT = 0, trailT = 0, hatMesh = null, outfitMesh = null, autoShake = 0, timed = 0;
   const carryAnchor = parts.mouth, v = new THREE.Vector3();
 
-  /* ----- stat modifiers: kc.setModifier('upgrade:legs', { speed: 1.1 }) ; values multiply ----- */
-  kc.setModifier = (id, m) => { if (m) kc.modSources.set(id, m); else kc.modSources.delete(id); const out = { speed: 1, stamina: 1, jump: 1, magnet: 1, carry: 1, swim: 1, bones: 1 }; for (const s of kc.modSources.values()) for (const key in s) if (key in out && Number.isFinite(s[key])) out[key] *= s[key]; kc.mods = out; kc.staminaMax = 100 * out.stamina; kc.stamina = Math.min(kc.stamina, kc.staminaMax); bus.emit('modsChanged', out); return out; };
+  /* ----- stat modifiers. kc.setModifier('upgrade:legs', { speed: 1.1 }) ; kc.setModifier('treat:zoomie', { speed: 1.15 }, { seconds: 180 }) ; null removes.
+     speed, stamina, jump, magnet (pickup radius), sniff (how far away bones start drifting to her), carry, swim, bones multiply across sources; carryAdd adds. ----- */
+  const recompute = () => { const out = baseMods(); for (const src of kc.modSources.values()) { for (const key of MOD_MUL) if (Number.isFinite(src.m[key]) && src.m[key] >= 0) out[key] *= src.m[key]; for (const key of MOD_ADD) if (Number.isFinite(src.m[key])) out[key] += src.m[key]; }
+    timed = 0; for (const src of kc.modSources.values()) if (src.left != null) timed++;
+    kc.mods = out; kc.staminaMax = 100 * out.stamina; kc.stamina = Math.min(kc.stamina, kc.staminaMax); bus.emit('modsChanged', out); return out; };
+  kc.setModifier = (id, m, o = {}) => { if (m && typeof m === 'object') kc.modSources.set(id, { m, left: Number.isFinite(o.seconds) && o.seconds > 0 ? o.seconds : null, total: o.seconds || null }); else kc.modSources.delete(id); return recompute(); };
+  kc.getModifier = key => (key ? kc.mods[key] : { ...kc.mods });
+  kc.modifierLeft = id => { const src = kc.modSources.get(id); return src ? (src.left ?? Infinity) : 0; };
   kc.removeModifier = id => kc.setModifier(id, null);
   /* ----- cosmetics: kc.setCosmetic('bandana', 0xff0000) / ('hat', 'cap' | {type:'cap', color}) / ('harness', color) / ('collar', color) / ('tag', color|null) / ('trail', color|null) ----- */
   kc.setCosmetic = (slot, value) => {
@@ -111,12 +138,21 @@ export function createKC(game) {
       const type = value && (value.type || value), fn = type && kc.hats[type];
       if (fn) { const g = new Geo(); fn(g, value.color); hatMesh = new THREE.Mesh(g.build(), dogMaterial()); parts.hatAnchor.add(hatMesh); }
     }
+    else if (slot === 'outfit') {
+      if (outfitMesh) { parts.body.remove(outfitMesh); outfitMesh.geometry.dispose(); outfitMesh = null; }
+      const type = value && (value.type || value), fn = type && kc.outfits[type];
+      if (fn) { const g = new Geo(); fn(g, value.color); outfitMesh = new THREE.Mesh(g.build(), dogMaterial()); parts.body.add(outfitMesh); }
+    }
     bus.emit('cosmeticChanged', { slot, value });
   };
   kc.registerHat = (id, fn) => { kc.hats[id] = fn; };
+  kc.registerOutfit = (id, fn) => { kc.outfits[id] = fn; };
+  /* hold a pose for a photo (the simulation is stopped in photo mode): 'sit' | 'bark' | 'beg' | 'play' | 'stand' | null */
+  kc.pose = name => { const a = { t: kc.t, speed: 0, phase: 0, wag: 1 }; if (name === 'sit') a.sit = true; else if (name === 'bark') a.bark = 0.17; else if (name === 'beg') { a.sit = true; a.bark = 0.17; } else if (name === 'play') { a.dig = 1; a.t = 0.06; }
+    kc.sit = name === 'sit' || name === 'beg'; animateDog(parts, a, 1); animateDog(parts, a, 1); kc.posed = name || null; bus.emit('pose', { name: name || null }); };
 
   /* ----- carrying ----- */
-  kc.capacity = () => Math.max(1, Math.floor(kc.mods.carry));
+  kc.capacity = () => Math.max(1, Math.floor(kc.mods.carry) + Math.floor(kc.mods.carryAdd || 0) + (kc.ride && kc.ride.tune ? Math.floor(kc.ride.tune.carry || 0) : 0));
   kc.carry = item => {
     if (kc.carried.length >= kc.capacity()) return false;
     kc.carried.push(item);
@@ -136,7 +172,7 @@ export function createKC(game) {
   kc.teleport = (x, z, yaw) => {
     if (kc.ride) game.vehicles.exit(true);
     kc.pos.x = clamp(x, -HALF + 4, HALF - 4); kc.pos.z = clamp(z, -HALF + 4, HALF - 4); kc.pos.y = Math.max(world.groundAt(kc.pos.x, kc.pos.z, 200), WATER_Y - 0.5); kc.vel.set(0, 0, 0);
-    if (yaw != null) kc.yaw = yaw; kc.swimming = false; kc.onGround = true; kc.safe.x = kc.pos.x; kc.safe.z = kc.pos.z; root.rotation.y = kc.yaw;
+    if (yaw != null) kc.yaw = yaw; if (kc.swimming) { kc.swimming = false; kc.hop = false; bus.emit('swimEnd', { x: kc.pos.x, z: kc.pos.z }); } kc.onGround = true; kc.safe.x = kc.pos.x; kc.safe.z = kc.pos.z; root.rotation.y = kc.yaw;
     game.cam.snap(); bus.emit('teleport', { x: kc.pos.x, z: kc.pos.z });
   };
   kc.doBark = () => { if (kc.bark > 0 || kc.frozen) return; kc.bark = 0.35; kc.sit = false; state.stats.barks++; game.audio.sfx('bark'); bus.emit('bark', { x: kc.pos.x, z: kc.pos.z }); };
@@ -146,6 +182,7 @@ export function createKC(game) {
 
   kc.update = (dt, input) => {
     kc.t += dt; const b = kc.base, m = kc.mods;
+    if (timed) { let gone = null; for (const [id, src] of kc.modSources) if (src.left != null && (src.left -= dt) <= 0) (gone ||= []).push(id); if (gone) { for (const id of gone) kc.modSources.delete(id); recompute(); for (const id of gone) bus.emit('modExpired', { id }); } }
     if (kc.bark > 0) kc.bark -= dt; if (kc.shake > 0) kc.shake -= dt; if (kc.petT > 0) kc.petT -= dt;
     if (kc.ride) { kc.speed = Math.abs(kc.ride.speed); animateDog(parts, { t: kc.t, speed: kc.speed, ride: true, bark: kc.bark, phase: 0, shake: kc.shake }, dt); kc.stamina = Math.min(kc.staminaMax, kc.stamina + b.regen * dt); return; }
     let mx = input.moveX, my = input.moveY; let mag = Math.min(1, Math.hypot(mx, my));

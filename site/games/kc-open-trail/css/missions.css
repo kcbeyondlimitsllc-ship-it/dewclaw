@@ -1,0 +1,26 @@
+/* Missions journal, mission offer card and trail tasks (js/missions.js). Uses the shared tokens from style.css. */
+.ms-offer #modalBody p { margin:0 0 10px; }
+.ms-where { font-size:12px; font-weight:800; letter-spacing:.6px; text-transform:uppercase; color:var(--accent); }
+.ms-steps { margin:0 0 12px; padding-left:22px; }
+.ms-steps li { margin:0 0 4px; }
+.ms-pay { display:flex; align-items:center; flex-wrap:wrap; gap:8px; font-weight:800; }
+.ms-chip { display:inline-block; font-size:12px; font-weight:800; padding:3px 9px; border-radius:11px; border:1px solid var(--line); background:rgba(255,255,255,.1); }
+.ms-small { font-size:13px; color:#cfe0d6; }
+/* the core shrinks these to 40 px on short landscape screens; mission screens keep the 44 px touch target */
+.modal.ms-offer #modalActions .btn, .modal.ms-journal #modalActions .btn { min-height:44px; }
+.modal.ms-offer #modalClose, .modal.ms-journal #modalClose { width:44px; height:44px; }
+.ms-journal .items { grid-template-columns:repeat(auto-fill,minmax(290px,1fr)); }
+.ms-journal .item { flex-wrap:wrap; align-items:flex-start; padding:10px 12px; }
+.ms-journal .item .mid span { overflow-wrap:anywhere; }
+.ms-journal .item .side { flex:1 1 100%; flex-direction:row; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:8px; }
+.ms-journal .item .side .prices { margin-right:auto; }
+.ms-journal .item .side .btn { min-height:44px; }
+.ms-aside { min-height:44px; }
+.ms-tasks { display:grid; gap:8px; margin:0 0 10px; }
+.ms-task { display:grid; grid-template-columns:1fr auto; align-items:center; gap:4px 10px; padding:10px 12px; border-radius:14px; border:1px solid var(--line); background:rgba(255,255,255,.06); }
+.ms-task b { font-size:15px; }
+.ms-task .prog { grid-column:1 / -1; }
+.ms-task .ms-taskpay { grid-column:2; grid-row:1; white-space:nowrap; }
+.ms-task.done { border-color:var(--good); background:rgba(127,224,143,.12); }
+.ms-task.done b::after { content:' \2713'; color:var(--good); }
+@media (max-width:430px) { .ms-task b { font-size:14px; } }

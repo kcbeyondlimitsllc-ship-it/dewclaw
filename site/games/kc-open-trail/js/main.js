@@ -15,12 +15,16 @@ import { createVehicles } from './vehicles.js';
 import { createCollect } from './collect.js';
 import { createAudio } from './audio.js';
 import { SPAWN, HALF } from './data.js';
-import * as missions from './missions.js';
+import { createSeams } from './seams.js';
+/* feature modules: each exports init(game) and never edits a core file (ARCHITECTURE.md, "Module seams") */
 import * as economy from './economy.js';
+import * as upgrades from './upgrades.js';
 import * as shop from './shop.js';
+import * as missions from './missions.js';
 import * as store from './store.js';
+import * as merch from './merch.js';
 
-export const VERSION = '0.1.0';
+export const VERSION = '0.2.0';
 const params = new URLSearchParams(location.search), DEBUG = params.get('debug') === '1';
 const QUALITY = {
   low: { name: 'low', pr: 1, fog: 130, veg: 0.3, shadows: false, texSize: 1024 },
@@ -61,9 +65,16 @@ function boot() {
   const collect = game.collect = createCollect(game);
   /* flat aliases so other modules can write game.addMarker(...) etc. */
   for (const k of ['addInteractable', 'removeInteractable', 'addMarker', 'removeMarker', 'addZone', 'removeZone', 'spawnProp', 'setObjective', 'addCarriable']) game[k] = api[k];
-  game.setModifier = kc.setModifier; game.setCosmetic = kc.setCosmetic; game.setSkin = vehicles.setSkin;
-  game.openModal = ui.openModal; game.closeModal = ui.closeModal; game.toast = ui.toast;
+  game.setModifier = kc.setModifier; game.getModifier = kc.getModifier; game.setCosmetic = kc.setCosmetic; game.setSkin = vehicles.setSkin;
+  game.openModal = ui.openModal; game.closeModal = ui.closeModal; game.toast = ui.toast; game.banner = ui.banner;
   game.moduleData = game.save.moduleData;
+  game.seams = createSeams(game);   /* game.cosmetics, game.place, game.timedRun, game.travel, game.fastTravel, game.followers */
+  /* friendlier names for a few core events, so modules can listen for what the design documents call them */
+  bus.on('pickup', e => { if (e.kind === 'bone') bus.emit('boneCollected', e); });
+  bus.on('npcTalk', e => bus.emit('talk', e));
+  bus.on('timeOfDay', e => { if (e.phase === 'night' || e.phase === 'dawn') bus.emit('dayNight', { night: e.phase === 'night', phase: e.phase, time: e.time, day: e.day }); });
+  bus.on('swimStart', e => bus.emit('swim', { ...e, on: true })); bus.on('swimEnd', e => bus.emit('swim', { ...e, on: false }));
+  bus.on('vehicleEnter', e => bus.emit('ride', { ...e, on: true })); bus.on('vehicleExit', e => bus.emit('ride', { ...e, on: false }));
 
   function resize() {
     const w = innerWidth, h = innerHeight;
@@ -82,7 +93,8 @@ function boot() {
   bus.on('beforeSave', s => { const r = kc.ride, off = r ? r.r + 1.3 : 0, x = r ? r.x + Math.cos(r.yaw) * off : kc.pos.x, z = r ? r.z - Math.sin(r.yaw) * off : kc.pos.z; if (!Number.isFinite(x) || !Number.isFinite(z)) return; s.pos = { x: +x.toFixed(2), z: +z.toFixed(2), yaw: Number.isFinite(kc.yaw) ? +kc.yaw.toFixed(2) : SPAWN.yaw }; if (!ui.photo) s.settings.camDist = +clamp(cam.dist, 2.6, 13).toFixed(2); });
 
   /* other agents' modules: each exports init(game) */
-  for (const [name, mod] of [['economy', economy], ['missions', missions], ['shop', shop], ['store', store]]) { try { game.modules[name] = (mod.init && mod.init(game)) || mod; } catch (e) { console.error('[module ' + name + ']', e); } }
+  for (const [name, mod] of [['economy', economy], ['upgrades', upgrades], ['shop', shop], ['missions', missions], ['store', store], ['merch', merch]]) { try { game.modules[name] = (mod.init && mod.init(game)) || mod; } catch (e) { console.error('[module ' + name + ']', e); } }
+  game.cosmetics.restore(); bus.emit('modulesReady', { names: Object.keys(game.modules) });
 
   /* ---------- loop ---------- */
   const frameStats = { n: 0, sum: 0, max: 0, cpuSum: 0 };
@@ -140,6 +152,7 @@ function boot() {
     window.__ot = {
       game, ready: true, events: log,
       state: () => ({ version: VERSION, started: ui.started, paused: game.paused, modal: ui.current ? ui.current.id || true : null, photo: ui.photo, pos: { x: kc.pos.x, y: kc.pos.y, z: kc.pos.z, yaw: kc.yaw }, speed: kc.speed, onGround: kc.onGround, swimming: kc.swimming, sprinting: kc.sprinting, sit: kc.sit, stamina: kc.stamina, staminaMax: kc.staminaMax,
+        run: game.run ? { id: game.run.id, time: game.run.time, left: game.run.left, index: game.run.index } : null, followers: npcs.followers.length, equipped: { ...state.equipped }, spending: !!state.settings.spending,
         ride: kc.ride ? kc.ride.id : null, rideSpeed: kc.ride ? kc.ride.speed : 0, carrying: kc.carried.map(i => i.id), zone: api.zone && api.zone.id, prompt: api.prompt && api.prompt.label, wallet: { ...state.wallet }, festival: world.festival, flags: { ...state.flags }, time: world.time, day: world.day, night: world.night, rain: world.rain,
         quality: state.settings.quality, resScale, fps: Math.round(fpsEma), cam: { yaw: cam.yaw, pitch: cam.pitch, dist: cam.cur, x: cam.three.position.x, y: cam.three.position.y, z: cam.three.position.z }, mods: { ...kc.mods }, stats: { ...state.stats }, collected: collect.counts(), ground: world.heightAt(kc.pos.x, kc.pos.z) }),
       start: () => { if (!ui.started) playBtn.click(); },
@@ -159,7 +172,10 @@ function boot() {
       save: () => game.save.save(), toast: t => ui.toast(t),
       startMission: id => { const m = game.modules.missions; return m && m.start ? m.start(id) : false; },
       completeMission: () => { const m = game.modules.missions; return m && m.complete ? m.complete() : false; },
-      emit: (type, d) => bus.emit(type, d)
+      emit: (type, d) => bus.emit(type, d),
+      follow: o => !!game.followers.add(o || {}), unfollow: id => game.followers.dismiss(id), followers: () => npcs.followers.map(d => ({ id: d.follow.id, name: d.name, x: d.x, z: d.z, y: d.y, left: d.follow.left })),
+      tune: (kind, patch, src) => vehicles.setTuning(kind, patch, src), tuning: kind => vehicles.getTuning(kind),
+      mod: (id, m, o) => kc.setModifier(id, m, o), travel: (x, z, yaw, o) => game.fastTravel(x, z, yaw, o), modules: () => Object.keys(game.modules)
     };
   }
 }

@@ -1,12 +1,13 @@
 /* KC: Open Trail service worker: cache-first offline shell for this folder only.
    Bump VERSION whenever any file in SHELL changes. */
-const VERSION = "kc-open-trail-v3";
+const VERSION = "kc-open-trail-v4";
 const PREFIX = "kc-open-trail-";
 const SHELL = ["./", "./index.html", "./style.css", "./manifest.webmanifest",
   "./vendor/three/three.module.min.js",
   "./js/main.js", "./js/util.js", "./js/events.js", "./js/save.js", "./js/data.js", "./js/world.js", "./js/scenery.js", "./js/flora.js",
   "./js/fx.js", "./js/kc.js", "./js/camera.js", "./js/input.js", "./js/api.js", "./js/hud.js", "./js/npc.js", "./js/vehicles.js",
-  "./js/collect.js", "./js/audio.js", "./js/missions.js", "./js/economy.js", "./js/shop.js", "./js/store.js",
+  "./js/collect.js", "./js/audio.js", "./js/uikit.js", "./js/photo.js", "./js/seams.js",
+  "./js/economy.js", "./js/upgrades.js", "./js/shop.js", "./js/missions.js", "./js/store.js", "./js/merch.js",
   "./icons/icon-192.png", "./icons/icon-512.png", "./icons/maskable-512.png"];
 
 self.addEventListener("install", e => {

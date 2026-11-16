@@ -30,7 +30,7 @@ export function randomLook(R, over = {}) {
 
 export function createNPCs(game) {
   const { world, bus, state, fx, kc, scene } = game, R = rng(555);
-  const npcs = { peds: [], dogs: [], groups: [] };
+  const npcs = { peds: [], dogs: [], groups: [], standers: [], followers: [], maxFollowers: 2 };
   const hereY = (x, z, y) => world.groundAt(x, z, y + 0.4);
 
   /* ---------------- pedestrians ---------------- */
@@ -95,27 +95,76 @@ export function createNPCs(game) {
     fx.blob(ped.x, ped.y, ped.z, 0.42);
   }
   /* anyone a vehicle should stop for */
-  npcs.obstacles = out => { for (const p of npcs.peds) if (p.parts.root.visible) out.push(p); for (const d of npcs.dogs) out.push(d); for (const g of npcs.groups) if (g.active && (g.kind === 'chicken' || g.kind === 'sheep')) for (const c of g.items) out.push(c); return out; };
+  npcs.obstacles = out => { for (const p of npcs.peds) if (p.parts.root.visible) out.push(p); for (const p of npcs.standers) if (p.parts.root.visible) out.push(p); for (const d of npcs.dogs) if (!(d.follow && kc.ride)) out.push(d); for (const g of npcs.groups) if (g.active && (g.kind === 'chicken' || g.kind === 'sheep')) for (const c of g.items) out.push(c); return out; };
   npcs.stepAside = (o, fx_, fz) => { if (!o.parts || !o.pts || o.state === 'pet') return; o.state = 'aside'; o.timer = 1.1; const s = ((o.x - fx_.x) * -fz.z + (o.z - fx_.z) * fz.x) > 0 ? 1 : -1; o.ax = -fz.z * s; o.az = fz.x * s; };
 
   /* ---------------- other dogs ---------------- */
-  for (const s of DOG_SPOTS) {
+  function makeDog(s, id) {
     const parts = buildDog({ coat: s.coat, shade: s.coat, belly: s.belly, ear: s.ear, tailTip: s.belly, nose: 0x2a2020, eye: 0x1a1210, tongue: 0xff8fa3 }, { scale: 1.15 * s.s, gear: false });
     const collar = new Geo(); collar.tf(0, 0.715, 0.375, Math.PI / 2 - 0.55, 0, 0); collar.cyl(0, -0.028, 0, 0.152, 0.152, 0.056, 8, [0xd9534f, 0x4fae6f, 0xf0c040, 0x9a6fd0, 0xf08a2a][npcs.dogs.length % 5]); parts.body.add(new THREE.Mesh(collar.build(), dogMaterial()));
-    const d = { id: 'dog-' + s.name.toLowerCase(), name: s.name, parts, home: s, x: s.x, z: s.z, y: world.heightAt(s.x, s.z), yaw: R() * TAU, tx: s.x, tz: s.z, speed: 0, wait: R() * 3, t: R() * 9, phase: 0, bark: 0, barkIn: 0, playCool: 0, playing: false, orbit: R() * TAU };
-    scene.add(parts.root); npcs.dogs.push(d);
+    const d = { id: id || 'dog-' + s.name.toLowerCase(), name: s.name, parts, home: s, x: s.x, z: s.z, y: world.heightAt(s.x, s.z), yaw: R() * TAU, tx: s.x, tz: s.z, speed: 0, wait: R() * 3, t: R() * 9, phase: 0, bark: 0, barkIn: 0, playCool: 0, playing: false, orbit: R() * TAU };
+    scene.add(parts.root); npcs.dogs.push(d); return d;
+  }
+  for (const s of DOG_SPOTS) makeDog(s);
+
+  /* ---------------- followers: a dog that walks with KC (Trail Buddies, the Buddy Whistle, party treats, dog-walking jobs) ----------------
+     npcs.addFollower({ dog: 'dog-biscuit' | 'Biscuit' }) borrows a town dog; { name, look: { coat, belly, ear, s } } makes a new one.
+     Options: id, seconds (leaves by itself after that long), onLeave(reason). Returns { id, name, dog, left(), dismiss() } or null (unknown dog / party full). */
+  const nearDry = (x, z) => { for (let i = 0; i < 16; i++) { const a = i * 2.4, r = 1.6 + i * 0.25, px = x + Math.cos(a) * r, pz = z + Math.sin(a) * r, h = world.heightAt(px, pz); if (h > WATER_Y + 0.2 && !world.blockedAt(px, pz, h, 0.4)) return [px, pz]; } return [x, z]; };
+  npcs.addFollower = (o = {}) => {
+    let d = null, own = false;
+    if (o.dog) { const key = String(o.dog).toLowerCase(); d = npcs.dogs.find(x => x.id === key || x.name.toLowerCase() === key); if (!d) return null; }
+    if (d && d.follow) return d.follow.handle;
+    if (npcs.followers.length >= npcs.maxFollowers) return null;
+    if (!d) { const L = o.look || {}, [px, pz] = nearDry(kc.pos.x, kc.pos.z); own = true;
+      d = makeDog({ name: o.name || 'Buddy', x: px, z: pz, r: 6, s: L.s || 0.9, coat: L.coat ?? 0xc9a67a, belly: L.belly ?? 0xf4ead8, ear: L.ear ?? 0x8a6a42 }, o.id || 'buddy-' + Math.random().toString(36).slice(2, 8)); }
+    const f = { id: o.id || d.id, own, left: Number.isFinite(o.seconds) && o.seconds > 0 ? o.seconds : Infinity, onLeave: o.onLeave, data: o.data };
+    f.handle = { id: f.id, name: d.name, dog: d, left: () => f.left, dismiss: () => npcs.removeFollower(f.id, 'dismissed') };
+    d.follow = f; d.returning = false; d.playing = false; npcs.followers.push(d);
+    fx.burst('heart', d.x, d.y + 1, d.z, 5); bus.emit('followerJoin', { id: f.id, name: d.name, dog: d.id, count: npcs.followers.length });
+    return f.handle;
+  };
+  /* npcs.removeFollower(id?) : one follower by id (its own id, the dog id or the dog's name), or all of them with no id */
+  npcs.removeFollower = (id, reason = 'dismissed') => {
+    const key = id == null ? null : String(id).toLowerCase(); let n = 0;
+    for (const d of [...npcs.followers]) { const f = d.follow; if (key != null && f.id !== id && d.id !== key && d.name.toLowerCase() !== key) continue;
+      npcs.followers.splice(npcs.followers.indexOf(d), 1); d.follow = null; n++;
+      if (f.own) { fx.burst('spark', d.x, d.y + 0.8, d.z, 8); scene.remove(d.parts.root); d.parts.root.traverse(m => { if (m.geometry) m.geometry.dispose(); }); const i = npcs.dogs.indexOf(d); if (i >= 0) npcs.dogs.splice(i, 1); }
+      else { d.returning = true; d.wait = 0; }
+      bus.emit('followerLeave', { id: f.id, name: d.name, dog: d.id, reason, count: npcs.followers.length }); if (f.onLeave) try { f.onLeave(reason); } catch (e) { console.error(e); } }
+    return n;
+  };
+  function updateFollower(d, dt) {
+    const f = d.follow, i = npcs.followers.indexOf(d), ride = kc.ride, bx = ride ? ride.x : kc.pos.x, bz = ride ? ride.z : kc.pos.z, byaw = ride ? ride.yaw : kc.yaw;
+    if (f.left !== Infinity && (f.left -= dt) <= 0) { npcs.removeFollower(f.id, 'timeout'); return; }
+    d.t += dt; if (d.bark > 0) d.bark -= dt; if (d.barkIn > 0) { d.barkIn -= dt; if (d.barkIn <= 0) { d.bark = 0.35; game.audio.sfx('bark', { pitch: 0.75 + d.home.s * 0.35, vol: 0.5 }); } }
+    const back = (ride ? ride.r + 1.6 : 1.7) + i * 0.9, side = (i % 2 ? 1 : -1) * (0.9 + i * 0.3);
+    d.tx = bx - Math.sin(byaw) * back + Math.cos(byaw) * side; d.tz = bz - Math.cos(byaw) * back - Math.sin(byaw) * side;
+    let ex = d.tx - d.x, ez = d.tz - d.z, dist = Math.hypot(ex, ez); const dk = Math.hypot(bx - d.x, bz - d.z), lead = ride ? Math.abs(ride.speed) : kc.speed;
+    /* left far behind (a teleport, a fast ride): she catches up out of sight */
+    if (dk > 48 || !Number.isFinite(dist)) { const [px, pz] = nearDry(d.tx, d.tz); d.x = px; d.z = pz; d.y = hereY(px, pz, kc.pos.y); d.speed = 0; ex = ez = dist = 0; }
+    const want = dist > 9 ? Math.max(12.5, lead + 3) : dist > 2.2 ? Math.max(4.5, lead + 1.2) : dist > 0.7 ? Math.max(1.6, lead * 0.9) : 0;
+    if (dist > 0.7) { d.speed = lerp(d.speed, want, damp(6, dt)); const pos = { x: d.x + (ex / dist) * d.speed * dt, z: d.z + (ez / dist) * d.speed * dt }; world.resolve(pos, 0.35, d.y, 0.7); d.x = clamp(pos.x, -HALF + 3, HALF - 3); d.z = clamp(pos.z, -HALF + 3, HALF - 3); d.yaw = lerpAngle(d.yaw, Math.atan2(ex, ez), damp(9, dt)); d.phase += d.speed * dt * 3.4; }
+    else { d.speed = lerp(d.speed, 0, damp(8, dt)); d.yaw = lerpAngle(d.yaw, byaw, damp(4, dt)); }
+    const g = hereY(d.x, d.z, d.y), swim = g < WATER_Y - 0.6; d.y = lerp(d.y, swim ? WATER_Y - 0.5 : g, damp(14, dt));
+    d.parts.root.visible = true; d.parts.root.position.set(d.x, d.y, d.z); d.parts.root.rotation.y = d.yaw;
+    animateDog(d.parts, { t: d.t, speed: d.speed, phase: d.phase, bark: d.bark, swim, sit: !swim && kc.sit && d.speed < 0.4 && dist < 1.5, wag: 1, pant: d.speed > 9 }, dt);
+    if (!swim) fx.blob(d.x, d.y, d.z, 0.5 * d.home.s);
   }
   function updateDog(d, dt) {
+    if (d.follow) return updateFollower(d, dt);
     const dk = Math.hypot(kc.pos.x - d.x, kc.pos.z - d.z), hk = Math.hypot(kc.pos.x - d.home.x, kc.pos.z - d.home.z);
+    /* a buddy sent home trots off, and is back on her own patch once KC is not looking */
+    if (d.returning) { const hd = Math.hypot(d.home.x - d.x, d.home.z - d.z); if (hd < d.home.r) d.returning = false; else if (dk > 34) { d.x = d.home.x; d.z = d.home.z; d.y = world.heightAt(d.x, d.z); d.returning = false; d.speed = 0; } else { d.tx = d.home.x; d.tz = d.home.z; d.wait = 2; } }
     if (dk > 170) { d.parts.root.visible = false; return; }
     d.parts.root.visible = dk < 95; d.t += dt; if (d.bark > 0) d.bark -= dt; if (d.playCool > 0) d.playCool -= dt;
     if (d.barkIn > 0) { d.barkIn -= dt; if (d.barkIn <= 0) { d.bark = 0.35; if (dk < 40) game.audio.sfx('bark', { pitch: 0.75 + d.home.s * 0.35, vol: clamp(1 - dk / 40, 0.1, 0.7) }); } }
-    const wantPlay = dk < 10 && hk < d.home.r * 2.2 && !kc.swimming && !kc.ride;
+    const wantPlay = !d.returning && dk < 10 && hk < d.home.r * 2.2 && !kc.swimming && !kc.ride;
     if (wantPlay && !d.playing) { d.playing = true; if (d.playCool <= 0) { d.playCool = 40; fx.burst('spark', d.x, d.y + 0.8, d.z, 6); bus.emit('dogPlay', { id: d.id, name: d.name, x: d.x, z: d.z }); } }
     if (!wantPlay) d.playing = false;
     let want = 0;
     if (d.playing) { d.orbit += dt * (kc.speed > 2 ? 0.4 : 1.3); d.tx = kc.pos.x + Math.cos(d.orbit) * 2.6; d.tz = kc.pos.z + Math.sin(d.orbit) * 2.6; want = kc.speed > 5 ? 8.5 : 5; }
-    else { d.wait -= dt; if (d.wait <= 0) { const a = R() * TAU, r = R() * d.home.r; d.tx = d.home.x + Math.cos(a) * r; d.tz = d.home.z + Math.sin(a) * r; d.wait = 3 + R() * 5; } want = 2.6; }
+    else { d.wait -= dt; if (d.wait <= 0) { const a = R() * TAU, r = R() * d.home.r; d.tx = d.home.x + Math.cos(a) * r; d.tz = d.home.z + Math.sin(a) * r; d.wait = 3 + R() * 5; } want = d.returning ? 7 : 2.6; }
     const ex = d.tx - d.x, ez = d.tz - d.z, dist = Math.hypot(ex, ez);
     if (dist > 0.5) { d.speed = lerp(d.speed, want, damp(5, dt)); const nx = d.x + (ex / dist) * d.speed * dt, nz = d.z + (ez / dist) * d.speed * dt; const pos = { x: nx, z: nz }; world.resolve(pos, 0.35, d.y, 0.7); if (world.heightAt(pos.x, pos.z) > WATER_Y - 0.2) { d.x = pos.x; d.z = pos.z; } else d.wait = 0; d.yaw = lerpAngle(d.yaw, Math.atan2(ex, ez), damp(8, dt)); d.phase += d.speed * dt * 3.4; }
     else { d.speed = lerp(d.speed, 0, damp(8, dt)); if (d.playing) d.yaw = lerpAngle(d.yaw, Math.atan2(kc.pos.x - d.x, kc.pos.z - d.z), damp(6, dt)); }
@@ -125,7 +174,7 @@ export function createNPCs(game) {
     animateDog(d.parts, { t: d.t, speed: d.speed, phase: d.phase, bark: d.bark, wag: d.playing ? 1 : 0.2, pant: d.playing && d.speed < 0.5 }, dt);
     fx.blob(d.x, d.y, d.z, 0.5 * d.home.s);
   }
-  bus.on('bark', e => { for (const d of npcs.dogs) if (Math.hypot(e.x - d.x, e.z - d.z) < 14) d.barkIn = 0.35 + Math.random() * 0.5; for (const g of npcs.groups) if (Math.hypot(e.x - g.x, e.z - g.z) < g.r + 13) spook(g, e.x, e.z, true); });
+  bus.on('bark', e => { for (const d of npcs.dogs) if (Math.hypot(e.x - d.x, e.z - d.z) < 14) d.barkIn = 0.35 + Math.random() * 0.5; for (const p of npcs.standers) if (Math.hypot(e.x - p.x, e.z - p.z) < 14) p.heardBark = game.time; for (const g of npcs.groups) if (Math.hypot(e.x - g.x, e.z - g.z) < g.r + 13) spook(g, e.x, e.z, true); });
 
   /* ---------------- critters (instanced) ---------------- */
   const protos = {};
@@ -183,7 +232,40 @@ export function createNPCs(game) {
   }
   for (const k in meshes) { const m = meshes[k].mesh; for (let i = 0; i < m.count; i++) { m4.makeScale(0, 0, 0); m.setMatrixAt(i, m4); } }
 
-  npcs.update = dt => { for (const p of npcs.peds) updatePed(p, dt); for (const d of npcs.dogs) updateDog(d, dt); for (const k in meshes) meshes[k].on = false; for (const g of npcs.groups) { updateGroup(g, dt); if (g.active) meshes[g.kind].on = true; } for (const k in meshes) meshes[k].mesh.visible = meshes[k].on; };
+  /* ---------------- standers: a person who waits in one place (shopkeepers, mission givers, lost children) ----------------
+     npcs.addStander({ id, x, z, yaw, look, name, scale }) -> { id, name, x, z, yaw, walkTo(x, z, speed?, onArrive?), follow(on, gap?), wave(), remove() }
+     They turn to face KC when she is close and wave once; give them a prompt with game.place.npc(...) or addInteractable({ getPos: () => stander }). */
+  npcs.addStander = (o = {}) => {
+    const look = o.look && o.look.skin != null ? o.look : randomLook(R, o.look || {}); if (o.scale) look.h = o.scale;
+    const p = buildPerson(look), st = { id: o.id || 'npc-' + Math.random().toString(36).slice(2, 8), name: o.name || NAMES[npcs.standers.length % NAMES.length], parts: p, x: o.x, z: o.z, y: world.groundAt(o.x, o.z, 200), yaw: o.yaw || 0, yaw0: o.yaw || 0, t: R() * 9, anim: 0, waveT: 0, greeted: false, target: null, following: 0, speed: 0, r: 0.4 };
+    p.root.position.set(st.x, st.y, st.z); p.root.rotation.y = st.yaw; scene.add(p.root); npcs.standers.push(st);
+    st.walkTo = (x, z, speed = 1.6, onArrive) => { st.target = { x, z, speed, onArrive }; return st; };
+    st.follow = (on = true, gap = 2.4) => { st.following = on ? gap : 0; if (!on) st.target = null; return st; };
+    st.wave = () => { st.waveT = 2.2; return st; };
+    st.remove = () => { const i = npcs.standers.indexOf(st); if (i < 0) return; npcs.standers.splice(i, 1); scene.remove(p.root); p.root.traverse(m => { if (m.geometry) m.geometry.dispose(); }); };
+    return st;
+  };
+  function updateStander(st, dt) {
+    const p = st.parts, dx = kc.pos.x - st.x, dz = kc.pos.z - st.z, dk = Math.hypot(dx, dz);
+    if (dk > 170 && !st.target) { p.root.visible = false; return; }
+    p.root.visible = dk < 95; st.t += dt; if (st.waveT > 0) st.waveT -= dt; let moving = false;
+    if (st.following) st.target = dk > st.following ? { x: kc.pos.x, z: kc.pos.z, speed: Math.max(1.8, Math.min(5, kc.speed * 0.9)), stop: st.following } : null;
+    if (st.target) { const tg = st.target, ex = tg.x - st.x, ez = tg.z - st.z, d = Math.hypot(ex, ez);
+      if (d < (tg.stop || 0.4)) { st.target = null; if (tg.onArrive) try { tg.onArrive(st); } catch (e) { console.error(e); } }
+      else { const pos = { x: st.x + (ex / d) * tg.speed * dt, z: st.z + (ez / d) * tg.speed * dt }; world.resolve(pos, 0.3, st.y, 1.2); if (world.heightAt(pos.x, pos.z) > WATER_Y + 0.1 || world.groundAt(pos.x, pos.z, st.y + 0.5) > WATER_Y + 0.1) { st.x = pos.x; st.z = pos.z; } st.yaw = lerpAngle(st.yaw, Math.atan2(ex, ez), damp(7, dt)); st.speed = tg.speed; moving = true; } }
+    else if (dk < 7) { st.yaw = lerpAngle(st.yaw, Math.atan2(dx, dz), damp(5, dt)); if (!st.greeted && dk < 5) { st.greeted = true; st.waveT = 2; } }
+    else { st.yaw = lerpAngle(st.yaw, st.yaw0, damp(2, dt)); if (dk > 14) st.greeted = false; }
+    st.y = lerp(st.y, hereY(st.x, st.z, st.y), damp(12, dt));
+    if (!p.root.visible) return;
+    p.root.position.set(st.x, st.y, st.z); p.root.rotation.y = st.yaw;
+    const k = damp(12, dt); let ll = 0, lr = 0, al = Math.sin(st.t * 1.3) * 0.04, ar = -al, arz = 0;
+    if (moving) { st.anim += dt * st.speed * 4.4; const sn = Math.sin(st.anim); ll = sn * 0.55; lr = -sn * 0.55; al = -sn * 0.4; ar = sn * 0.4; }
+    if (st.waveT > 0) arz = 2.5 + Math.sin(st.t * 11) * 0.35;
+    p.legL.rotation.x = lerp(p.legL.rotation.x, ll, k); p.legR.rotation.x = lerp(p.legR.rotation.x, lr, k); p.armL.rotation.x = lerp(p.armL.rotation.x, al, k); p.armR.rotation.x = lerp(p.armR.rotation.x, ar, k); p.armR.rotation.z = lerp(p.armR.rotation.z, arz, k);
+    fx.blob(st.x, st.y, st.z, 0.42);
+  }
+
+  npcs.update = dt => { for (const p of npcs.peds) updatePed(p, dt); for (const p of [...npcs.standers]) updateStander(p, dt); for (const d of [...npcs.dogs]) updateDog(d, dt); for (const k in meshes) meshes[k].on = false; for (const g of npcs.groups) { updateGroup(g, dt); if (g.active) meshes[g.kind].on = true; } for (const k in meshes) meshes[k].mesh.visible = meshes[k].on; };
   npcs.addPed = (route, look, name) => addPed({ n: 1, ...route }, 0, look || randomLook(R), name || NAMES[npcs.peds.length % NAMES.length]);
   return npcs;
 }

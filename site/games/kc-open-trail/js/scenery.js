@@ -276,7 +276,16 @@ export function buildScenery(game, world) {
     for (let i = 0; i < 5; i++) g.box(-1.5 + i * 0.75, 1.1, 0.2, 0.5, 0.2, 0.5, [s.col, C.yellow, C.woodL, C.white, C.orange][i]);
     gl.tf(s.x, y, s.z, 0, sr, 0); gl.box(0, 2.9, 0, 0.3, 0.2, 0.3, 0xffe0a0); gl.notf(); g.notf(); pool(ctx, s.x + Math.sin(sr) * 1.5, s.z + Math.cos(sr) * 1.5, 4);
     if (ctx.solid) { if (Math.abs(Math.sin(sr)) < 0.1) ctx.col.push(world.addBox(s.x - 2, s.z - 0.8, s.x + 2, s.z + 0.8, y + 1.0)); else for (const t of [-1.3, 0, 1.3]) ctx.col.push(world.addCircle(s.x + Math.cos(sr) * t, s.z - Math.sin(sr) * t, 0.9, y + 1.0)); }
-    view(ctx, { x: s.x, z: s.z, r: 2.5, bottom: y - 0.5, top: y + 3.7 });   /* the camera stays outside the awning */
+    /* the camera stays out of the awning itself and may look through the open frame under it, so a shopper has room all the way round */
+    if (Math.abs(Math.sin(sr)) < 0.1) view(ctx, { box: [s.x - 2.3, s.z - 1.35, s.x + 2.3, s.z + 1.35], bottom: y + 2.55, top: y + 3.75 }); else view(ctx, { x: s.x, z: s.z, r: 2.3, bottom: y + 2.55, top: y + 3.75 });
+  };
+  /* a display shelf that stands outside a shop or beside a stall: { ry, name, col (back board), items: [colours] } */
+  P.shelf = (ctx, x, z, o = {}) => {
+    const { g } = ctx.pick(x, z), y = hAt(x, z), sr = o.ry || 0, items = o.items || [C.yellow, C.red, C.blue, C.white, C.orange, C.green]; g.tf(x, y, z, 0, sr, 0);
+    for (const sx of [-1.1, 1.1]) g.box(sx, 0.95, 0, 0.1, 1.9, 0.5, C.woodD); g.box(0, 0.95, -0.24, 2.2, 1.9, 0.05, o.col ?? C.woodL); g.box(0, 1.93, 0, 2.4, 0.08, 0.6, C.woodD);
+    let k = 0; for (const sy of [0.3, 0.88, 1.46]) { g.box(0, sy, 0, 2.1, 0.07, 0.48, C.woodL); for (let i = 0; i < 4; i++) { const hh = 0.22 + ((k * 7) % 3) * 0.07; g.box(-0.78 + i * 0.52, sy + 0.035 + hh / 2, 0.02, 0.34, hh, 0.3, items[k++ % items.length]); } }
+    if (o.name) board(g, o.name, 2.25, 0.02, 2.3, 0.44, { bg: '#fff7df', fg: '#3a2a1a' });
+    g.notf(); if (ctx.solid) ctx.col.push(world.addCircle(x - Math.cos(sr) * 0.6, z + Math.sin(sr) * 0.6, 0.6, y + 2), world.addCircle(x + Math.cos(sr) * 0.6, z - Math.sin(sr) * 0.6, 0.6, y + 2));
   };
   P.tent = (ctx, x, z, col, ry = 0) => {
     const { g } = ctx.pick(x, z), y = hAt(x, z); g.tf(x, y, z, 0, ry, 0); g.gable(0, 0, 0, 3.2, 2.8, 1.9, col, false, 0x3a3a3a); g.box(0, 0.03, 0, 3.2, 0.06, 2.8, 0x4a4a4a); g.notf();

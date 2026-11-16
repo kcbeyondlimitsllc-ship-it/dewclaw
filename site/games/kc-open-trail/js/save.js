@@ -14,7 +14,7 @@ export function defaultState() {
     pos: null,            /* {x,z,yaw} */
     time: 9.5,
     day: 1,
-    settings: { quality: 'medium', autoQuality: true, sound: 0.8, music: 0.5, invertY: false, invertX: false, leftHanded: false, muted: false, rain: true, camDist: 6.5 },
+    settings: { quality: 'medium', autoQuality: true, sound: 0.8, music: 0.5, invertY: false, invertX: false, leftHanded: false, muted: false, rain: true, camDist: 6.5, spending: false },   /* spending: real-money shop switch, off until a grown-up turns it on */
     rides: {},            /* rideId -> { x, z, yaw } for skateboards, canoes and vans left away from home */
     flags: {},            /* world flags set through game.economy.setFlag (e.g. festival: true) */
     modules: {}           /* moduleId -> any JSON, owned by that module */
@@ -40,7 +40,7 @@ const openMap = v => { const o = {}; if (v && typeof v === 'object' && !Array.is
 
 export function createSave(game) {
   const state = defaultState();
-  let storageOk = true, lastError = null, frozen = false;
+  let storageOk = true, lastError = null, frozen = false; const keepIds = new Set();
   const api = {
     state, key: SAVE_KEY,
     load() {
@@ -76,13 +76,16 @@ export function createSave(game) {
       catch (e) { lastError = String(e); return false; }
     },
     reset() {
-      const s = defaultState(), keep = state.settings;
+      const s = defaultState(), keep = state.settings, kept = {};
+      for (const id of keepIds) if (state.modules[id] !== undefined) kept[id] = state.modules[id];
       for (const k of Object.keys(state)) delete state[k];
-      Object.assign(state, s); state.settings = keep;
+      Object.assign(state, s); state.settings = keep; Object.assign(state.modules, kept);
       /* written as it is: no beforeSave, so nobody puts KC's old position back; nothing saves again before the reload */
       frozen = true;
       try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); return true; } catch (e) { lastError = String(e); return false; }
     },
+    /* module data that must outlive "Start over" (real-money purchase records, the install id): game.save.keepOnReset('store') */
+    keepOnReset(id) { keepIds.add(id); },
     /* per-module storage for the mission / economy / shop agents */
     moduleData(id, defaults = {}) {
       const cur = state.modules[id];

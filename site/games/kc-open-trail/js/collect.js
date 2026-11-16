@@ -8,12 +8,12 @@ import { dogMaterial } from './kc.js';
 export function createCollect(game) {
   const { world, bus, state, fx, kc, scene, api } = game, R = rng(8080), mat = dogMaterial();
   /* tunable by the economy agent */
-  game.rewards = { bone: 1, goldenBall: { gems: 1, bones: 10 }, dig: [3, 8], photo: 5, sign: 2, fetch: 2, zone: 3 };
+  game.rewards = { bone: 1, goldenBall: { gems: 1, bones: 10 }, dig: [3, 8], photo: 5, sign: 2, fetch: 2, zone: 3, digCooldown: 240, boneRespawn: [100, 140] };
   const C = { bones: [], balls: [], digs: [], photos: PHOTO_SPOTS, items: new Map() };
 
   /* ---------- bones ---------- */
   const spots = [];
-  const tryAdd = (x, z) => { const h = world.heightAt(x, z); if (h < WATER_Y + 0.3) return; if (world.blockedAt(x, z, h, 0.8)) return; for (const s of spots) if ((s[0] - x) ** 2 + (s[1] - z) ** 2 < 16) return; spots.push([x, z]); };
+  const tryAdd = (x, z) => { if (Math.abs(x) > HALF - 8 || Math.abs(z) > HALF - 8) return;   /* KC cannot walk past the edge of the map */ const h = world.heightAt(x, z); if (h < WATER_Y + 0.3) return; if (world.blockedAt(x, z, h, 0.8)) return; for (const s of spots) if ((s[0] - x) ** 2 + (s[1] - z) ** 2 < 16) return; spots.push([x, z]); };
   for (const r of world.roads) { const step = r.kind === 'road' ? 7 : 5; for (let i = 2; i < r.path.length - 1; i += step) { const p = r.path[i], q = r.path[i + 1], nx = -(q[1] - p[1]), nz = q[0] - p[0], l = Math.hypot(nx, nz) || 1, side = (r.kind === 'road' ? r.w / 2 + 2.2 : (R() - 0.5) * 2) * (R() < 0.5 ? -1 : 1); tryAdd(p[0] + (nx / l) * side, p[1] + (nz / l) * side); } }
   for (const [cx, cz, rad, n] of [[-170, -250, 22, 10], [-150, -152, 26, 10], [-46, -298, 16, 8], [-46, -240, 12, 5], [-246, -132, 12, 5], [-152, -404, 14, 5], [-330, -438, 12, 6], [-386, -100, 30, 10], [-356, -10, 14, 4], [-272, 62, 16, 5], [90, 100, 28, 8], [2, 100, 26, 10], [-34, -92, 9, 4], [180, 56, 18, 6], [100, 250, 5, 4], [180, 288, 26, 8], [200, 352, 28, 9], [282, 430, 16, 6], [360, 440, 14, 7], [-50, 430, 24, 9], [50, 420, 30, 10], [46, 490, 14, 5], [-250, 452, 12, 5], [-230, 340, 30, 6]]) for (let i = 0; i < n * 3; i++) { const a = R() * TAU, rr = Math.sqrt(R()) * rad; tryAdd(cx + Math.cos(a) * rr, cz + Math.sin(a) * rr); }
   for (let i = 0; i < 260; i++) tryAdd((R() - 0.5) * (HALF * 2 - 30), (R() - 0.5) * (HALF * 2 - 30));
@@ -79,11 +79,11 @@ export function createCollect(game) {
   state.collected.balls.forEach(id => { const b = C.balls.find(x => x.id === id); if (b) b.got = true; });
   C.refresh = () => { for (const b of C.balls) b.got = state.collected.balls.includes(b.id); };
   bus.on('dig', e => {
-    for (const s of C.digs) if (s.t <= 0 && Math.hypot(e.x - s.x, e.z - s.z) < 2.4) { s.t = 240; const [lo, hi] = game.rewards.dig, v = Math.round((lo + Math.floor(Math.random() * (hi - lo + 1))) * kc.mods.bones); game.economy.grant({ bones: v }, 'dig'); fx.burst('spark', s.x, s.y + 0.4, s.z, 10); game.audio.sfx('reward'); game.ui.toast(`KC dug up ${v} bones!`, { icon: 'bone', kind: 'good' }); bus.emit('pickup', { kind: 'dig', id: s.id, value: v, x: s.x, z: s.z }); return; }
+    for (const s of C.digs) if (s.t <= 0 && Math.hypot(e.x - s.x, e.z - s.z) < 2.4) { s.t = Math.max(1, +game.rewards.digCooldown || 240); const [lo, hi] = game.rewards.dig, v = Math.round((lo + Math.floor(Math.random() * (hi - lo + 1))) * kc.mods.bones); game.economy.grant({ bones: v }, 'dig'); fx.burst('spark', s.x, s.y + 0.4, s.z, 10); game.audio.sfx('reward'); game.ui.toast(`KC dug up ${v} bones!`, { icon: 'bone', kind: 'good' }); bus.emit('pickup', { kind: 'dig', id: s.id, value: v, x: s.x, z: s.z }); return; }
   });
 
   C.update = dt => {
-    t += dt; const kx = kc.pos.x, kz = kc.pos.z, ky = kc.pos.y, rad = kc.base.magnet * kc.mods.magnet, pull = rad * (kc.mods.magnet > 1.05 ? 2.2 : 1.3);
+    t += dt; const kx = kc.pos.x, kz = kc.pos.z, ky = kc.pos.y, rad = kc.base.magnet * kc.mods.magnet, pull = rad * (kc.mods.magnet > 1.05 ? 2.2 : 1.3) * (kc.mods.sniff || 1);
     const bm = C.boneMesh; let slot = 0;
     for (let i = 0; i < C.bones.length; i++) {
       const b = C.bones[i];
@@ -94,7 +94,7 @@ export function createCollect(game) {
       const d = Math.sqrt(d2);
       if (d < pull && Math.abs(ky + 0.5 - b.y) < 2.2) { const k = Math.min(1, dt * 9); x += dx * k; z += dz * k; b.px = x; b.pz = z; y = b.y + (ky + 0.6 - b.y) * 0.5; }
       if (Math.hypot(kx - x, kz - z) < Math.max(0.9, rad * 0.6) + (b.px != null ? 0.5 : 0) && Math.abs(ky + 0.5 - b.y) < 2.4) {
-        b.t = 100 + Math.random() * 40;
+        { const rs = game.rewards.boneRespawn || [100, 140]; b.t = rs[0] + Math.random() * Math.max(0, rs[1] - rs[0]); }
         boneFrac += game.rewards.bone * kc.mods.bones; const v = Math.floor(boneFrac); boneFrac -= v; state.stats.bones += v;
         game.economy.grant({ bones: v }, 'pickup'); fx.burst('spark', x, y, z, 5); game.audio.sfx('pickup');
         bus.emit('pickup', { kind: 'bone', id: b.id, value: v, x: b.x, z: b.z }); continue;

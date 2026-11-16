@@ -50,7 +50,7 @@ export function createCamera(game) {
     const floor = Math.max(game.world.heightAt(p.x, p.z) + 0.4, WATER_Y + 0.28); if (p.y < floor) p.y = floor;
     if (cam.shake > 0) { cam.shake -= dt; p.x += (Math.random() - 0.5) * 0.12; p.y += (Math.random() - 0.5) * 0.12; }
     cam3.position.copy(p); look.copy(cam.target); look.y += cam.mode === 'photo' ? 0.25 : lerp(0.25, cam.lookUp, clamp((cam.cur - 1.5) / 4, 0, 1)); cam3.lookAt(look);
-    const fov = cam.baseFov + (kc.sprinting ? 7 : 0) + (ride ? Math.min(6, Math.abs(ride.speed) * 0.4) : 0);
+    const fov = (cam.baseFov + (kc.sprinting ? 7 : 0) + (ride ? Math.min(6, Math.abs(ride.speed) * 0.4) : 0)) / (cam.mode === 'photo' ? Math.min(3, Math.max(1, cam.photoZoom || 1)) : 1);
     if (Math.abs(cam3.fov - fov) > 0.05) { cam3.fov = lerp(cam3.fov, fov, damp(5, dt)); cam3.updateProjectionMatrix(); }
   };
   return cam;

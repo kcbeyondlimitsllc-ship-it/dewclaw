@@ -80,6 +80,21 @@ export function createVehicles(game) {
   const { world, bus, state, fx, kc, scene } = game, mat = dogMaterial();
   const V = { cars: [], rides: [], skins: JSON.parse(JSON.stringify(SKINS)) };
   const obstacles = [];
+  /* ---- ride tuning, per kind (all three skateboards improve together). V.setTuning(kind, patch, source) ; patch null removes that source.
+     max / acc / turn / pop multiply across sources (pop = ollie height, skateboard only); offroad is 0..1, how much of the off-road slowdown is
+     taken away (largest wins: van gravel 0.70 -> 1, grass 0.32 -> 1, skateboard rough ground 0.62 -> 1); keep = how many carried things KC may
+     bring aboard (added up; the van and the tram always keep everything); carry = extra carry slots while she is aboard (added up). ---- */
+  const TUNE_LIM = { max: [0.5, 1.6], acc: [0.5, 2], turn: [0.5, 2], pop: [0.5, 1.6], offroad: [0, 1], keep: [0, 8], carry: [0, 8] };
+  V.tuning = {}; const tuneSrc = {};
+  for (const k of Object.keys(CFG)) { V.tuning[k] = { max: 1, acc: 1, turn: 1, pop: 1, offroad: 0, keep: 0, carry: 0 }; tuneSrc[k] = new Map(); }
+  V.setTuning = (kind, patch, source = 'default') => {
+    if (!tuneSrc[kind]) return null; if (patch && typeof patch === 'object') tuneSrc[kind].set(source, patch); else tuneSrc[kind].delete(source);
+    const t = V.tuning[kind]; Object.assign(t, { max: 1, acc: 1, turn: 1, pop: 1, offroad: 0, keep: 0, carry: 0 });
+    for (const p of tuneSrc[kind].values()) { for (const key of ['max', 'acc', 'turn', 'pop']) if (Number.isFinite(p[key]) && p[key] > 0) t[key] *= p[key]; if (Number.isFinite(p.offroad)) t.offroad = Math.max(t.offroad, p.offroad); for (const key of ['keep', 'carry']) if (Number.isFinite(p[key])) t[key] += p[key]; }
+    for (const key in TUNE_LIM) t[key] = clamp(t[key], TUNE_LIM[key][0], TUNE_LIM[key][1]);
+    bus.emit('tuningChanged', { kind, tuning: { ...t } }); return V.getTuning(kind);
+  };
+  V.getTuning = kind => (V.tuning[kind] ? { ...V.tuning[kind], topSpeed: CFG[kind].max * V.tuning[kind].max, turnRate: CFG[kind].turn * V.tuning[kind].turn, base: { max: CFG[kind].max, acc: CFG[kind].acc, turn: CFG[kind].turn } } : null);
 
   /* ---------------- traffic ---------------- */
   function lanePath(center, closed) {
@@ -126,7 +141,7 @@ export function createVehicles(game) {
   for (const d of RIDEABLES) {
     const cfg = CFG[d.kind], home = { x: d.x, z: d.z, yaw: d.yaw };
     const mesh = new THREE.Mesh(rideGeo(d.kind, V.skins[d.kind]), mat); mesh.name = d.id; scene.add(mesh);
-    const r = { id: d.id, kind: d.kind, cfg, mesh, home, x: home.x, z: home.z, y: 0, yaw: home.yaw, speed: 0, vy: 0, air: false, r: cfg.r, active: false, honkT: 0, roll: 0, pitch: 0, t: 0 };
+    const r = { id: d.id, kind: d.kind, cfg, tune: V.tuning[d.kind], mesh, home, x: home.x, z: home.z, y: 0, yaw: home.yaw, speed: 0, vy: 0, air: false, r: cfg.r, active: false, honkT: 0, roll: 0, pitch: 0, t: 0 };
     r.y = cfg.water ? WATER_Y : world.groundAt(r.x, r.z, 200); V.rides.push(r);
     game.api.addInteractable({ id: 'ride:' + r.id, getPos: () => r, r: d.kind === 'van' ? 3.6 : 2.4, label: cfg.label, icon: 'paw', prio: 5, enabled: () => !kc.ride && !kc.swimming || (!kc.ride && d.kind === 'canoe'), onInteract: () => V.enter(r.id) });
     syncMesh(r, 1);
@@ -138,7 +153,7 @@ export function createVehicles(game) {
   const okWater = (x, z) => world.heightAt(x, z) < WATER_Y - 0.42;
   V.enter = id => {
     const r = V.rides.find(v => v.id === id) || (id === 'tram' ? tram : null); if (!r || kc.ride) return false;
-    while (kc.carried.length && r.kind !== 'van' && r.kind !== 'tram') kc.drop();
+    { const keep = r.kind === 'van' || r.kind === 'tram' ? 99 : Math.floor(r.tune ? r.tune.keep : 0); while (kc.carried.length > keep) kc.drop(); }
     kc.ride = r; r.active = true; r.speed = 0; kc.sit = false; kc.vel.set(0, 0, 0); kc.swimming = false; kc.onGround = true; state.stats.rides++;
     game.audio.sfx(r.kind === 'van' || r.kind === 'tram' ? 'door' : 'pickup'); game.cam.manualT = 9;
     bus.emit('vehicleEnter', { id: r.id, kind: r.kind }); return true;
@@ -148,7 +163,7 @@ export function createVehicles(game) {
     let px = r.x, pz = r.z, found = false;
     for (const rad of [r.r + 1.0, r.r + 2.2, r.r + 4, r.r + 6.5]) { for (let i = 0; i < 12 && !found; i++) { const a = r.yaw + Math.PI / 2 + (i % 2 ? -1 : 1) * Math.ceil(i / 2) * (TAU / 12), x = r.x + Math.sin(a) * rad, z = r.z + Math.cos(a) * rad, g = world.groundAt(x, z, r.y + 1.2); if (g > WATER_Y - 0.3 && g - r.y < 1.6 && !world.blockedAt(x, z, g, 0.45)) { px = x; pz = z; found = true; } } if (found) break; }
     if (!found && r.cfg.water) { px = r.x + Math.cos(r.yaw) * 1.4; pz = r.z - Math.sin(r.yaw) * 1.4; }
-    kc.ride = null; r.active = false; r.speed = 0;
+    kc.ride = null; r.active = false; r.speed = 0; while (kc.carried.length > kc.capacity()) kc.drop();
     kc.pos.x = px; kc.pos.z = pz; const g = world.groundAt(px, pz, r.y + 1.2); kc.pos.y = g > WATER_Y - 0.5 ? g : WATER_Y - 0.5; kc.vel.set(0, 0, 0); kc.onGround = g > WATER_Y - 0.5; kc.root.rotation.set(0, kc.yaw, 0);
     if (!silent) { game.audio.sfx(r.kind === 'van' ? 'door' : 'jump'); bus.emit('vehicleExit', { id: r.id, kind: r.kind, x: r.x, z: r.z }); }
     return true;
@@ -163,7 +178,7 @@ export function createVehicles(game) {
   V.reset = id => { for (const r of V.rides) if ((!id || r.id === id) && kc.ride !== r) { r.x = r.home.x; r.z = r.home.z; r.yaw = r.home.yaw; r.y = r.cfg.water ? WATER_Y : world.groundAt(r.x, r.z, 200); r.speed = 0; syncMesh(r, 1); } };
 
   function updateRide(r, dt, input) {
-    const cfg = r.cfg; r.t += dt;
+    const cfg = r.cfg, tn = r.tune; r.t += dt;
     if (!r.active) {
       /* wander home if abandoned far from where it belongs */
       if (Math.hypot(r.x - r.home.x, r.z - r.home.z) > 60 && Math.hypot(kc.pos.x - r.x, kc.pos.z - r.z) > 130) V.reset(r.id);
@@ -176,19 +191,19 @@ export function createVehicles(game) {
     let target = 0, turnTo = r.yaw;
     if (mag > 0.12) { const want = Math.atan2(sy * my - cc * mx, cc * my + sy * mx), diff = angDiff(r.yaw, want);
       if (r.kind === 'van' && Math.abs(diff) > 2.3 && r.speed < 1.5) { target = -4.5 * mag; turnTo = want + Math.PI; }
-      else { turnTo = want; target = cfg.max * mag * (Math.abs(diff) > 1.6 ? 0.35 : 1); } }
+      else { turnTo = want; target = cfg.max * tn.max * mag * (Math.abs(diff) > 1.6 ? 0.35 : 1); } }
     const surf = world.surfaceAt(r.x, r.z);
-    if (r.kind === 'skateboard') target *= surf === 1 || surf === 2 || surf === 5 ? 1 : world.groundAt(r.x, r.z, r.y + 0.3) > world.heightAt(r.x, r.z) + 0.1 ? 1 : 0.62;
+    if (r.kind === 'skateboard') target *= surf === 1 || surf === 2 || surf === 5 ? 1 : world.groundAt(r.x, r.z, r.y + 0.3) > world.heightAt(r.x, r.z) + 0.1 ? 1 : lerp(0.62, 1, tn.offroad);
     /* the van is a road vehicle: fine on asphalt and bridge decks, slow on gravel and paving, crawling on grass and sand */
-    if (r.kind === 'van') target *= surf === 1 || world.groundAt(r.x, r.z, r.y + 0.3) > world.heightAt(r.x, r.z) + 0.1 ? 1 : surf === 2 || surf === 5 ? 0.7 : 0.32;
+    if (r.kind === 'van') target *= surf === 1 || world.groundAt(r.x, r.z, r.y + 0.3) > world.heightAt(r.x, r.z) + 0.1 ? 1 : lerp(surf === 2 || surf === 5 ? 0.7 : 0.32, 1, tn.offroad);
     /* nobody gets bumped: brake for anyone in front and let them step aside */
     if (cfg.land && Math.abs(r.speed) > 0.3) {
       const s = Math.sign(r.speed), fxx = Math.sin(r.yaw) * s, fzz = Math.cos(r.yaw) * s;
       for (const o of obstacles) { if (o.isKC || o === r) continue; const dx = o.x - r.x, dz = o.z - r.z, f = dx * fxx + dz * fzz; if (f < 0 || f > cfg.r + 2.6 + Math.abs(r.speed) * 0.45) continue; if (Math.abs(-dx * fzz + dz * fxx) > cfg.r + (o.r || 0.4) + 0.35) continue;
         target = 0; r.speed *= Math.max(0, 1 - dt * 14); if (f < cfg.r + (o.r || 0.4) + 0.8) r.speed = 0; r.honkT -= dt; if (r.honkT <= 0) { r.honkT = 2.2; if (r.kind === 'van') game.audio.sfx('honk', { vol: 0.6 }); bus.emit('honk', { id: r.id }); game.npcs.stepAside(o, r, { x: fxx, z: fzz }); } break; }
     }
-    r.speed = lerp(r.speed, target, damp(Math.abs(target) < Math.abs(r.speed) ? cfg.acc * 0.5 : cfg.acc * 0.22, dt));
-    const steer = r.kind === 'van' ? clamp(Math.abs(r.speed) / 3, 0, 1) : clamp(0.45 + Math.abs(r.speed) / 4, 0, 1), dyaw = clamp(angDiff(r.yaw, turnTo), -cfg.turn * dt, cfg.turn * dt) * steer * (mag > 0.12 ? 1 : 0);
+    r.speed = lerp(r.speed, target, damp(Math.abs(target) < Math.abs(r.speed) ? cfg.acc * 0.5 : cfg.acc * tn.acc * 0.22, dt));
+    const steer = r.kind === 'van' ? clamp(Math.abs(r.speed) / 3, 0, 1) : clamp(0.45 + Math.abs(r.speed) / 4, 0, 1), dyaw = clamp(angDiff(r.yaw, turnTo), -cfg.turn * tn.turn * dt, cfg.turn * tn.turn * dt) * steer * (mag > 0.12 ? 1 : 0);
     r.yaw += dyaw;
     const nx = r.x + Math.sin(r.yaw) * r.speed * dt, nz = r.z + Math.cos(r.yaw) * r.speed * dt, pos = { x: nx, z: nz };
     const hit = world.resolve(pos, cfg.r, r.y, r.kind === 'van' ? 2.4 : 1.0); if (hit) r.speed *= Math.max(0, 1 - dt * 6);
@@ -199,7 +214,7 @@ export function createVehicles(game) {
     else {
       const g = world.groundAt(r.x, r.z, r.y + 0.35);
       if (r.kind === 'skateboard') {
-        if (input.pressed.jump && !r.air) { r.vy = 6.2; r.air = true; game.audio.sfx('jump'); bus.emit('trick', { kind: 'ollie', id: r.id }); }
+        if (input.pressed.jump && !r.air) { r.vy = 6.2 * Math.sqrt(tn.pop); r.air = true; game.audio.sfx('jump'); bus.emit('trick', { kind: 'ollie', id: r.id }); }
         if (r.air) { r.vy -= 20 * dt; r.y += r.vy * dt; if (r.y <= g) { r.y = g; r.air = false; r.vy = 0; fx.burst('dust', r.x, g, r.z, 3); } } else if (g < r.y - 0.4) { r.air = true; r.vy = 0; } else r.y = lerp(r.y, g, damp(22, dt));
         r.roll = lerp(r.roll, -dyaw / dt * 0.12, damp(8, dt)); if (Math.abs(r.speed) > 6 && !r.air && Math.random() < dt * 10) fx.burst('dust', r.x, r.y, r.z, 1);
       } else { r.y = lerp(r.y, g, damp(14, dt)); r.roll = lerp(r.roll, -dyaw / dt * 0.04 * clamp(r.speed / 8, 0, 1), damp(5, dt)); if (Math.abs(r.speed) > 5 && surf !== 1 && Math.random() < dt * 8) fx.burst('dust', r.x - Math.sin(r.yaw) * 2.2, r.y, r.z - Math.cos(r.yaw) * 2.2, 1); }
@@ -211,7 +226,7 @@ export function createVehicles(game) {
     /* seat KC */
     const s = cfg.seat, sx = Math.sin(r.yaw), cz = Math.cos(r.yaw);
     kc.pos.set(r.x + cz * s[0] + sx * s[2], r.y + s[1], r.z - sx * s[0] + cz * s[2]); kc.yaw = r.yaw; kc.root.rotation.set(r.pitch, r.yaw, r.roll, 'YXZ'); kc.vel.set(0, 0, 0);
-    if (r.kind === 'van') game.audio.engine(Math.abs(r.speed) / cfg.max);
+    if (r.kind === 'van') game.audio.engine(Math.abs(r.speed) / (cfg.max * tn.max));
   }
 
   /* ---------------- transit: the freight train and the Heron Line tram. Both stop for anyone on the track ---------------- */

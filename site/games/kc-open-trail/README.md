@@ -77,11 +77,16 @@ Festival dressing. A mute button sits in the HUD.
 - Save: localStorage, versioned (`kc-open-trail-save-v2`), tolerant of damaged
   data, every access wrapped in try/catch.
 
-Missions, the economy, the shop and real-money purchases are separate modules
-(`js/missions.js`, `js/economy.js`, `js/shop.js`, `js/store.js`); they are
-deliberate stubs here. **Read `ARCHITECTURE.md`** for the seams
-(`game.economy.grant / owns / catalog / setFlag / getFlag`,
-`game.shop.registerTab`), the event list and the registry API.
+The economy, the upgrade ladders, the shop screens, missions, real-money
+purchases and the merch shelves are six separate modules (`js/economy.js`,
+`js/upgrades.js`, `js/shop.js`, `js/missions.js`, `js/store.js`, `js/merch.js`).
+Each exports `init(game)`, `js/main.js` already imports and boots all six, and
+**modules never edit core files**. **Read the "Module seams" section of
+`ARCHITECTURE.md`** for every hook they build on: modifiers, ride tuning,
+followers, cosmetics by id, the photo overlay, world placement, timed runs,
+fast travel, the Shop tab strip, the shared screen pieces, the grown-up gate
+and the save namespaces. Until a module is written its file is a stub that
+returns `{}`.
 
 ## Files
 
@@ -96,14 +101,17 @@ js/scenery.js              buildings, bridges, props (baked chunk meshes), sign 
 js/flora.js                instanced trees, rocks, bushes, flowers
 js/kc.js                   dog model, animation, player controller, cosmetics
 js/camera.js, js/input.js  follow camera; keyboard / mouse / touch / gamepad
-js/npc.js                  people (with chat), dogs, wildlife
-js/vehicles.js             traffic, rideables, the freight train and the tram
+js/npc.js                  people (with chat), dogs, wildlife, followers, standing NPCs
+js/vehicles.js             traffic, rideables (with per-kind tuning), the freight train and the tram
 js/collect.js              bones, golden balls, dig / photo spots, signposts, fog bell, carriables
 js/api.js                  registry: interactables, markers, zones, wallet, economy + shop seams
 js/hud.js                  HUD, modal shell, menus, shop shell, map, photo mode
+js/uikit.js                shared screen pieces: tab strip, item cards, grown-up gate, confirm-spend, leaving links, extra settings
+js/photo.js                photo mode frames, filters, stickers, zoom and poses (game.photo)
+js/seams.js                module seams: cosmetics by id, world placement, staged objects, timed runs, fast travel, followers
 js/audio.js, js/fx.js      synthesised sound; particles + blob shadows
 js/events.js, js/save.js, js/util.js   bus, save, helpers + geometry builder
-js/economy.js, js/missions.js, js/shop.js, js/store.js   stubs for later modules
+js/economy.js, js/upgrades.js, js/shop.js, js/missions.js, js/store.js, js/merch.js   feature modules (stubs until written); each exports init(game)
 tools/make-icons.js        regenerates icons/ (dev only, needs Playwright)
 tests/smoke.js             Playwright smoke test
 ```
@@ -126,8 +134,12 @@ starts play, checks the HUD and thumb controls fit, walks / sprints / jumps /
 swims, tours the districts, rides the skateboard, canoe, van and tram, watches the freight train move,
 swings the
 camera against walls, talks to a townsperson, exercises the economy, shop and
-festival seams, pauses, saves and reloads, measures frame time, and fails on
-any console error or off-origin request. It also checks a damaged save, the
+festival seams and every module seam (events, modifiers, ride tuning,
+followers, cosmetics, placement, staged objects, timed runs, fast travel, a
+ten-tab Shop, confirm-spend, the grown-up gate, the spending switch, leaving
+links and the photo overlay), pauses, saves and reloads, measures frame time, and fails on
+any console error or off-origin request. `SEAMS_ONLY=1` runs just the seam
+checks in the three viewports (a few minutes less). It also checks a damaged save, the
 offline reload and the service worker file list. Screenshots go to the folder
 given as the first argument. Exit code is non-zero if anything fails.
 

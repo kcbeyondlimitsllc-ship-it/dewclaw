@@ -3,69 +3,385 @@
 Plain ES modules, no build step. three.js r170 is vendored in `vendor/three/`.
 Everything visible is built in code (low-poly geometry + canvas textures) and
 all sound is WebAudio synthesis. The only network traffic is same-origin game
-files; the store module (when it exists) may call the Dewclaw worker after the
-player presses a real-money Buy button, and nothing else may leave the origin.
+files. The one exception is the Dewclaw worker, which `store.js` and `merch.js` (and no other file)
+may call after a grown-up has passed the gate and pressed a button: buy, claim a twin, restore.
+Nothing else may leave the origin, and the game never loads anything from another site.
 
 ## Boot order (`js/main.js`)
 
 `save` -> `input` -> `audio` -> `fx` -> `world` (terrain, `scenery`, `flora`) ->
-`camera` -> `api` (registry, wallet, **economy and shop seams**) -> `hud` (`game.ui`) -> `kc` -> `npc`
-(people, dogs, wildlife) -> `vehicles` -> `collect` ->
-**`economy.init(game)`, `missions.init(game)`, `shop.init(game)`, `store.init(game)`**.
+`camera` -> `api` (registry, wallet, economy and shop seams) -> `hud` (`game.ui`, with `uikit` and `photo`) -> `kc` -> `npc`
+(people, dogs, wildlife, followers, standers) -> `vehicles` -> `collect` -> `seams` (`game.cosmetics`, `game.place`,
+`game.timedRun`, `game.travel`, `game.followers`) ->
+**`economy.init(game)`, `upgrades.init(game)`, `shop.init(game)`, `missions.init(game)`, `store.init(game)`, `merch.init(game)`**
+-> `game.cosmetics.restore()` -> event `modulesReady`.
 
-`economy.js`, `missions.js`, `shop.js` and `store.js` are deliberate stubs: each
-exports `init(game)` and whatever `init` returns is kept at `game.modules.<name>`.
-They are for later work; the core does not build an economy, missions, a shop
-or payments. What the core does provide is the seam they plug into (next section). The debug hooks call
-`game.modules.missions.start(id)` and `.complete()` if they exist.
+## Module seams
 
-## The seams the stub modules build on
+This section is the contract between the core and the six feature modules.
 
-These exist before the four `init` calls run. A module may use them as they are,
-wrap them, or replace individual methods (keep the signatures).
+### File ownership
+
+| Files | Owner | Rule |
+| --- | --- | --- |
+| `js/economy.js`, `js/upgrades.js`, `js/shop.js`, `js/missions.js`, `js/store.js`, `js/merch.js` | one module each | Each **exports `init(game)`**; `main.js` already imports all six and calls `init` once, in that order, after everything in the boot order above exists. Whatever `init` returns is kept at `game.modules.<name>` (return your public API there). A module that throws in `init` is logged and skipped; the game still boots. |
+| every other file in `js/`, `index.html`, `style.css`, `sw.js` | core | **Modules never edit core files.** If a module needs something the core does not offer, it works with the hooks below or asks for a new one; it does not patch `hud.js`, `kc.js`, `vehicles.js`, `data.js` and so on. |
+| new files | the module that needs them | A module may add files (`js/shop-data.js`, `merch.json`, thumbnails). Every new file under `js/`, and anything else the game needs offline, must be added to `SHELL` in `sw.js` **by whoever integrates the modules** (`sw.js` is a core file): list the files you added in your hand-over note. The smoke test fails if `js/` and `SHELL` disagree. |
+
+Other rules a module must keep:
+
+- Modules talk to each other only through `game.economy`, `game.shop`, the event bus and `game.modules.<name>` (which may not exist yet when your `init` runs: modules boot in the order economy, upgrades, shop, missions, store, merch. Look another module up lazily, or wait for the `modulesReady` event).
+- Import helpers from core files if you like (`./util.js`: `THREE`, `Geo`, `icon`, `el`, `clamp`, `rng` ...; `./data.js`: `BUILDINGS`, `STALLS`, `CARTS`, `SIGNPOSTS`, `DOG_SPOTS`, `PHOTO_SPOTS`, `ZONES` ...). Importing is not editing.
+- No network. Only `store.js` and `merch.js` may call `fetch`, only to the Dewclaw worker, and only after a grown-up has passed the gate and pressed a button (buy, claim a twin, restore). The smoke test fails on `fetch` / XHR / WebSocket / beacon anywhere else and on any request that leaves the origin.
+- Money never buys bones or stats. Real-money spending is off until `game.grownUp.spending` is true. Every purchase and every link that leaves the game goes through `game.ui.gate()` / `game.ui.openExternal()`.
+- Touch targets 44 px or more; check your screens at 390 x 844 and 844 x 390. Use the shared pieces in `game.ui` and the classes in `style.css` so the six screens look like one game.
+- No names, characters or designs from the do-not-copy list in `SETTING-BRIEF.md` (the smoke test scans shipped files for them).
+
+### Index of hooks
+
+| Need | Hook |
+| --- | --- |
+| Pay out or take bones / gems, own items, world flags | `game.economy.grant / owns / count / use / canAfford / spend / setFlag / getFlag / catalog`, `game.wallet`, `game.rewards` |
+| Ask before spending | `game.ui.confirmSpend(opts)` |
+| KC's abilities | `game.setModifier(id, mods, { seconds })`, `game.getModifier(key)` |
+| Ride ladders | `game.vehicles.setTuning(kind, patch, source)`, `getTuning(kind)` |
+| A dog that follows KC | `game.followers.add / dismiss / list / dogs / max` |
+| Wearables and ride paint by id | `game.cosmetics.define / equip / unequip / preview / endPreview / equipped / list`, `game.kc.registerHat / registerOutfit` |
+| Photo mode extras | `game.photo.unlock / lock / register* / set* / addSticker / state` |
+| Put things in the world | `game.place.marker / prop / stand / shelf / counter / npc / pickup / zone / staged / door / beside / stall / cart / sign / remove / removeAll`, `game.spawnProp`, `game.addCarriable` |
+| Objectives, timers | `game.setObjective(o)`, `game.timedRun(opts)`, `game.ui.setTimer(text)` |
+| Fast travel | `game.travel.add / go / list / blocked`, `game.fastTravel(x, z, yaw, opts)` |
+| Screens | `game.openModal`, `game.ui.tabs / item / grid / price / progress / note / heading / confirm`, `game.shop.registerTab`, `game.ui.addMenuItem / addHudButton / addSetting`, `game.toast`, `game.banner` |
+| Grown-ups | `game.ui.gate`, `game.grownUp`, `game.ui.openExternal` |
+| Saving | `game.moduleData(id, defaults)`, `game.save.save()`, `game.save.keepOnReset(id)` |
+| Hearing what happens | `game.on(type, fn)` (events table below) |
+
+### Economy and wallet (`js/api.js`)
 
 ```js
-/* economy seam (js/api.js). Every core payout already goes through grant(). */
-game.economy.grant({ bones: 5, gems: 1, items: ['bandana-red', { id: 'treat', n: 3 }] }, 'source')
-        // -> { bones, gems, items } actually granted; pays the wallet (emits `wallet`), marks items in state.owned, emits `grant`
-game.economy.owns(id)                 // -> boolean (state.owned[id])
-game.economy.catalog                  // [] for the economy module to fill with its item / upgrade definitions
-game.economy.setFlag(key, value)      // saved in state.flags, emits `flag` { key, value }
-game.economy.getFlag(key)
-
-/* shop seam (js/api.js + the Shop shell in js/hud.js) */
-game.shop.registerTab({ id, title, render(body, game, handle), badge })   // -> unregister function. badge: value or () => value
-game.shop.tabs                        // registered tabs
-game.shop.open(tabId?)                // opens the Shop screen; a "Shop" entry appears in the pause menu once a tab exists
+game.wallet.get('bones') ; .can('gems', 40) ; .add('bones', 5, 'reason') ; .spend('bones', 120, 'reason') -> boolean
+game.economy.grant({ bones: 5, gems: 1, items: ['hat:ranger', { id: 'treat:zoomie', n: 3 }] }, 'mission:paper-round')
+        // -> { bones, gems, items } actually granted. Pays the wallet (emits `wallet`), marks items in state.owned, emits `grant`.
+game.economy.owns('hat:ranger')            // boolean
+game.economy.count('treat:zoomie')         // 0, 1 (plain owned item) or the count
+game.economy.use('treat:zoomie', 1)        // -> boolean; takes n away (deletes the entry at 0), emits `itemUsed` { id, n, left }
+game.economy.canAfford({ bones: 150 })     // boolean; { bones, gems } both must be covered
+game.economy.spend({ bones: 150 }, 'shop') // -> boolean; takes both currencies or neither, emits `spend`
+game.economy.catalog                       // [] for the economy module to fill with its item / upgrade table
+game.economy.setFlag('festival', true) ; game.economy.getFlag('festival')   // saved in state.flags, emits `flag`
+game.rewards   // tunable payouts: { bone: 1, goldenBall: { gems: 1, bones: 10 }, dig: [3, 8], photo: 5, sign: 2, fetch: 2, zone: 3,
+               //                    digCooldown: 240 (s), boneRespawn: [100, 140] (s) }   e.g. Dig Mitts: game.rewards.dig = [4, 9]
 ```
 
-Flags the core reacts to:
+`grant` never checks a price and `spend` never grants: a purchase is `if (await game.ui.confirmSpend({...})) game.economy.grant({ items: [id] }, 'shop')`.
+A module may wrap or replace `game.economy.grant` (keep the signature and keep paying through `game.wallet`).
 
-| Flag | Effect |
-| --- | --- |
-| `festival` | `true` switches on the Fog Bell Festival dressing layer (lantern strings, bunting, painted pumpkins, the lit Lantern Stack, a festival arch) and pulls the fog in; `false` removes it. Also a checkbox in Settings. |
-| `coached` | set by the HUD once a touch player has both moved and looked; the first-run touch coach stays hidden after that. |
+Flags the core reacts to: `festival` (true switches on the Fog Bell Festival dressing layer and pulls the fog in; also a
+checkbox in Settings) and `coached` (set by the HUD once a touch player has moved and looked).
 
 Edge cases the seams guarantee (so modules need not re-check):
 
-- `wallet.add(cur, n)` ignores an unknown currency and a non-finite or zero
-  `n`, rounds, and never lets a balance go below 0.
-  `wallet.spend(cur, n)` returns `false` for a non-finite or negative `n` or
-  when the balance is short; `spend(cur, 0)` is `true` and changes nothing.
-- `grant(what)` treats `null` / a non-object as `{}`. `items` may be one id, one
-  `{ id, n }` or an array of either. `n` is coerced with `Number` and floored;
-  entries with a missing id or `n < 1` are skipped. An owned count is always
-  `true` or a positive integer.
-- `registerTab()` replaces a tab with the same id. Its unregister function
-  removes the tab from `game.shop.tabs` in place (the array object never
-  changes). `ui.addMenuItem()` likewise returns a working unregister function
-  and replaces an entry with the same id.
-- `spawnProp(...).remove()` and `addCarriable(...).remove()` take everything
-  with them: meshes, GPU geometry, colliders, camera view volumes and any
-  per-frame animation (the campfire flame). Calling `remove()` twice is safe.
+- `wallet.add(cur, n)` ignores an unknown currency and a non-finite or zero `n`, rounds, and never lets a balance go below 0.
+  `wallet.spend(cur, n)` returns `false` for a non-finite or negative `n` or when the balance is short; `spend(cur, 0)` is `true`.
+- `grant(what)` treats `null` / a non-object as `{}`. `items` may be one id, one `{ id, n }` or an array of either; entries with a
+  missing id or `n < 1` are skipped. An owned count is always `true` or a positive integer.
+- `spawnProp(...).remove()`, `addCarriable(...).remove()` and every `game.place.*` handle's `remove()` take everything with them
+  (meshes, GPU geometry, colliders, camera view volumes, prompts, map dots) and are safe to call twice.
 
-The HUD wallet pill (bones, gems) redraws on every `wallet` event, so anything
-paid through `grant()` or `game.wallet` shows up at once.
+### KC's abilities: modifiers (`js/kc.js`)
+
+```js
+game.setModifier('upgrade:legs', { speed: 1.15 })                       // id = the source; calling again with the same id replaces it
+game.setModifier('upgrade:lungs', { stamina: 1.45 })
+game.setModifier('treat:zoomie', { speed: 1.15 }, { seconds: 180 })     // timed: goes by itself and emits `modExpired` { id }
+game.setModifier('upgrade:legs', null)                                  // remove
+game.getModifier('speed')        // the combined value now (1.15 x 1.15 = 1.3225)
+game.getModifier()               // { speed, stamina, jump, magnet, sniff, carry, swim, bones, carryAdd }
+game.kc.modifierLeft('treat:zoomie')   // seconds left (Infinity for a permanent source, 0 when gone)
+```
+
+| Key | Effect | Combines |
+| --- | --- | --- |
+| `speed` | sprint fully, walk / run by its square root | multiplies |
+| `stamina` | stamina pool (`kc.staminaMax = 100 x stamina`) | multiplies |
+| `jump` | jump height (the take-off speed is scaled by the square root) | multiplies |
+| `swim` | swim speed | multiplies |
+| `magnet` | pickup radius for loose bones (above 1.05 bones also drift to her from further away) | multiplies |
+| `sniff` | sniff radius: how far away loose bones start drifting towards her | multiplies |
+| `bones` | bones from loose-bone pickups and dig spots only (not missions, tills or grants) | multiplies |
+| `carry` | carry slots (floored) | multiplies |
+| `carryAdd` | extra carry slots | adds |
+
+`kc.capacity()` = `floor(carry) + floor(carryAdd)` + the ride's `carry` tuning while she is aboard. Unknown keys are ignored.
+Modifiers are **not** saved by the core: re-apply them from your own saved levels in `init`. Emits `modsChanged`.
+
+### Rides: tuning (`js/vehicles.js`)
+
+```js
+game.vehicles.setTuning('skateboard', { max: 1.16 }, 'upgrade:wheels')   // kind: 'skateboard' | 'canoe' | 'van'; applies to every ride of that kind
+game.vehicles.setTuning('skateboard', { turn: 1.2 }, 'upgrade:trucks')   // each source id is kept apart, like modifiers
+game.vehicles.setTuning('van', { offroad: 2 / 3 }, 'upgrade:tyres')
+game.vehicles.setTuning('canoe', { keep: 1, carry: 1 }, 'upgrade:drybox')
+game.vehicles.setTuning('van', null, 'upgrade:tyres')                    // remove that source
+game.vehicles.getTuning('van')   // -> { max, acc, turn, pop, offroad, keep, carry, topSpeed, turnRate, base: { max, acc, turn } }
+```
+
+| Key | Meaning | Combines | Limits |
+| --- | --- | --- | --- |
+| `max` | top speed multiplier (base: skateboard 13, canoe 7.5, van 19) | multiplies | 0.5 to 1.6 |
+| `acc` | acceleration multiplier | multiplies | 0.5 to 2 |
+| `turn` | turn rate multiplier | multiplies | 0.5 to 2 |
+| `pop` | ollie height multiplier (skateboard) | multiplies | 0.5 to 1.6 |
+| `offroad` | 0 to 1: how much of the off-road slowdown is taken away. Van: gravel and paving 0.70 -> 1, grass and sand 0.32 -> 1. Skateboard: rough ground 0.62 -> 1. The spec's van tiers 0.80 / 0.90 / 1.00 are `1/3`, `2/3`, `1`. | largest wins | 0 to 1 |
+| `keep` | how many carried things stay in her mouth when she hops on (default 0; the van and the tram always keep everything) | adds | 0 to 8 |
+| `carry` | extra carry slots while she is aboard (Dry Box, Roof Rack) | adds | 0 to 8 |
+
+Emits `tuningChanged` { kind, tuning }. Not saved by the core: re-apply in `init`. Pop Deck's bones per ollie need no hook: listen for `trick`.
+Paint: `game.setSkin('van', { primary, secondary })` directly, or by id through `game.cosmetics` (slot `skin:van`).
+
+### Followers: Trail Buddies, Buddy Whistle, party treat, dog-walking jobs (`js/npc.js`)
+
+```js
+const buddy = game.followers.add({ dog: 'dog-biscuit' })            // borrow a town dog (id or name: Biscuit, Pepper, Cliff, Sandy, Clover, Mochi, Bruno, Juniper, Tabor, Rosie)
+const pup = game.followers.add({ name: 'Pip', look: { coat: 0x333333, belly: 0xf4ead8, ear: 0x222222, s: 0.8 }, seconds: 600, onLeave: reason => {} })   // a new dog
+// -> { id, name, dog, left(), dismiss() }, or null when the dog is unknown or the party is full
+game.followers.dismiss('dog-biscuit')    // one (follower id, dog id or name); no argument = everyone. -> how many left
+game.followers.list()                     // handles of the dogs with her now
+game.followers.dogs()                     // the town dogs: [{ id, name, x, z, home: { x, z }, following }]
+game.followers.max = 2                    // party size (default 2, at most 4): Buddy Whistle tier 3
+```
+
+A follower trots behind KC, sprints to keep up, sits when she sits, barks back, swims, runs beside a ride and catches up out of
+sight after a teleport or a fast ride. A timed follower leaves by itself (`reason: 'timeout'`); a borrowed dog trots home, a
+spawned one is removed. Events: `followerJoin` { id, name, dog, count }, `followerLeave` { id, name, dog, reason, count }.
+Followers are not saved: call them again in `init` if your design keeps them across sessions.
+
+### Cosmetics by id (`game.cosmetics`, `js/seams.js`)
+
+```js
+game.cosmetics.define([
+  { id: 'hat:ranger', slot: 'hat', name: 'Ranger hat', value: { type: 'ranger', color: 0x6f8f4f } },
+  { id: 'bandana:red', slot: 'bandana', name: 'Red bandana', value: 0xd9534f, free: true },
+  { id: 'costume:ghost', slot: 'outfit', name: 'Ghost sheet', value: 'sheet' },
+  { id: 'skin:van:adventure-club', slot: 'skin:van', name: 'Adventure Club', value: { primary: 0x2f6f5f, secondary: 0xf4ead8 } }
+]);
+game.cosmetics.equip('hat:ranger')        // -> boolean. Needs game.economy.owns(id) or free: true (or { force: true }). Saves state.equipped[slot] = id, emits `equip`
+game.cosmetics.unequip('hat')             // back to bare / KC's own colours / the stock ride paint. Emits `unequip`
+game.cosmetics.preview('hat:ranger')      // try-on: shown, not saved, ownership not needed
+game.cosmetics.endPreview()               // also happens when the last screen closes and on equip / unequip
+game.cosmetics.equipped('hat')            // 'hat:ranger' | null ; equipped() -> the whole slot map
+game.cosmetics.list('hat') ; .get(id) ; .canWear(id) ; .slots
+```
+
+| Slot | `value` | Built in |
+| --- | --- | --- |
+| `bandana`, `harness`, `collar`, `trail` | a colour `0xrrggbb` | harness is black and collar blue when nothing is equipped; `trail` is a sparkle trail |
+| `tag` | a colour, or `false` to hide the tag | gold |
+| `hat` | `'cap'` or `{ type: 'cap', color }` | `cap`, `party`, `ranger`, `beanie`, `crown`, `pumpkin`, `flower` |
+| `outfit` | `'cape'` or `{ type: 'cape', color }` | `cape`, `wings`, `vest`, `sheet`, `pumpkinsuit`, `scarecrow`, `saddlebags`, `scarf`, `lanternvest` |
+| `skin:skateboard`, `skin:canoe`, `skin:van` | `{ primary, secondary }` | orange / blue, red / cream, teal / cream |
+
+New shapes: `game.kc.registerHat('trucker', (geo, color = 0x2f6f5f) => { geo.ball(0, 0, 0, 0.17, 0.11, 0.18, color, 7, 4); geo.box(0, -0.02, 0.2, 0.2, 0.02, 0.16, color); })`
+(hat space: origin on top of her head, +z forward) and `game.kc.registerOutfit('raincoat', (geo, color) => { ... })` (body space:
+torso centre about `0, 0.53, 0`, nose towards +z, body about 0.4 wide and 0.9 long). `geo` is a `Geo` from `util.js` (`box`, `cyl`, `ball`, `tri`, `quad`).
+
+**Saving is done for you**: `state.equipped` is saved, and a definition that arrives after the save was loaded is put on at
+once if the save says KC is wearing it, so define your items in `init` and do nothing else. The raw calls
+`game.setCosmetic(slot, value)` and `game.setSkin(kind, skin)` still exist; they do not save.
+
+### Photo mode: frames, filters, stickers, zoom, poses (`game.photo`, `js/photo.js`)
+
+Presets exist but start **locked**. The Trail Camera ladder unlocks what the player owns, in `init`, from its saved level:
+
+```js
+game.photo.unlock('frame', ['postcard', 'polaroid', 'trail', 'film', 'lanterns', 'leaves'])   // or unlock('frame') for all
+game.photo.unlock('filter') ; game.photo.unlock('zoom')            // filters: warm, cool, sepia, mono, dusk
+game.photo.unlock('sticker') ; game.photo.unlock('pose')           // stickers: paw, bone, heart, star, ball, leaf, woof ; poses: sit, bark, beg, play
+game.photo.lock('sticker', 'woof')
+game.photo.registerFrame('den', { name: 'Den wall', inset: [4, 4], draw(ctx, w, h, { place, day }) { /* 2D canvas, w x h pixels */ } })
+game.photo.registerFilter('rain', { name: 'Rainy day', css: 'saturate(.8) brightness(.95)', tint: ['#6f8fb0', 0.15, 'soft-light'] })
+game.photo.registerSticker('camp-kc', { name: 'Camp KC', draw(ctx, size) { /* centred on 0,0 in a size x size box */ } })
+game.photo.setFrame('postcard' | null) ; .setFilter(id | null) ; .setZoom(1..3) ; .setPose('sit' | null)
+game.photo.addSticker('paw', { x: 0.3, y: 0.4, size: 0.17 })   // -> index or -1 (x, y are 0..1 of the screen, at most 12) ; .removeSticker(i?) ; .clearStickers()
+game.photo.available('frame')   // [{ id, name }] the player can pick now ; .all('frame') adds { locked } ; available('zoom') -> boolean
+game.photo.state()              // { frame, filter, stickers: [ids], zoom, pose }
+```
+
+In photo mode a tools row appears above Snap / Done with one button per unlocked kind (Frame, Colour, Zoom, Pose, Stickers); the
+player cycles through them, adds stickers from a tray and drags them. The saved PNG gets the same filter, frame and stickers, and
+`photoTaken` carries `{ x, z, zone, frame, filter, stickers, zoom, pose }`. `game.ui.lastPhotoCanvas` is the last saved picture
+(for a photo wall: copy it at once, it is replaced by the next snap; the core does not store photos). Registered items are unlocked;
+give them `enabled: () => boolean` to hide them. Nothing here is saved by the core.
+
+### Putting things in the world (`game.place`, `js/seams.js`)
+
+Coordinates: +x east, +z south, yaw 0 faces south (+z), `Math.PI / 2` faces east. Every `place.*` call returns a handle with
+`id` and `remove()`; give ids a prefix per feature (`'m3:giver'`) and clear a whole feature with `game.place.removeAll('m3:')`.
+
+```js
+/* where things are -> { x, z, yaw } on open ground, yaw = KC facing the thing; null if unknown */
+game.place.door('bakery')              // 2.6 units outside the door of a BUILDINGS id (tailor, pets, toys, cafe, bikes, chandlery, fuel, cityhall ...)
+game.place.beside('pets', 1)           // beside that door, along the shop front (side -1 / 1); also returns ry for a shelf that faces the street
+game.place.stall('Tag & Stamp')        // 3.6 units in front of a STALLS entry ; game.place.cart('Biscuit Wheel') ; game.place.sign('welcome')
+game.place.clear(x, z, r)              // dry, inside the map and not blocked?
+game.place.groundY(x, z)
+
+/* a dot on the minimap and map, an optional light pillar / compass pin / prompt */
+game.place.marker({ id: 'm3:glove', x, z, label: 'Lost glove', color: '#ffd23c', icon: 'paw', beacon: true, compass: true,
+                    prompt: 'Sniff the glove', r: 2.6, enabled: () => true, onInteract: () => {} })
+
+/* a prop with a prompt on the open ground in front of it */
+game.place.stand({ id: 'shop:treats', kind: 'stall', x, z, ry: 0, name: 'Trail Treats', col: 0xd9534f, prompt: 'Look at the treats', onInteract: openTab, marker: true })
+game.place.shelf({ id: 'merch:mugs', ...game.place.beside('cafe', 1), name: 'Mugs', prompt: 'Look at the mug shelf', onInteract: () => game.shop.open('merch') })
+game.place.counter({ id: 'shop:tailor', ...game.place.door('tailor'), prompt: 'Visit the tailor', onInteract: () => game.shop.open('wardrobe'), marker: { label: 'Tailor' } })   // prompt only, at an existing shop or stall
+game.place.prop('bench', x, z, { id: 'fund:bench', ry: 1.2 })        // = game.spawnProp, but tracked by id
+
+/* a person who stands there, turns to KC and waves */
+const giver = game.place.npc({ id: 'm1:giver', x, z, yaw: 0, name: 'Postmaster Wren', look: { shirt: 0x3f7fd6, hat: 'cap' }, prompt: 'Talk to Wren', onInteract: npc => startMission(), marker: { label: 'Paper round' } })
+giver.walkTo(x, z, 1.6, npc => {}) ; giver.follow(true, 2.4) ; giver.follow(false) ; giver.wave() ; giver.remove()   // lost children that follow a bark: follow(true) on `bark`
+
+/* trigger zones */
+game.place.zone({ id: 'm9:echo1', x, z, r: 6, once: true }, zone => {}, zone => {})     // onEnter, onExit ; or { rect: [x0, z0, x1, z1] }
+
+/* floating things KC collects by touching them: flag, disc, lantern, litter, star, parcel, paper, bucket, glove, pumpkin, treat */
+game.place.pickup({ id: 'm14:flag3', kind: 'flag', color: 0xd9534f, x, z, onCollect: () => count++, marker: true })   // emits `collect` { id, kind, x, z }
+
+/* a world object that changes look by level: KC's den, a business, the Lantern Fund, the Town Fund */
+const den = game.place.staged({ id: 'den', x: -150, z: -172, ry: 0, level: savedLevel, stages: [
+  { kind: 'tent', col: 0xd9534f },                                                               // level 0: Pup Tent
+  [{ kind: 'building', style: 'shed', w: 5, d: 4, h: 3, col: 0x9a6a42, roof: 'gable', f: 's' }, { kind: 'bench', dx: 4, dz: 1 }],   // level 1: parts, dx / dz in the object's own space
+  (x, z, ry, level) => game.spawnProp('campfire', x + 3, z + 3)                                  // or build it yourself: return thing(s) with remove()
+] })
+den.setLevel(2) ; den.level ; den.remove()        // emits `stageChanged` { id, level } with a puff of sparks ; setLevel(n, true) is silent
+game.place.staged({ id: 'fund', x, z, additive: true, level: -1, stages: [...] })   // additive: every stage up to the level stays (bench, then fountain, then lanterns) ; -1 = nothing yet
+```
+
+`kind` is any `game.spawnProp` kind: `bench`, `lamp`, `signpost` {text}, `stall` {name, col, ry}, `shelf` {name, col, items: [colours], ry}, `tent` {col, ry},
+`crate`, `log`, `table`, `fence` {x1, z1}, `hedge`, `deck`, `flag`, `planter`, `bin`, `boulder`, `haybale`, `pumpkin` {s, deco}, `campfire`, `cart` {name, col, ry},
+`noticeboard` {title, ry}, `stage` {ry, col}, `fountain` {r}, `agility`, `boat`, `railcar`, `hydrant`, `mailbox`, `umbrella`, `marker`, `building` {w, d, h, col, roof, f, sign, kind}
+(inside `staged` parts write a building's kind as `style`). Shops have no interiors: a "shop" is a prompt at its door (`counter`) or a `shelf` / `stand` outside it.
+
+Things KC carries in her mouth: `game.addCarriable({ id, kind: 'ball' | 'treat' | 'stick' | 'parcel', label, x, z, mesh?, onUse?, useLabel? })`
+-> item with `remove()`, `throwTo(x, z)`; events `carry`, `drop`, `fetch`.
+Raw registry calls (also at `game.api.*`): `game.addMarker(o)`, `game.addInteractable(o)`, `game.addZone(o, onEnter, onExit)`, `game.spawnProp(kind, x, z, opts)`,
+`game.npcs.addPed({ pts: [[x, z], ...], loop }, look?, name?)` (a walking person), `game.npcs.addStander(o)`.
+
+### Objectives and timed runs
+
+```js
+game.setObjective({ x, z, label: 'Fogline Coffee', color: '#ffd23c' })     // compass pin, minimap and map dot, light pillar, distance on the HUD ; getPos: () => thing also works
+game.setObjective({ label: 'Bark at the echo points', progress: '1/3' })   // text only: no pin, shows the progress instead of a distance
+game.setObjective(null)
+
+const run = game.timedRun({ id: 'm2', label: 'Paper round', seconds: 95,          // leave seconds out for a stop-watch that counts up
+  checkpoints: [{ x, z, r: 3, label: 'Flour & Paw Bakery' }, { x, z }],           // reached in order; the next one is the objective
+  onCheckpoint: (i, run) => {}, onFinish: ({ ok, time, left, reason }) => {} })   // reason: done | time | cancelled | replaced
+run.finish(true) ; run.cancel() ; run.addTime(10) ; run.time ; run.left ; run.index ; game.run   // game.run = the run in progress or null
+game.ui.setTimer('Till: 60 / 60')      // the same HUD chip for your own readout ; setTimer(null) hides it
+```
+
+One run at a time. The last checkpoint finishes the run; the clock running out fails it; with no checkpoints the module calls
+`run.finish(true)`. Events `runStart`, `runCheckpoint` { id, index, total }, `runEnd` { id, ok, time, left, reason }. Timers are for
+play (a race, a delivery); never put a countdown on an offer or a price.
+
+### Fast travel
+
+```js
+const off = game.travel.add({ id: 'den', name: "KC's Den", x: -150, z: -168, yaw: 0, enabled: () => denLevel >= 2 })   // a blue diamond and a button on the world map
+game.travel.go('den') ; game.travel.list() ; game.travel.remove('den')
+game.fastTravel(x, z, yaw, { name: 'Scappoose', id: 'sign:scappoose' })   // -> boolean: fade, KC steps off any ride, moves, followers come too. Emits `fastTravel`
+game.travel.blocked = 'Finish the delivery first'                          // hold travel during a mission ; null frees it
+```
+
+Other world controls a den or a mission may want: `game.world.setTime(hours)` (a nap), `game.world.setRain(0..1)`,
+`game.ui.fade(midpointFn)`, `game.kc.teleport(x, z, yaw)` (no fade), `game.kc.frozen = true` (holds her still during a scene).
+
+### Screens (`game.ui`, `js/hud.js` + `js/uikit.js`)
+
+```js
+const h = game.openModal({ id, title, html | node | render(body, handle), actions: [{ label, primary, danger, onClick, keepOpen }],
+                           onClose, wide, wallet: true, className, dismissable, pause })   // -> { id, body, close(), refresh(), setTitle() }
+game.closeModal(id?)             // screens stack: closing one shows the one underneath ; game.ui.closeAll()
+game.toast('text', { icon, kind: 'good' | 'warn' | 'gold', ms }) ; game.banner('Mission complete', 'Paper round')
+await game.ui.confirm(title, text, yesLabel, noLabel)            // -> boolean
+game.ui.addMenuItem({ id, label, icon, order, onSelect })        // an entry in the pause menu (Missions, Den ...)
+game.ui.addHudButton({ id, icon, label, title, onClick })        // a button next to map / photo / pause: use sparingly, the phone HUD is full
+game.ui.addSetting({ id, label, type: 'check', get: () => on, set: async v => {} })   // or type: 'button', button: 'Restore', onClick
+```
+
+`wallet: true` shows the bones and gems balance in the header (live). `refresh()` redraws and keeps the scroll position. A modal with
+`pause: true` (the default) stops the simulation while it is open. `Esc`, the close button and a tap outside close a dismissable modal.
+
+**The Shop screen** hosts every module's tab: a strip of 44 px tabs that scrolls sideways and stays pinned while the body scrolls.
+
+```js
+const off = game.shop.registerTab({ id: 'wardrobe', title: 'Wardrobe', icon: 'star', order: 20, badge: () => newItems || 0,
+  render(pane, game, handle) { pane.appendChild(game.ui.heading('Hats', 'Stitch & Sit Costume Tailor')); pane.appendChild(game.ui.grid(cards)); } })
+game.shop.open('wardrobe')   // opens the Shop on that tab (from a world prompt) ; open() reopens the last tab
+game.shop.refresh()          // redraw after a purchase (keeps tab and scroll place) ; game.shop.current ; game.shop.tabs
+```
+
+`order` sorts the tabs (lower = further left; suggested: upgrades 10, wardrobe 20, rides 30, den 40, buddies 50, businesses 60, funds 70,
+journal 80, real gear 90, grown-ups / store 100). Registering a tab with an existing id replaces it. A "Shop" entry appears in the pause menu once a tab exists.
+Emits `shopTab` { id } on register and `shopTabOpen` { id } when a tab is shown.
+
+Shared pieces, so the tabs look alike:
+
+```js
+game.ui.item({ id, title: 'Ranger hat', text: 'A wide brim for sunny trails', swatch: 0x6f8f4f /* or icon: 'star', or node */, swatch2,
+               price: { bones: 150 } /* or { gems: 40 }, { gems: 40, bones: 2000, either: true }, or priceLabel: '$2.99' */, tag: 'Owned',
+               locked: 'Needs 200 jumps', on: true, onPreview: () => game.cosmetics.preview(id), button: { label: 'Get', onClick, disabled, primary } })   // -> element
+game.ui.grid([itemOptions | element, ...]) ; game.ui.heading('Hats', 'sub-line') ; game.ui.price({ bones: 150 }) // HTML string
+game.ui.progress(120, 400, '120 of 400 bones') ; game.ui.note('Bones cannot be bought with money.', 'warn' | 'good' | '')
+game.ui.tabs(host, [{ id, title, icon, badge, render(pane) }], { current, onChange })   // the same tab strip inside your own screen -> { select(id), redraw(), current }
+game.ui.esc(text) ; game.ui.el(tag, attrs, html) ; game.ui.icon(name, size)
+```
+
+Icons: `bone gem paw pause map camera jump bolt bark sit dig shake hand gear close ball whistle flag star`.
+CSS classes: `.btn.go`, `.btn.alt`, `.btn.danger`, `.chip`, `.menu`, `.set`, `.stats`, `.items`, `.item`, `.pc`, `.note`, `.prog`, `.sech`.
+
+**Spending bones or gems** (spec 3.5: two steps, price and balance afterwards on screen):
+
+```js
+if (await game.ui.confirmSpend({ id, name: 'Ranger hat', text: 'A wide brim for sunny trails', price: { bones: 150 }, swatch: 0x6f8f4f, source: 'shop:tailor' })) {
+  game.economy.grant({ items: [id] }, 'shop:tailor'); game.cosmetics.equip(id); game.shop.refresh();
+}
+```
+
+It resolves `true` only after the wallet was charged (emits `purchase` { id, name, price, source }); when the player is short it says by how much and resolves `false`.
+
+### Grown-ups: the gate, the spending switch, links that leave the game
+
+```js
+if (await game.ui.gate({ reason: 'This opens the real-money shop.' })) { ... }   // -> boolean
+game.grownUp.spending                 // boolean, false by default (state.settings.spending, kept through "Start over")
+await game.grownUp.setSpending(true)  // gate, then on ; setSpending(false) needs no gate. Emits `spending` { on }
+game.grownUp.showSwitch = true        // store.init sets this: Settings then shows "Real-money shop (grown-ups only)"
+await game.ui.openExternal({ url: 'https://kcbeyondlimits.com/product/34460072', name: 'the KC Beyond Limits shop', note: 'Printed to order; shipping is added at checkout.' })
+```
+
+- The gate asks a times-table question (6 to 12 times 6 to 9) answered on an on-screen number pad, so no device keyboard opens.
+  Nothing about the answer is stored or sent. Three wrong tries close it and keep it shut for 30 seconds (in memory only). Emits `gate` { ok }.
+  It is a deterrent for a child, not proof of age.
+- While `game.grownUp.spending` is false the store shows only "Ask a grown-up to turn on the shop". Use the gate again before every real-money
+  screen, the merch claim and restore, as the spec says.
+- `openExternal` accepts `https:` only, runs the gate, shows "You are leaving KC: Open Trail for <name>, a separate website" with the host
+  name and your note, and opens the page in a new tab with `rel="noopener noreferrer"`. The game requests nothing from that site. Never build
+  an `<a target="_blank">` yourself.
+
+### Saving (`js/save.js`)
+
+```js
+const data = game.moduleData('upgrades', { levels: {}, den: 0 })   // a live object inside state.modules.upgrades; missing keys are filled from the defaults
+data.levels.legs = 2; game.save.save();                            // saved anyway every 20 s, on pause, on every modal open and when the tab hides
+game.save.keepOnReset('store')                                     // this module's data survives "Start over" (install id, applied purchase sessions, Trail Key)
+game.on('beforeSave', state => { /* last chance to write into your module data */ })
+```
+
+One namespace per module, named after the module (`economy`, `upgrades`, `shop`, `missions`, `store`, `merch`); JSON only. Shared maps the
+core saves for everyone: `state.owned` (through `grant` / `use`), `state.equipped` (through `game.cosmetics`), `state.flags` (through `setFlag`),
+`state.upgrades` (free for the upgrades module: id -> level). "Start over" clears everything except `state.settings` and the namespaces passed to
+`keepOnReset`; a store that sold a permanent item should re-grant it in `init` from its own kept record.
 
 Debug hooks (only with `?debug=1`, on `window.__ot`): `state()`, `start()`,
 `teleport(x, z, yaw)`, `give({ bones, gems, items })`, `grant(what, source)`,
@@ -76,7 +392,9 @@ Debug hooks (only with `?debug=1`, on `window.__ot`): `state()`, `start()`,
 `surfaceAt(x, z)`, `heightAt(x, z)`, `save()`, `startMission(id)` and
 `completeMission()` (these two call `game.modules.missions.start / .complete`
 when the missions module provides them), `emit(type, data)`, `events` (recent
-bus events) and `game`.
+bus events), `follow(opts)` / `unfollow(id)` / `followers()`, `tune(kind, patch, source)` / `tuning(kind)`,
+`mod(id, mods, opts)`, `travel(x, z, yaw, opts)`, `modules()` and `game`. `state()` also reports `run`, `followers`,
+`equipped` and `spending`.
 
 ## The `game` object
 
@@ -86,17 +404,18 @@ bus events) and `game`.
 | `game.state` | the saved state object (below). Mutate it, it is saved every 20 s, on pause, on tab hide |
 | `game.wallet` | `get(cur)`, `can(cur, n)`, `add(cur, n, reason)`, `spend(cur, n, reason)` -> boolean. `cur` is `'bones'` or `'gems'`. Emits `wallet` |
 | `game.rewards` | tunable payouts: `{ bone: 1, goldenBall: { gems: 1, bones: 10 }, dig: [3, 8], photo: 5, sign: 2, fetch: 2, zone: 3 }`. Change values in `economy.init` |
-| `game.kc` | KC: `pos` (THREE.Vector3), `yaw`, `speed`, `stamina`, `staminaMax`, `ride`, `carried`, `mods`, `base` (walk/run/sprint/jump/drain/regen/magnet), `teleport(x, z, yaw)`, `doBark/doSit/doDig/doShake()`, `carry(item)`, `drop()`, `isCarrying(kind)` |
+| `game.kc` | KC: `pos` (THREE.Vector3), `yaw`, `speed`, `stamina`, `staminaMax`, `ride`, `carried`, `mods`, `base` (walk/run/sprint/jump/drain/regen/magnet), `frozen`, `teleport(x, z, yaw)`, `doBark/doSit/doDig/doShake()`, `carry(item)`, `drop()`, `isCarrying(kind)`, `capacity()`, `setModifier / getModifier / modifierLeft`, `setCosmetic`, `registerHat / registerOutfit`, `pose(name)` |
 | `game.world` | `heightAt(x, z)`, `groundAt(x, z, y)`, `surfaceAt(x, z)` (0 grass, 1 road, 2 trail / gravel, 3 sand, 4 water, 5 paving), `zoneAt(x, z)`, `waterDepth`, `riverSd(x, z, id?)` (signed distance to a river bank), `roadDist(id, x, z)`, `blockedAt(x, z, y, r)`, `addBox/addCircle` colliders, `roads`, `time` (0-24), `day`, `night` (0-1), `rain`, `setTime`, `setRain`, `festival`, `setFestival(on)`, `mapCanvas`, `stack` (Lantern Stack position), `fogBell` |
 | `game.cam` | `yaw`, `pitch`, `dist`, `three` (the PerspectiveCamera) |
-| `game.npcs` | `peds`, `dogs`, `groups` (wildlife), `addPed(route, look, name)` |
+| `game.npcs` | `peds`, `dogs`, `groups` (wildlife), `standers`, `followers`, `addPed(route, look, name)`, `addStander(o)`, `addFollower(o)`, `removeFollower(id)` |
 | `game.economy`, `game.shop` | the seams above |
-| `game.vehicles` | `rides`, `cars`, `enter(id)` (a ride id or `'tram'`), `exit()`, `byId(id)`, `reset(id)`, `setSkin(kind, { primary, secondary })`, `transit` = `[train, tram]` (each has `x`, `z`, `speed`, `dir`, `wait`), `train`, `tram` |
+| `game.cosmetics`, `game.place`, `game.travel`, `game.followers`, `game.photo`, `game.grownUp`, `game.timedRun`, `game.fastTravel`, `game.run` | the module seams above (`js/seams.js`, `js/photo.js`, `js/uikit.js`) |
+| `game.vehicles` | `rides`, `cars`, `enter(id)` (a ride id or `'tram'`), `exit()`, `byId(id)`, `reset(id)`, `setSkin(kind, { primary, secondary })`, `setTuning(kind, patch, source)`, `getTuning(kind)`, `transit` = `[train, tram]` (each has `x`, `z`, `speed`, `dir`, `wait`), `train`, `tram` |
 | `game.collect` | bones, golden balls, dig spots, carriables; `counts()` |
 | `game.ui` | HUD + modal shell (below) |
 | `game.audio` | `sfx(name)`: pickup, gold, reward, bark, jump, splash, dig, honk, whistle, bell, pet, ui, door, eat, shutter; `applyVolume()` (honours `settings.muted`) |
 | `game.fx` | `burst(kind, x, y, z, n)` particles: dust, splash, dirt, heart, spark, leaf, water |
-| `game.modules` | results of the four `init` calls |
+| `game.modules` | results of the six `init` calls: `economy`, `upgrades`, `shop`, `missions`, `store`, `merch` |
 
 ### Saved state (`js/save.js`, localStorage key `kc-open-trail-save-v2`)
 
@@ -105,10 +424,10 @@ bus events) and `game`.
   wallet: { bones, gems },
   owned: {},        // itemId -> true | count      (shop)
   upgrades: {},     // upgradeId -> level           (economy)
-  equipped: {},     // slot -> itemId               (shop): bandana, harness, collar, hat, tag, trail, skin:skateboard ...
+  equipped: {},     // slot -> itemId               (game.cosmetics): bandana, harness, collar, hat, tag, trail, outfit, skin:skateboard, skin:canoe, skin:van
   stats: { distance, bones, balls, digs, barks, pets, photos, jumps, swims, rides, talks, bells, fetches, days, playTime },
   collected: { balls: [], photos: [], signs: [], zones: [] },
-  pos, time, day, settings: { quality, autoQuality, sound, music, muted, invertY, invertX, leftHanded, rain, camDist },
+  pos, time, day, settings: { quality, autoQuality, sound, music, muted, invertY, invertX, leftHanded, rain, camDist, spending },   // spending: real-money shop switch, false until a grown-up turns it on
   rides: {},        // rideId -> { x, z, yaw } for skateboards, canoes and vans left away from home (written by vehicles.js on beforeSave)
   flags: {},        // world flags (game.economy.setFlag), e.g. festival: true
   modules: {} }     // free-form per-module data
@@ -123,7 +442,8 @@ is not migrated.
 
 Out-of-range values are clamped on load (day >= 1, sound / music 0..1, camera
 distance, position inside the map, a non-numeric yaw becomes the spawn yaw).
-`game.save.reset()` writes a fresh state straight to storage without emitting
+`game.save.reset()` writes a fresh state (keeping `settings` and the module namespaces passed to
+`game.save.keepOnReset(id)`) straight to storage without emitting
 `beforeSave` and then refuses further saves, so the reload that follows starts
 at the spawn with "Play".
 
@@ -132,63 +452,16 @@ returns a live object inside `state.modules` (defaults are filled in for
 missing keys). Mutate it; call `game.save.save()` if you want it written now.
 `beforeSave` fires just before each write.
 
-## Registry API (also available as `game.api.*`)
+## Registry API, KC stats, cosmetics and the UI shell
 
-```js
-game.addMarker({ id, x, z | getPos(), icon, color, label, beacon: true, minimap: true, edge: true }) // -> { id, remove() }
-game.addInteractable({ id, x, z | getPos(), r, label | () => string, icon, prio, enabled(), onInteract() })
-game.addZone({ id, name, x, z, r } | { id, rect: [x0, z0, x1, z1] }, onEnter, onExit)   // emits enterZone / exitZone with custom: true
-game.setObjective({ x, z | getPos(), label, color } | null)   // compass tick, minimap dot, light pillar, distance readout
-game.spawnProp(kind, x, z, opts)   // any builder in scenery.js: bench, lamp, signpost {text}, stall {name, col, ry}, tent, crate, log,
-                                   // table, fence {x1, z1}, hedge, deck, flag, planter, bin, boulder, haybale, pumpkin {s, deco}, campfire,
-                                   // cart {name, col, ry}, noticeboard {title, ry}, stage {ry, col}, fountain {r}, agility, boat, railcar,
-                                   // building {w, d, h, col, roof, f, sign, kind}. Returns { mesh, colliders, remove() }
-game.addCarriable({ id, kind: 'ball'|'treat'|'stick'|'parcel', label, x, z, mesh?, onUse?, useLabel? })   // -> item with remove(), throwTo(x, z)
-game.npcs.addPed({ pts: [[x, z], ...], loop }, look?, name?)   // a walking person; add an interactable with getPos: () => ped to make a giver
-```
+All of these are documented with signatures and examples in **Module seams** above: the registry
+(`game.addMarker`, `addInteractable`, `addZone`, `setObjective`, `spawnProp`, `addCarriable`, also at `game.api.*`), modifiers,
+cosmetics, ride tuning and the screens in `game.ui`. Two details that live only here:
 
-Icons: `bone gem paw pause map camera jump bolt bark sit dig shake hand gear close ball whistle flag star`
-(`icon(name, size)` in `js/util.js`).
-
-### KC stats and cosmetics
-
-```js
-game.setModifier('upgrade:legs', { speed: 1.15, stamina: 1.5, jump: 1.2, magnet: 2, carry: 2, swim: 1.3, bones: 1.5 }) // values multiply across sources
-game.setModifier('upgrade:legs', null)                 // remove
-game.setCosmetic('bandana', 0xd9534f | null)           // colour or off
-game.setCosmetic('harness', 0x1f1f22)                  // null restores KC's black harness
-game.setCosmetic('collar', 0x3f7fd6)                   // null restores her blue collar
-game.setCosmetic('hat', 'cap' | { type: 'cap', color } | null)   // built in: cap, party, ranger, beanie, crown, pumpkin, flower
-game.kc.registerHat('myhat', (geo, color) => { /* add shapes to a Geo */ })
-game.setCosmetic('tag', 0xf0c040 | false)              // collar tag colour / hidden
-game.setCosmetic('trail', 0x7fd4ff | null)             // sparkle trail colour (sprint trail is always on)
-game.setSkin('skateboard' | 'canoe' | 'van', { primary: 0x.., secondary: 0x.. })
-```
-
-`speed` scales sprint fully and walk/run by its square root; `stamina` scales
-the stamina pool; `jump` scales jump height; `magnet` scales bone pickup
-radius; `carry` (floored) is how many items fit in her mouth/saddlebag;
-`bones` multiplies bones from pickups and dig spots. Cosmetics and modifiers
-are **not** persisted by the core: re-apply them from `state.equipped` /
-`state.upgrades` in your `init`.
-
-### UI shell (`game.ui`)
-
-```js
-const h = game.openModal({ id, title, html | node | render(body, handle), actions: [{ label, primary, danger, onClick, keepOpen }],
-                           onClose, wide, dismissable, pause })   // -> { body, close(), refresh(), setTitle() }
-game.closeModal(id?)            // modals stack: closing one shows the one underneath
-game.toast('text', { icon, kind: 'good'|'warn'|'gold', ms })
-game.ui.confirm(title, text, yesLabel, noLabel)   // -> Promise<boolean>
-game.ui.addMenuItem({ id, label, icon, order, onSelect })     // entry in the pause menu
-game.ui.addHudButton({ id, icon, label, title, onClick })     // button next to map / photo / pause
-game.ui.banner(title, sub), game.ui.fade(midpointFn), game.ui.map(), game.ui.pause(), game.ui.photoMode(true)
-```
-
-A modal with `pause: true` (the default) stops the simulation while open.
-Use the CSS classes in `style.css` (`.btn.go`, `.btn.alt`, `.menu`, `.set`,
-`.stats`) so new screens match. The wallet pill reads `state.wallet` and
-bumps on every `wallet` event.
+- An interactable is `{ id, x, z | getPos(), r, label | () => string, icon, prio, enabled(), onInteract() }`. The nearest enabled one
+  within its `r` wins; `prio` breaks ties (rides 5, carriables 3, people 2, dig spots 1). While KC is on a ride the prompt is "Hop off".
+- A marker is `{ id, x, z | getPos(), icon, color, label, beacon, minimap, edge, compass }`: `beacon` adds a light pillar within 170 units
+  (eight at most), `edge` keeps the dot pinned to the rim of the minimap when it is out of view, `compass` adds a pin on the compass.
 
 ## Events emitted by the core
 
@@ -213,12 +486,29 @@ bumps on every `wallet` event.
 | `scatter` | `{ id, kind: 'bird'|'duck'|'squirrel'|'chicken'|'sheep', count, byBark }` |
 | `bark`, `sit`, `shake`, `jump` | `{ x, z }` |
 | `digStart`, `dig` | `{ x, z }` (`dig` fires when the dig finishes) |
-| `swimStart`, `swimEnd`, `land`, `exhausted`, `respawn`, `teleport` | movement moments |
+| `swimStart`, `swimEnd`, `land`, `exhausted`, `respawn`, `teleport` | movement moments (`swimEnd` also fires when a teleport lifts her out of the water) |
 | `carry` / `drop` | `{ item, id, kind }` (+ `x, z` on drop); `eat` `{ id, kind }`; `throw`, `fetch` `{ id, value }` |
 | `honk` | `{ id }` a car, the van, the train (`'train'`) or the tram (`'tram'`) is waiting for someone |
 | `timeOfDay` | `{ phase: 'dawn'|'day'|'dusk'|'night', time, day }`; `dayChange` `{ day }`; `weather` `{ rain }` |
-| `photoMode` `{ on }`, `photoTaken` `{ x, z, zone }` | |
-| `objective`, `modalOpen`, `modalClose`, `toast`, `quality`, `modsChanged`, `cosmeticChanged`, `skinChanged`, `beforeSave`, `saved` | housekeeping |
+| `photoMode` `{ on }`, `photoTaken` `{ x, z, zone, frame, filter, stickers, zoom, pose }` | |
+| `boneCollected` | the `pickup` payload, for loose bones only (`kind: 'bone'`) |
+| `swim` / `ride` | `{ on, x, z }` / `{ on, id, kind }`: one event for both ends of `swimStart` / `swimEnd` and `vehicleEnter` / `vehicleExit` |
+| `talk` | `{ id, name }` KC talked to someone: a townsperson (`npcTalk`) or a person placed with `game.place.npc` |
+| `dayNight` | `{ night, phase, time, day }` when night falls (`night: true`) and when dawn breaks (`night: false`) |
+| `collect` | `{ id, kind, x, z }` a `game.place.pickup` was collected |
+| `followerJoin` / `followerLeave` | `{ id, name, dog, count }` (+ `reason`: `dismissed` or `timeout`) |
+| `modsChanged`, `modExpired` | the combined modifiers / `{ id }` a timed modifier ran out |
+| `tuningChanged` | `{ kind, tuning }` |
+| `equip` / `unequip` / `preview` | `{ slot, id }` / `{ slot }` / `{ slot, id | null }` (`cosmeticChanged`, `skinChanged` are the low-level versions) |
+| `runStart`, `runCheckpoint`, `runEnd` | `{ id, seconds, checkpoints }`, `{ id, index, total }`, `{ id, ok, time, left, reason }` |
+| `fastTravel` | `{ id, name, x, z, from: { x, z } }` |
+| `stageChanged` | `{ id, level }` a `game.place.staged` object changed level |
+| `purchase`, `spend`, `itemUsed` | `{ id, name, price, source }` after `confirmSpend` charged; `{ bones, gems, reason }`; `{ id, n, left }` |
+| `gate`, `spending`, `external` | `{ ok, reason }`; `{ on }`; `{ host }` a leaving link was opened |
+| `photoStyle`, `pose` | `game.photo.state()` after a frame / filter / sticker change; `{ name }` |
+| `shopTab`, `shopTabOpen` | `{ id }` a tab was registered / shown |
+| `modulesReady` | `{ names }` once, after all six `init` calls |
+| `objective`, `modalOpen`, `modalClose`, `toast`, `quality`, `cosmeticChanged`, `skinChanged`, `beforeSave`, `saved` | housekeeping |
 
 ## World data (`js/data.js`)
 

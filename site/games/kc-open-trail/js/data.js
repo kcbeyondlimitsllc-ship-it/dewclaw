@@ -218,7 +218,8 @@ export const BUILDINGS = [
   /* Columbia Blvd */
   ...[-420, -398, -302, -280, -258].flatMap(x => [house(x, -267, 's'), house(x, -233, 'n')]),
   /* St. Helens Street */
-  ...[-420, -398, -302, -280, -258, -236].map(x => house(x, -333, 'n')),
+  /* the two nearest S 1st Street sit further back: St. Helens Street angles south there */
+  ...[-420, -398, -302, -280, -258, -236].map(x => house(x === -236 ? -238 : x, x === -236 ? -328 : x === -258 ? -331 : -333, 'n')),
   ...[-420, -398, -376, -290, -268, -246].map(x => house(x, -367, 's')),
   shop('grocer', -238, -233, 'n', 'Houlton Corner Grocer', P.moss, 0xffffff, { w: 14 }),
   shop('laundry', -238, -267, 's', 'Sudsy Paws Laundromat', P.sky, 0x3f7fd6, { w: 14 }),
@@ -228,15 +229,15 @@ export const BUILDINGS = [
   { id: 'mill', x: -356, z: -28, w: 32, d: 22, h: 10, col: 0x8a8f96, roof: 'flat', f: 'e', sign: 'The Paper Mill', kind: 'mill' },
   { id: 'millshed', x: -362, z: -4, w: 18, d: 10, h: 5, col: 0x7a8088, roof: 'gable', f: 'e', kind: 'shed', roofCol: 0x5a5f66 },
   /* Scappoose */
-  shop('fuel', -292, 40, 'e', 'Scappoose Fuel & Treats', P.white, 0xd9534f, { roof: 'flat' }),
+  shop('fuel', -297, 40, 'e', 'Scappoose Fuel & Treats', P.white, 0xd9534f, { roof: 'flat' }),
   shop('feed', -288, 62, 'e', 'Peak Feed & Seed', P.barn, 0xffffff),
-  shop('pie', -279, 82, 'e', 'Blue Heron Pie Co.', P.butter, 0x3f7fd6),
+  shop('pie', -282, 80, 'e', 'Blue Heron Pie Co.', P.butter, 0x3f7fd6, { w: 12, d: 12 }),
   shop('antiques', -252, 46, 'w', 'Second Wind Antiques', P.sage, 0xe8d9a8),
   shop('bikes', -246, 68, 'w', 'Channel Cyclery', P.teal, 0xffd27a),
   house(-240, 92, 'w'), house(-306, 16, 'e'),
   /* Linnton */
   /* both stand well back from Highway 30, on the Forest Park side (an invented farm-supply shed and cafe, not modelled on any real shop) */
-  { id: 'linnton1', x: -184, z: 238, w: 20, d: 12, h: 6, col: 0x8a8f96, roof: 'gable', f: 's', sign: 'River Road Farm Supply', kind: 'cabin', roofCol: 0x5a5f66 },
+  { id: 'linnton1', x: -186, z: 244, w: 20, d: 12, h: 6, col: 0x8a8f96, roof: 'gable', f: 's', sign: 'River Road Farm Supply', kind: 'cabin', roofCol: 0x5a5f66 },
   { id: 'linnton2', x: -153, z: 293, w: 10, d: 14, h: 5, col: P.wood, roof: 'gable', f: 'e', sign: 'Trailhead Cafe', kind: 'cabin', roofCol: 0x3f5f3f },
   /* Sauvie Island */
   { id: 'barn', x: 76, z: 60, w: 20, d: 14, h: 8, col: P.barn, roof: 'gable', f: 'w', sign: 'Wapato Patch Farm', kind: 'barn', roofCol: 0x5a5a5e },
@@ -254,13 +255,13 @@ export const BUILDINGS = [
   block('twr4', -130, 468, 24, 30, 34, 0x8fa6b8, 'e'),
   block('twr5', -68, 490, 30, 20, 26, 0xb5563f, 'n', { sign: 'The Puddle Works', neon: true }),
   block('twr6', -28, 490, 26, 20, 18, 0xd8c8a4, 'n'),
-  shop('donut', -84, 322, 's', 'Good Dog Donuts', P.rose, 0xffffff, { w: 12, d: 12 }),
+  shop('donut', -89, 329, 's', 'Good Dog Donuts', P.rose, 0xffffff, { w: 12, d: 12 }),
   shop('ramen', -14, 322, 's', 'Umbrella Noodle Bar', P.navy, 0xd9534f, { w: 12, d: 12 }),
   /* east side */
   ...[284, 306, 328, 350].map(z => house(264, z, 'w')),
   ...[200, 222, 290].map(x => house(x, 487, 'n')),
   ...[196, 218, 240, 266, 288].map(x => house(x, 232, 's')),
-  shop('stjcafe', 222, 272, 'e', 'Span & Bean Cafe', P.mint, 0x4f6f3f, { w: 12, d: 12 }),
+  shop('stjcafe', 216, 273, 'e', 'Span & Bean Cafe', P.mint, 0x4f6f3f, { w: 12, d: 12 }),
   shop('stjbikes', 262, 262, 'w', 'Cathedral Cycle Works', P.ochre, 0x2f4f7f, { w: 12, d: 12 }),
   { id: 'training', x: 226, z: 372, w: 9, d: 7, h: 4, col: P.moss, roof: 'gable', f: 'w', sign: 'Trick School', kind: 'cabin', roofCol: 0x6a4a3a },
   { id: 'mansion', x: MANSION.x, z: MANSION.z, w: 26, d: 16, h: 9, col: 0xd8c8a4, f: 'e', sign: 'Pittock Mansion', kind: 'mansion' }
@@ -444,7 +445,7 @@ export const PHOTO_SPOTS = [
   { id: 'fogbell', x: -108, z: -222, name: 'The Old Fog Bell' }, { id: 'sand', x: -46, z: -226, name: 'Sand Island' }, { id: 'nobhill', x: -246, z: -130, name: 'Nob Hill Viewpoint' },
   { id: 'dalton', x: -196, z: -436, name: 'Dalton Lake' }, { id: 'quarry', x: -330, z: -426, name: 'The Old Quarry' }, { id: 'warrior', x: -30, z: -86, name: 'Warrior Rock Light' },
   { id: 'patch', x: 62, z: 74, name: 'Wapato Patch Farm' }, { id: 'stjohns', x: 12, z: 262, name: 'St. Johns Bridge' }, { id: 'cathedral', x: 150, z: 282, name: 'Cathedral Park' },
-  { id: 'square', x: -50, z: 446, name: 'Pioneer Courthouse Square' }, { id: 'waterfront', x: 40, z: 424, name: 'Waterfront Park' }, { id: 'mansion', x: -234, z: 452, name: 'Pittock Mansion Viewpoint' },
+  { id: 'square', x: -50, z: 446, name: 'Pioneer Courthouse Square' }, { id: 'waterfront', x: 40, z: 424, name: 'Waterfront Park' }, { id: 'mansion', x: -226, z: 456, name: 'Pittock Mansion Viewpoint' },
   { id: 'tabor', x: 360, z: 444, name: 'Mt. Tabor Summit' }
 ];
 export const SIGNPOSTS = [

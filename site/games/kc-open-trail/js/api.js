@@ -30,14 +30,25 @@ export function createApi(game) {
       bus.emit('grant', { ...out, source }); return out;
     },
     owns: id => !!state.owned[id],
+    /* how many of a countable item (treats and other things that get used up); 1 for a plain owned item, 0 for none */
+    count: id => { const v = state.owned[id]; return v === true ? 1 : Number.isFinite(v) && v > 0 ? Math.floor(v) : 0; },
+    /* use up n of an item: false (and nothing changes) if there are not that many. Emits `itemUsed` { id, n, left } */
+    use(id, n = 1) { n = Math.floor(n); const have = game.economy.count(id); if (!(n >= 1) || have < n) return false; const left = have - n; if (left <= 0) delete state.owned[id]; else state.owned[id] = left; bus.emit('itemUsed', { id, n, left }); return true; },
+    /* canAfford({ bones, gems }) and spend({ bones, gems }, reason): spend takes both or neither */
+    canAfford: price => ['bones', 'gems'].every(c => !(price && price[c] > 0) || game.wallet.can(c, price[c])),
+    spend(price, reason = '') { if (!price || !game.economy.canAfford(price)) return false; for (const c of ['bones', 'gems']) if (price[c] > 0 && !Number.isFinite(price[c])) return false; for (const c of ['bones', 'gems']) if (price[c] > 0) game.wallet.spend(c, Math.round(price[c]), reason); bus.emit('spend', { bones: Math.round(price.bones) || 0, gems: Math.round(price.gems) || 0, reason }); return true; },
     setFlag(key, value = true) { if (state.flags[key] === value) return value; state.flags[key] = value; bus.emit('flag', { key, value }); return value; },
     getFlag: key => state.flags[key]
   };
   /* ---- shop seam: tabs registered here appear in the Shop screen (pause menu) once there is at least one ---- */
   game.shop = {
     tabs: [],
-    registerTab(tab) { if (!tab || !tab.id) throw new Error('shop tab needs an id'); const i = game.shop.tabs.findIndex(t => t.id === tab.id); if (i >= 0) game.shop.tabs[i] = tab; else game.shop.tabs.push(tab); bus.emit('shopTab', { id: tab.id }); return () => { const k = game.shop.tabs.indexOf(tab); if (k >= 0) game.shop.tabs.splice(k, 1); }; },
-    open: id => game.ui && game.ui.shop && game.ui.shop(id)
+    /* registerTab({ id, title, icon?, order? (default 50, lower is further left), badge? (value or () => value), render(pane, game, handle) }) -> unregister() */
+    registerTab(tab) { if (!tab || !tab.id) throw new Error('shop tab needs an id'); const i = game.shop.tabs.findIndex(t => t.id === tab.id); if (i >= 0) game.shop.tabs[i] = tab; else game.shop.tabs.push(tab); bus.emit('shopTab', { id: tab.id }); game.shop.refresh(); return () => { const k = game.shop.tabs.indexOf(tab); if (k >= 0) game.shop.tabs.splice(k, 1); game.shop.refresh(); }; },
+    open: id => game.ui && game.ui.shop && game.ui.shop(id),
+    /* redraw the Shop screen if it is the screen on top (after a purchase, a new tab, a badge change) */
+    refresh() { const u = game.ui; if (u && u.current && u.current.id === 'shop') { if (game.shop.tabs.length) u.current.handle.refresh(); else u.closeModal('shop'); } },
+    get current() { return game.ui ? game.ui.shopTab || null : null; }
   };
 
   /* ---- interactables: { id, x, z | getPos(), r, label | () => string, icon, prio, enabled(), onInteract() } ---- */
@@ -47,7 +58,7 @@ export function createApi(game) {
   api.addMarker = o => { if (!o.id) o.id = 'm' + Math.random().toString(36).slice(2); markers.set(o.id, { minimap: true, color: '#ffb238', icon: 'paw', ...o }); return { id: o.id, remove: () => markers.delete(o.id) }; };
   api.removeMarker = id => markers.delete(id);
   /* ---- zones: { id, x, z, r } or { id, rect: [x0, z0, x1, z1] }, optional onEnter / onExit ---- */
-  api.addZone = o => { if (!o.id) o.id = 'z' + Math.random().toString(36).slice(2); zones.set(o.id, { ...o, inside: false }); return { id: o.id, remove: () => zones.delete(o.id) }; };
+  api.addZone = (o, onEnter, onExit) => { if (!o.id) o.id = 'z' + Math.random().toString(36).slice(2); zones.set(o.id, { ...o, onEnter: o.onEnter || onEnter, onExit: o.onExit || onExit, inside: false }); return { id: o.id, remove: () => zones.delete(o.id) }; };
   api.removeZone = id => zones.delete(id);
   /* ---- objective: { x, z | getPos(), label, color } or null ---- */
   api.setObjective = o => { api.objective = o || null; bus.emit('objective', api.objective); };
@@ -66,7 +77,7 @@ export function createApi(game) {
     /* zones */
     zoneT -= dt;
     if (zoneT <= 0) {
-      zoneT = 0.2;
+      zoneT = 0.12;
       const z = world.zoneAt(kc.pos.x, kc.pos.z);
       if (z !== api.zone) {
         if (api.zone) bus.emit('exitZone', { id: api.zone.id, name: api.zone.name, district: true });
@@ -77,7 +88,7 @@ export function createApi(game) {
       }
       for (const zn of zones.values()) {
         const inside = zn.rect ? kc.pos.x >= zn.rect[0] && kc.pos.z >= zn.rect[1] && kc.pos.x <= zn.rect[2] && kc.pos.z <= zn.rect[3] : Math.hypot(kc.pos.x - zn.x, kc.pos.z - zn.z) <= (zn.r || 5);
-        if (inside !== zn.inside) { zn.inside = inside; bus.emit(inside ? 'enterZone' : 'exitZone', { id: zn.id, name: zn.name, custom: true, zone: zn }); const cb = inside ? zn.onEnter : zn.onExit; if (cb) try { cb(zn); } catch (e) { console.error(e); } }
+        if (inside !== zn.inside) { zn.inside = inside; bus.emit(inside ? 'enterZone' : 'exitZone', { id: zn.id, name: zn.name, custom: true, zone: zn }); const cb = inside ? zn.onEnter : zn.onExit; if (cb) try { cb(zn); } catch (e) { console.error(e); } if (inside && zn.once) zones.delete(zn.id); }
       }
     }
     /* nearest interactable */
@@ -96,7 +107,7 @@ export function createApi(game) {
     }
     /* beacons */
     list.length = 0;
-    if (api.objective) { const p = posOf(api.objective); if (p) list.push({ x: p.x, z: p.z, c: api.objective.color || '#ffd23c', big: true }); }
+    if (api.objective) { const p = posOf(api.objective); if (p && Number.isFinite(p.x) && Number.isFinite(p.z)) list.push({ x: p.x, z: p.z, c: api.objective.color || '#ffd23c', big: true }); }
     for (const m of markers.values()) if (m.beacon && list.length < BN) { const p = posOf(m); if (p && Math.hypot(kc.pos.x - p.x, kc.pos.z - p.z) < 170) list.push({ x: p.x, z: p.z, c: m.color }); }
     for (let i = 0; i < list.length; i++) { const b = list[i], y = world.groundAt(b.x, b.z, 200), w = (b.big ? 1.5 : 1) * (1 + Math.sin(t * 3 + i) * 0.12); m4.makeScale(w, b.big ? 60 : 26, w); m4.setPosition(b.x, y, b.z); beams.setMatrixAt(i, m4); beams.setColorAt(i, col.set(b.c)); }
     beams.count = list.length; beams.instanceMatrix.needsUpdate = true; if (beams.instanceColor) beams.instanceColor.needsUpdate = true;
