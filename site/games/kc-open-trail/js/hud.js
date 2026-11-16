@@ -163,7 +163,16 @@ export function createHud(game) {
       const S = mm.width, span = 150, k = world.mapScale, sx = (kc.pos.x + EXT - span / 2) * k, sy = (kc.pos.z + EXT - span / 2) * k, sc = S / span, mx = wx => (wx - kc.pos.x) * sc + S / 2, mz = wz => (wz - kc.pos.z) * sc + S / 2;
       mctx.fillStyle = '#27402f'; mctx.fillRect(0, 0, S, S); mctx.drawImage(world.mapCanvas, sx, sy, span * k, span * k, 0, 0, S, S);
       const dot = (wx, wz, col, r, edge) => { let x = mx(wx), y = mz(wz); const out = x < 10 || y < 10 || x > S - 10 || y > S - 10; if (out && !edge) return; x = clamp(x, 12, S - 12); y = clamp(y, 12, S - 12); mctx.beginPath(); mctx.arc(x, y, out ? r * 0.75 : r, 0, 7); mctx.fillStyle = col; mctx.fill(); mctx.lineWidth = 2.5; mctx.strokeStyle = '#12261e'; mctx.stroke(); };
-      for (const r of game.vehicles.rides) if (r !== kc.ride) dot(r.x, r.z, r.kind === 'van' ? '#4fb0a8' : r.kind === 'canoe' ? '#d9534f' : '#f08a2a', 6);
+      /* district names that fall inside the view */
+      mctx.font = '800 17px system-ui, sans-serif'; mctx.textAlign = 'center'; mctx.textBaseline = 'middle'; mctx.lineWidth = 4; mctx.strokeStyle = 'rgba(16,34,27,.8)'; mctx.fillStyle = 'rgba(255,255,255,.95)';
+      for (const [name, lx, lz] of DISTRICT_LABELS) { const x = mx(lx), y = mz(lz); if (x < 40 || y < 22 || x > S - 40 || y > S - 14) continue; mctx.strokeText(name, x, y); mctx.fillText(name, x, y); }
+      /* icons: rides (van = box, canoe = hull, board = bar), photo spots (ring), ranger station (flag) */
+      const glyph = (wx, wz, kind, col) => { const x = mx(wx), y = mz(wz); if (x < 10 || y < 10 || x > S - 10 || y > S - 10) return; mctx.fillStyle = col; mctx.strokeStyle = '#12261e'; mctx.lineWidth = 2.5; mctx.beginPath();
+        if (kind === 'van') mctx.roundRect(x - 8, y - 6, 16, 12, 3); else if (kind === 'canoe') mctx.ellipse(x, y, 10, 4.5, -0.5, 0, 7); else if (kind === 'skateboard') mctx.roundRect(x - 9, y - 3, 18, 6, 3); else if (kind === 'flag') { mctx.moveTo(x - 5, y + 8); mctx.lineTo(x - 5, y - 9); mctx.lineTo(x + 8, y - 4); mctx.lineTo(x - 5, y + 1); } else mctx.arc(x, y, 6, 0, 7);
+        mctx.closePath(); mctx.fill(); mctx.stroke(); if (kind === 'photo') { mctx.beginPath(); mctx.arc(x, y, 2.4, 0, 7); mctx.fillStyle = '#12261e'; mctx.fill(); } };
+      for (const r of game.vehicles.rides) if (r !== kc.ride) glyph(r.x, r.z, r.kind, r.kind === 'van' ? '#4fb0a8' : r.kind === 'canoe' ? '#e0685f' : '#f08a2a');
+      for (const ps of PHOTO_SPOTS) glyph(ps.x, ps.z, 'photo', state.collected.photos.includes(ps.id) ? '#9aa39d' : '#ffd23c');
+      glyph(92, 62, 'flag', '#7fbf6f');
       for (const c of game.vehicles.cars) dot(c.x, c.z, '#dfe6ea', 4);
       for (const m of api.markers.values()) { if (m.minimap === false) continue; const q = m.getPos ? m.getPos() : m; if (q) dot(q.x, q.z, m.color, 8, m.edge); }
       if (M.chasing) dot(game.npcs.ranger.x, game.npcs.ranger.z, '#ff6a4a', 8, true);

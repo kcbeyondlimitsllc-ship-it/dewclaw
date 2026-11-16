@@ -169,7 +169,7 @@ export function createKC(game) {
     /* jump */
     coyote = kc.onGround ? 0.12 : coyote - dt;
     if (input.pressed.jump && !kc.frozen && kc.dig <= 0) {
-      if (kc.swimming) { /* little hop helps climb out onto banks and docks */ if (kc.vel.y <= 0.1) { kc.vel.y = 5.4; kc.pos.y += 0.05; kc.swimHop = 0.5; fx.burst('splash', kc.pos.x, WATER_Y, kc.pos.z, 6); } }
+      if (kc.swimming) { /* a hop out of the water helps her climb onto docks and banks */ if (!kc.hop) { kc.vel.y = 7.4; kc.hop = true; fx.burst('splash', kc.pos.x, WATER_Y, kc.pos.z, 6); game.audio.sfx('splash'); } }
       else if (coyote > 0) { kc.vel.y = b.jump * Math.sqrt(m.jump); kc.onGround = false; coyote = 0; kc.sit = false; state.stats.jumps++; game.audio.sfx('jump'); bus.emit('jump', { x: kc.pos.x, z: kc.pos.z }); }
     }
     /* integrate */
@@ -180,10 +180,14 @@ export function createKC(game) {
     let g = world.groundAt(kc.pos.x, kc.pos.z, kc.pos.y);
     if (kc.onGround && g - kc.pos.y > 0.62 + 0.05) { kc.pos.x = px; kc.pos.z = pz; g = world.groundAt(px, pz, kc.pos.y); kc.vel.x *= 0.3; kc.vel.z *= 0.3; }
     const deep = g < WATER_Y - 0.75;
-    if (kc.swimHop > 0) kc.swimHop -= dt;
-    if (deep && kc.pos.y <= WATER_Y - 0.3 && !(kc.swimHop > 0 && kc.vel.y > 0)) {
-      if (!kc.swimming) { kc.swimming = true; kc.onGround = false; kc.sit = false; state.stats.swims++; fx.burst('splash', kc.pos.x, WATER_Y, kc.pos.z, 14); game.audio.sfx('splash'); bus.emit('swimStart', { x: kc.pos.x, z: kc.pos.z }); }
-      kc.vel.y = 0; kc.pos.y = lerp(kc.pos.y, WATER_Y - 0.5, damp(8, dt)); kc.wet = 1;
+    if ((deep && kc.pos.y <= WATER_Y - 0.3) || (kc.swimming && kc.hop)) {
+      if (!kc.swimming) { kc.swimming = true; kc.hop = false; kc.onGround = false; kc.sit = false; state.stats.swims++; fx.burst('splash', kc.pos.x, WATER_Y, kc.pos.z, 14); game.audio.sfx('splash'); bus.emit('swimStart', { x: kc.pos.x, z: kc.pos.z }); }
+      kc.wet = 1;
+      if (kc.hop) {
+        kc.vel.y -= 22 * dt; kc.pos.y += kc.vel.y * dt; const gg = world.groundAt(kc.pos.x, kc.pos.z, kc.pos.y + 0.3);
+        if (gg > WATER_Y - 0.75 && kc.pos.y <= gg && kc.vel.y <= 0) { kc.pos.y = gg; kc.vel.y = 0; kc.hop = false; kc.swimming = false; kc.onGround = true; autoShake = 0.5; bus.emit('swimEnd', { x: kc.pos.x, z: kc.pos.z }); }
+        else if (kc.pos.y <= WATER_Y - 0.5 && kc.vel.y < 0) { kc.pos.y = WATER_Y - 0.5; kc.vel.y = 0; kc.hop = false; }
+      } else { kc.vel.y = 0; kc.pos.y = lerp(kc.pos.y, WATER_Y - 0.5, damp(8, dt)); }
       if (kc.speed > 1 && Math.random() < dt * 8) fx.burst('water', kc.pos.x - Math.sin(kc.yaw) * 0.5, WATER_Y, kc.pos.z - Math.cos(kc.yaw) * 0.5, 1, { up: 0.8, sp: 0.6 });
     } else {
       if (kc.swimming) { kc.swimming = false; autoShake = 0.5; bus.emit('swimEnd', { x: kc.pos.x, z: kc.pos.z }); }
@@ -207,7 +211,7 @@ export function createKC(game) {
     if (kc.onGround) { const f = world.heightAt(kc.pos.x + Math.sin(kc.yaw) * 0.5, kc.pos.z + Math.cos(kc.yaw) * 0.5), bk = world.heightAt(kc.pos.x - Math.sin(kc.yaw) * 0.5, kc.pos.z - Math.cos(kc.yaw) * 0.5); root.rotation.x = lerp(root.rotation.x, clamp(-Math.atan2(f - bk, 1), -0.5, 0.5) * (world.groundAt(kc.pos.x, kc.pos.z, kc.pos.y) > world.heightAt(kc.pos.x, kc.pos.z) + 0.05 ? 0 : 1), damp(10, dt)); }
     else root.rotation.x = lerp(root.rotation.x, 0, damp(6, dt));
     root.rotation.order = 'YXZ';
-    animateDog(parts, { t: kc.t, speed: kc.speed, phase: kc.phase, air: !kc.onGround && !kc.swimming, vy: kc.vel.y, swim: kc.swimming, sit: kc.sit, bark: kc.bark, dig: kc.dig, shake: kc.shake, pant: kc.exhausted || (kc.stamina < kc.staminaMax * 0.35 && !kc.sprinting), wag: kc.petT > 0 ? 1 : 0.2, carry: kc.carried.length > 0 }, dt);
+    animateDog(parts, { t: kc.t, speed: kc.speed, phase: kc.phase, air: !kc.onGround && (!kc.swimming || kc.hop), vy: kc.vel.y, swim: kc.swimming && !kc.hop, sit: kc.sit, bark: kc.bark, dig: kc.dig, shake: kc.shake, pant: kc.exhausted || (kc.stamina < kc.staminaMax * 0.35 && !kc.sprinting), wag: kc.petT > 0 ? 1 : 0.2, carry: kc.carried.length > 0 }, dt);
     if (!kc.swimming) fx.blob(kc.pos.x, world.groundAt(kc.pos.x, kc.pos.z, kc.pos.y + 0.2), kc.pos.z, 0.55 * clamp(1 - (kc.pos.y - g) * 0.25, 0.4, 1));
   };
   return kc;

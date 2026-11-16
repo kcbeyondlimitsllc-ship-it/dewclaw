@@ -1,0 +1,611 @@
+{
+ "readFrom": "https://kcbeyondlimits.com (public pages)",
+ "readOn": "2026-11-16",
+ "note": "Prices were sale prices on the read date and will change.",
+ "products": [
+  {
+   "id": "34341309",
+   "title": "KC River Logo Hooded Sweatshirt \u2014 KC Beyond Limits",
+   "cats": [
+    "mens-clothing",
+    "womens-clothing"
+   ],
+   "price": "29.71",
+   "was": "37.14",
+   "img": "https://images-api.printify.com/mockup/6af61c14bb59ca024d0db8f9/33419/98424/kc-river-logo-hooded-sweatshirt-kc-beyond-limits.jpg",
+   "url": "https://kcbeyondlimits.com/product/34341309"
+  },
+  {
+   "id": "34341331",
+   "title": "KC Beyond Limits Inspirational Logo Hoodie",
+   "cats": [
+    "mens-clothing",
+    "womens-clothing"
+   ],
+   "price": "39.71",
+   "was": "49.64",
+   "img": "https://images-api.printify.com/mockup/6af61c0b29d8ac3e6c0ba36f/32904/98424/kc-beyond-limits-inspirational-logo-hoodie.jpg",
+   "url": "https://kcbeyondlimits.com/product/34341331"
+  },
+  {
+   "id": "34395053",
+   "title": "KC Mountain Paw Youth Tee",
+   "cats": [
+    "kids-clothing"
+   ],
+   "price": "9.83",
+   "was": "12.29",
+   "img": "https://images-api.printify.com/mockup/6af781dac1e040f12b0aa04d/42742/105377/kc-mountain-paw-youth-tee.jpg",
+   "url": "https://kcbeyondlimits.com/product/34395053"
+  },
+  {
+   "id": "34395112",
+   "title": "KC Adventure Club Vinyl Decal",
+   "cats": [
+    "home-and-living"
+   ],
+   "price": "1.62",
+   "was": "2.03",
+   "img": "https://images-api.printify.com/mockup/6af78744a8eb50ee060caaff/95743/79460/kc-adventure-club-vinyl-decal.jpg",
+   "url": "https://kcbeyondlimits.com/product/34395112"
+  },
+  {
+   "id": "34395114",
+   "title": "KC Sunset Photo Acrylic Panel",
+   "cats": [
+    "home-and-living"
+   ],
+   "price": "19.52",
+   "was": "24.41",
+   "img": "https://images-api.printify.com/mockup/6af787040efbcd8aa20965bc/82057/110751/kc-sunset-photo-acrylic-panel.jpg",
+   "url": "https://kcbeyondlimits.com/product/34395114"
+  },
+  {
+   "id": "34395118",
+   "title": "KC River Logo Canvas Tote",
+   "cats": [
+    "accessories"
+   ],
+   "price": "14.52",
+   "was": "18.16",
+   "img": "https://images-api.printify.com/mockup/6af78679d8f95ddb070d4e37/103598/93895/kc-river-logo-canvas-tote.jpg",
+   "url": "https://kcbeyondlimits.com/product/34395118"
+  },
+  {
+   "id": "34395119",
+   "title": "KC Adventure Never Stops Garment-Dyed Tee",
+   "cats": [
+    "mens-clothing",
+    "womens-clothing"
+   ],
+   "price": "17.44",
+   "was": "21.81",
+   "img": "https://images-api.printify.com/mockup/6af7f0c24c5cb461210ac35b/73205/98445/kc-adventure-never-stops-garment-dyed-tee.jpg",
+   "url": "https://kcbeyondlimits.com/product/34395119"
+  },
+  {
+   "id": "34395120",
+   "title": "KC Mountain Paw Trail Travel Mug",
+   "cats": [
+    "accessories",
+    "home-and-living"
+   ],
+   "price": "26.00",
+   "was": "32.50",
+   "img": "https://images-api.printify.com/mockup/6af78641a8eb50ee060ca9f6/88210/59702/kc-mountain-paw-trail-travel-mug.jpg",
+   "url": "https://kcbeyondlimits.com/product/34395120"
+  },
+  {
+   "id": "34395121",
+   "title": "KC Adventure Club Christmas Gift Bag",
+   "cats": [
+    "home-and-living"
+   ],
+   "price": "23.84",
+   "was": "29.81",
+   "img": "https://images-api.printify.com/mockup/6af78605aa7a8b17d208e626/77030/19841/kc-adventure-club-christmas-gift-bag.jpg",
+   "url": "https://kcbeyondlimits.com/product/34395121"
+  },
+  {
+   "id": "34395128",
+   "title": "KC River Trail Christmas Gift Wrap",
+   "cats": [
+    "accessories",
+    "home-and-living"
+   ],
+   "price": "16.41",
+   "was": "20.52",
+   "img": "https://images-api.printify.com/mockup/6af7859caa7a8b17d208e5eb/147687/111688/kc-river-trail-christmas-gift-wrap.jpg",
+   "url": "https://kcbeyondlimits.com/product/34395128"
+  },
+  {
+   "id": "34395131",
+   "title": "KC Sunset Photo Christmas Ornament",
+   "cats": [
+    "home-and-living"
+   ],
+   "price": "9.00",
+   "was": "11.26",
+   "img": "https://images-api.printify.com/mockup/6af7854e45a65aa8f50e19dd/112959/110283/kc-sunset-photo-christmas-ornament.jpg",
+   "url": "https://kcbeyondlimits.com/product/34395131"
+  },
+  {
+   "id": "34395132",
+   "title": "KC River Pattern Pet Bed",
+   "cats": [
+    "accessories"
+   ],
+   "price": "112.27",
+   "was": "140.34",
+   "img": "https://images-api.printify.com/mockup/6af78475dbddd3ec260cc61c/61435/2620/kc-river-pattern-pet-bed.jpg",
+   "url": "https://kcbeyondlimits.com/product/34395132"
+  },
+  {
+   "id": "34395133",
+   "title": "KC Mountain Paw Dog Feeding Mat",
+   "cats": [
+    "accessories"
+   ],
+   "price": "23.24",
+   "was": "29.05",
+   "img": "https://images-api.printify.com/mockup/6af7846d41ef09295b07ba54/73844/18103/kc-mountain-paw-dog-feeding-mat.jpg",
+   "url": "https://kcbeyondlimits.com/product/34395133"
+  },
+  {
+   "id": "34395135",
+   "title": "KC Moon Compass Retractable Dog Leash",
+   "cats": [
+    "accessories"
+   ],
+   "price": "24.34",
+   "was": "30.43",
+   "img": "https://images-api.printify.com/mockup/6af7843472c3dfd8520d6430/150707/126682/kc-moon-compass-retractable-dog-leash.jpg",
+   "url": "https://kcbeyondlimits.com/product/34395135"
+  },
+  {
+   "id": "34395136",
+   "title": "KC Good Dogs Explore Further Pet Tank",
+   "cats": [
+    "accessories"
+   ],
+   "price": "31.92",
+   "was": "39.91",
+   "img": "https://images-api.printify.com/mockup/6af783eb402938d2d305ba33/71122/11882/kc-good-dogs-explore-further-pet-tank.jpg",
+   "url": "https://kcbeyondlimits.com/product/34395136"
+  },
+  {
+   "id": "34395138",
+   "title": "KC River Pattern Clip-On Dog Collar",
+   "cats": [
+    "accessories"
+   ],
+   "price": "19.76",
+   "was": "24.71",
+   "img": "https://images-api.printify.com/mockup/6af783e9402938d2d305ba2f/115593/112611/kc-river-pattern-clip-on-dog-collar.jpg",
+   "url": "https://kcbeyondlimits.com/product/34395138"
+  },
+  {
+   "id": "34395139",
+   "title": "KC Adventure Club Youth Crewneck",
+   "cats": [
+    "kids-clothing"
+   ],
+   "price": "29.94",
+   "was": "37.43",
+   "img": "https://images-api.printify.com/mockup/6af782c7c1e040f12b0aa128/94945/101396/kc-adventure-club-youth-crewneck.jpg",
+   "url": "https://kcbeyondlimits.com/product/34395139"
+  },
+  {
+   "id": "34395145",
+   "title": "KC Splash Youth Long-Sleeve Trail Tee",
+   "cats": [
+    "kids-clothing"
+   ],
+   "price": "22.63",
+   "was": "28.29",
+   "img": "https://images-api.printify.com/mockup/6af782c9dbddd3ec260cc50d/87645/108037/kc-splash-youth-long-sleeve-trail-tee.jpg",
+   "url": "https://kcbeyondlimits.com/product/34395145"
+  },
+  {
+   "id": "34395179",
+   "title": "KC River Logo Youth Pullover Hoodie",
+   "cats": [
+    "kids-clothing"
+   ],
+   "price": "27.99",
+   "was": "34.99",
+   "img": "https://images-api.printify.com/mockup/6af782c40efbcd8aa209626a/43919/107813/kc-river-logo-youth-pullover-hoodie.jpg",
+   "url": "https://kcbeyondlimits.com/product/34395179"
+  },
+  {
+   "id": "34399644",
+   "title": "KC Camp KC Christmas Snowflake Ornament",
+   "cats": [
+    "home-and-living"
+   ],
+   "price": "14.15",
+   "was": "17.69",
+   "img": "https://images-api.printify.com/mockup/6af7995221a7d15cbd00f5ee/68981/8351/kc-camp-kc-christmas-snowflake-ornament.jpg",
+   "url": "https://kcbeyondlimits.com/product/34399644"
+  },
+  {
+   "id": "34399666",
+   "title": "KC Golden Hour Laptop Sleeve",
+   "cats": [
+    "accessories"
+   ],
+   "price": "25.47",
+   "was": "31.84",
+   "img": "https://images-api.printify.com/mockup/6af79effa8eb50ee060cbd89/62039/3030/kc-golden-hour-laptop-sleeve.jpg",
+   "url": "https://kcbeyondlimits.com/product/34399666"
+  },
+  {
+   "id": "34399669",
+   "title": "KC Camp KC Accent Coffee Mug",
+   "cats": [
+    "home-and-living"
+   ],
+   "price": "8.89",
+   "was": "11.12",
+   "img": "https://images-api.printify.com/mockup/6af79ecadac4ab99400bad7e/72184/102752/kc-camp-kc-accent-coffee-mug.jpg",
+   "url": "https://kcbeyondlimits.com/product/34399669"
+  },
+  {
+   "id": "34399688",
+   "title": "KC Gold KC Compass Badge Christmas Ball Ornament",
+   "cats": [
+    "accessories",
+    "home-and-living"
+   ],
+   "price": "15.97",
+   "was": "19.97",
+   "img": "https://images-api.printify.com/mockup/6af79cddc1e040f12b0ab5b8/72878/16935/kc-gold-kc-compass-badge-christmas-ball-ornament.jpg",
+   "url": "https://kcbeyondlimits.com/product/34399688"
+  },
+  {
+   "id": "34399690",
+   "title": "KC Salt & Pine Christmas Aluminum Ornament",
+   "cats": [
+    "home-and-living"
+   ],
+   "price": "10.40",
+   "was": "13.00",
+   "img": "https://images-api.printify.com/mockup/6af79cba9629bbe85403c25d/102555/99017/kc-salt-pine-christmas-aluminum-ornament.jpg",
+   "url": "https://kcbeyondlimits.com/product/34399690"
+  },
+  {
+   "id": "34399692",
+   "title": "KC River Born Christmas Ribbon Ornament",
+   "cats": [
+    "home-and-living"
+   ],
+   "price": "17.14",
+   "was": "21.43",
+   "img": "https://images-api.printify.com/mockup/6af79c88aa7a8b17d208fac0/99089/98971/kc-river-born-christmas-ribbon-ornament.jpg",
+   "url": "https://kcbeyondlimits.com/product/34399692"
+  },
+  {
+   "id": "34399693",
+   "title": "KC Golden Hour Christmas Frosted Acrylic Ornament",
+   "cats": [
+    "home-and-living"
+   ],
+   "price": "9.47",
+   "was": "11.84",
+   "img": "https://images-api.printify.com/mockup/6af79ad49629bbe85403c0b8/462510/158066/kc-golden-hour-christmas-frosted-acrylic-ornament.jpg",
+   "url": "https://kcbeyondlimits.com/product/34399693"
+  },
+  {
+   "id": "34399694",
+   "title": "KC Forest Roam Christmas Snow Globe",
+   "cats": [
+    "home-and-living"
+   ],
+   "price": "18.32",
+   "was": "22.91",
+   "img": "https://images-api.printify.com/mockup/6af79a9a41ef09295b07cc19/110383/105546/kc-forest-roam-christmas-snow-globe.jpg",
+   "url": "https://kcbeyondlimits.com/product/34399694"
+  },
+  {
+   "id": "34399742",
+   "title": "KC Salt & Pine Striped Fleece Jacket",
+   "cats": [
+    "mens-clothing"
+   ],
+   "price": "85.47",
+   "was": "106.84",
+   "img": "https://images-api.printify.com/mockup/6af79e6c413f1f5f20010872/202528/155001/kc-salt-pine-striped-fleece-jacket.jpg",
+   "url": "https://kcbeyondlimits.com/product/34399742"
+  },
+  {
+   "id": "34399745",
+   "title": "Rain or Shine Dog Adventure Glass Ornament",
+   "cats": [
+    "home-and-living"
+   ],
+   "price": "7.71",
+   "was": "9.64",
+   "img": "https://images-api.printify.com/mockup/6af79bedaa7a8b17d208fa3f/149574/124234/rain-or-shine-dog-adventure-glass-ornament.jpg",
+   "url": "https://kcbeyondlimits.com/product/34399745"
+  },
+  {
+   "id": "34399746",
+   "title": "KC Squatch Country Stainless Trail Travel Mug",
+   "cats": [
+    "accessories",
+    "home-and-living"
+   ],
+   "price": "26.00",
+   "was": "32.50",
+   "img": "https://images-api.printify.com/mockup/6af7a0d1c1e040f12b0ab96d/88210/59702/kc-squatch-country-stainless-trail-travel-mug.jpg",
+   "url": "https://kcbeyondlimits.com/product/34399746"
+  },
+  {
+   "id": "34399747",
+   "title": "KC Lake Days Christmas Flannel Stocking",
+   "cats": [
+    "home-and-living"
+   ],
+   "price": "5.43",
+   "was": "6.79",
+   "img": "https://images-api.printify.com/mockup/6af79be2aa7a8b17d208fa36/112828/127701/kc-lake-days-christmas-flannel-stocking.jpg",
+   "url": "https://kcbeyondlimits.com/product/34399747"
+  },
+  {
+   "id": "34399748",
+   "title": "KC Gold KC Compass Badge Vinyl Decal",
+   "cats": [
+    "accessories",
+    "home-and-living"
+   ],
+   "price": "1.62",
+   "was": "2.03",
+   "img": "https://images-api.printify.com/mockup/6af7a0d1aa7a8b17d208fecb/95743/79460/kc-gold-kc-compass-badge-vinyl-decal.jpg",
+   "url": "https://kcbeyondlimits.com/product/34399748"
+  },
+  {
+   "id": "34399749",
+   "title": "KC Salt & Pine Tough Phone Case",
+   "cats": [
+    "accessories"
+   ],
+   "price": "24.79",
+   "was": "30.99",
+   "img": "https://images-api.printify.com/mockup/6af7a0a245a65aa8f50e3167/112812/106394/kc-salt-pine-tough-phone-case.jpg",
+   "url": "https://kcbeyondlimits.com/product/34399749"
+  },
+  {
+   "id": "34399751",
+   "title": "KC Rain or Shine Cotton Canvas Tote",
+   "cats": [
+    "accessories"
+   ],
+   "price": "14.52",
+   "was": "18.16",
+   "img": "https://images-api.printify.com/mockup/6af7a02245a65aa8f50e30c9/103598/93895/kc-rain-or-shine-cotton-canvas-tote.jpg",
+   "url": "https://kcbeyondlimits.com/product/34399751"
+  },
+  {
+   "id": "34399757",
+   "title": "KC Golden Hour Accent Coffee Mug",
+   "cats": [
+    "home-and-living"
+   ],
+   "price": "8.89",
+   "was": "11.12",
+   "img": "https://images-api.printify.com/mockup/6af79feef341e569cc003096/72184/102752/kc-golden-hour-accent-coffee-mug.jpg",
+   "url": "https://kcbeyondlimits.com/product/34399757"
+  },
+  {
+   "id": "34399759",
+   "title": "KC Squatch Country Round Vinyl Sticker",
+   "cats": [
+    "home-and-living"
+   ],
+   "price": "3.80",
+   "was": "4.76",
+   "img": "https://images-api.printify.com/mockup/6af79f8cf341e569cc00303c/70875/11701/kc-squatch-country-round-vinyl-sticker.jpg",
+   "url": "https://kcbeyondlimits.com/product/34399759"
+  },
+  {
+   "id": "34399760",
+   "title": "KC Salt & Pine Car Magnet",
+   "cats": [
+    "accessories",
+    "home-and-living"
+   ],
+   "price": "4.41",
+   "was": "5.52",
+   "img": "https://images-api.printify.com/mockup/6af79f5c45a65aa8f50e300a/105489/102252/kc-salt-pine-car-magnet.jpg",
+   "url": "https://kcbeyondlimits.com/product/34399760"
+  },
+  {
+   "id": "34399763",
+   "title": "KC River Born Can Cooler Sleeve",
+   "cats": [
+    "home-and-living"
+   ],
+   "price": "10.96",
+   "was": "13.71",
+   "img": "https://images-api.printify.com/mockup/6af79f5adf0eb60f9209a440/72422/15674/kc-river-born-can-cooler-sleeve.jpg",
+   "url": "https://kcbeyondlimits.com/product/34399763"
+  },
+  {
+   "id": "34399764",
+   "title": "KC Gold KC Compass Badge Ceramic Coffee Mug",
+   "cats": [
+    "home-and-living"
+   ],
+   "price": "11.92",
+   "was": "14.90",
+   "img": "https://images-api.printify.com/mockup/6af79f869629bbe85403c4b3/67624/7674/kc-gold-kc-compass-badge-ceramic-coffee-mug.jpg",
+   "url": "https://kcbeyondlimits.com/product/34399764"
+  },
+  {
+   "id": "34399765",
+   "title": "KC Forest Roam Tough Phone Case",
+   "cats": [
+    "accessories"
+   ],
+   "price": "15.47",
+   "was": "19.34",
+   "img": "https://images-api.printify.com/mockup/6af79eff41ef09295b07cf6c/423467/152214/kc-forest-roam-tough-phone-case.jpg",
+   "url": "https://kcbeyondlimits.com/product/34399765"
+  },
+  {
+   "id": "34399766",
+   "title": "KC Lake Days Cotton Canvas Tote",
+   "cats": [
+    "accessories"
+   ],
+   "price": "14.52",
+   "was": "18.16",
+   "img": "https://images-api.printify.com/mockup/6af79f2d0cd4ff7bf9005916/103598/93895/kc-lake-days-cotton-canvas-tote.jpg",
+   "url": "https://kcbeyondlimits.com/product/34399766"
+  },
+  {
+   "id": "34399769",
+   "title": "KC Rain or Shine Mouse Pad",
+   "cats": [
+    "accessories",
+    "home-and-living"
+   ],
+   "price": "6.82",
+   "was": "8.53",
+   "img": "https://images-api.printify.com/mockup/6af79f2d413f1f5f2001091d/71923/13136/kc-rain-or-shine-mouse-pad.jpg",
+   "url": "https://kcbeyondlimits.com/product/34399769"
+  },
+  {
+   "id": "34399811",
+   "title": "KC Follow The River Christmas Metal Ornament",
+   "cats": [
+    "home-and-living"
+   ],
+   "price": "6.55",
+   "was": "8.19",
+   "img": "https://images-api.printify.com/mockup/6af799c421a7d15cbd00f668/91407/59754/kc-follow-the-river-christmas-metal-ornament.jpg",
+   "url": "https://kcbeyondlimits.com/product/34399811"
+  },
+  {
+   "id": "34399813",
+   "title": "KC Camp KC Dog Tank",
+   "cats": [
+    "accessories"
+   ],
+   "price": "31.92",
+   "was": "39.91",
+   "img": "https://images-api.printify.com/mockup/6af799cf413f1f5f20010415/71122/11882/kc-camp-kc-dog-tank.jpg",
+   "url": "https://kcbeyondlimits.com/product/34399813"
+  },
+  {
+   "id": "34459415",
+   "title": "KC Rain or Shine Kids Tee",
+   "cats": [
+    "kids-clothing"
+   ],
+   "price": "18.40",
+   "was": "23.00",
+   "img": "https://images-api.printify.com/mockup/6af92d444643b0e305098046/34986/266/kc-rain-or-shine-kids-tee.jpg",
+   "url": "https://kcbeyondlimits.com/product/34459415"
+  },
+  {
+   "id": "34459417",
+   "title": "KC Camp KC Kids Tee",
+   "cats": [
+    "kids-clothing"
+   ],
+   "price": "9.60",
+   "was": "12.00",
+   "img": "https://images-api.printify.com/mockup/6af92d3cb61526d23d05d1f5/42772/105377/kc-camp-kc-kids-tee.jpg",
+   "url": "https://kcbeyondlimits.com/product/34459417"
+  },
+  {
+   "id": "34459419",
+   "title": "KC Squatch Country Youth Hoodie",
+   "cats": [
+    "kids-clothing"
+   ],
+   "price": "36.00",
+   "was": "45.00",
+   "img": "https://images-api.printify.com/mockup/6af92d3e4643b0e30509803c/43918/107813/kc-squatch-country-youth-hoodie.jpg",
+   "url": "https://kcbeyondlimits.com/product/34459419"
+  },
+  {
+   "id": "34459420",
+   "title": "KC Follow The River Youth Crewneck Sweatshirt",
+   "cats": [
+    "kids-clothing"
+   ],
+   "price": "26.40",
+   "was": "33.00",
+   "img": "https://images-api.printify.com/mockup/6af92d40626b8d7aa001b2ed/104051/101396/kc-follow-the-river-youth-crewneck-sweatshirt.jpg",
+   "url": "https://kcbeyondlimits.com/product/34459420"
+  },
+  {
+   "id": "34459421",
+   "title": "KC Lake Days Toddler Tee",
+   "cats": [
+    "kids-clothing"
+   ],
+   "price": "14.40",
+   "was": "18.00",
+   "img": "https://images-api.printify.com/mockup/6af92d42948a470d5206f780/74427/99201/kc-lake-days-toddler-tee.jpg",
+   "url": "https://kcbeyondlimits.com/product/34459421"
+  },
+  {
+   "id": "34460071",
+   "title": "KC Adventure Never Stops Snapback Trucker Cap",
+   "cats": [
+    "accessories"
+   ],
+   "price": "28.80",
+   "was": "36.00",
+   "img": "https://images-api.printify.com/mockup/6af93784c745d035040ec21f/105362/102226/kc-adventure-never-stops-snapback-trucker-cap.jpg",
+   "url": "https://kcbeyondlimits.com/product/34460071"
+  },
+  {
+   "id": "34460072",
+   "title": "KC Mountain Paw Dad Cap",
+   "cats": [
+    "accessories"
+   ],
+   "price": "32.00",
+   "was": "40.00",
+   "img": "https://images-api.printify.com/mockup/6af93789c745d035040ec22d/105372/102307/kc-mountain-paw-dad-cap.jpg",
+   "url": "https://kcbeyondlimits.com/product/34460072"
+  },
+  {
+   "id": "34460075",
+   "title": "KC PNW Adventure Club Flat Bill Snapback",
+   "cats": [
+    "accessories"
+   ],
+   "price": "20.79",
+   "was": "25.99",
+   "img": "https://images-api.printify.com/mockup/6af9378d948a470d520704e7/109555/104885/kc-pnw-adventure-club-flat-bill-snapback.jpg",
+   "url": "https://kcbeyondlimits.com/product/34460075"
+  },
+  {
+   "id": "34460076",
+   "title": "KC Compass Knit Beanie",
+   "cats": [
+    "accessories"
+   ],
+   "price": "21.59",
+   "was": "26.99",
+   "img": "https://images-api.printify.com/mockup/6af93791ca5d307abc018d86/118230/109442/kc-compass-knit-beanie.jpg",
+   "url": "https://kcbeyondlimits.com/product/34460076"
+  },
+  {
+   "id": "34460077",
+   "title": "KC Mountain Paw Pom-Pom Beanie",
+   "cats": [
+    "accessories"
+   ],
+   "price": "19.70",
+   "was": null,
+   "img": "https://images-api.printify.com/mockup/6af93795383728621d014903/119211/109602/kc-mountain-paw-pom-pom-beanie.jpg",
+   "url": "https://kcbeyondlimits.com/product/34460077"
+  }
+ ]
+}
