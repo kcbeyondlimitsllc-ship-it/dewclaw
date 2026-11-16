@@ -1,8 +1,9 @@
 /* Slow, polite traffic that always yields, plus the things KC can ride:
-   skateboards, canoes and the camper van her human drives (KC rides shotgun,
-   the player steers). Hop on / hop off is the interact button. */
+   skateboards, canoes and the camper van her human drives (KC rides up front,
+   the player steers), the Heron Line tram she can board at its two stops, and
+   the freight train on the Highway 30 line. Hop on / hop off is the interact button. */
 import { THREE, Geo, clamp, lerp, lerpAngle, angDiff, damp, smoothPath, TAU } from './util.js';
-import { RIDEABLES, TRAFFIC, ROADS, WATER_Y, HALF } from './data.js';
+import { RIDEABLES, TRAFFIC, ROADS, WATER_Y, HALF, TRAIN, TRAM } from './data.js';
 import { dogMaterial } from './kc.js';
 
 const wheel = (g, x, y, z, r, w = 0.28) => { const m = g.m ? g.m.clone() : new THREE.Matrix4(); const keep = g.m; g.m = m.clone().multiply(new THREE.Matrix4().makeTranslation(x, y, z)).multiply(new THREE.Matrix4().makeRotationZ(Math.PI / 2)); g.cyl(0, -w / 2, 0, r, r, w, 8, 0x26262a, 0x9a9aa0); g.m = keep; };
@@ -14,6 +15,25 @@ function carGeo(style, col) {
   else { g.box(0, 1.15, 0, 1.9, 1.6, 4.4, col); g.box(0, 1.5, 2.21, 1.6, 0.6, 0.05, glass); for (const s of [-1, 1]) { g.box(s * 0.96, 1.5, 1.4, 0.04, 0.6, 1.0, glass); g.box(s * 0.96, 1.0, -0.4, 0.04, 0.35, 2.6, 0x3f7fd6); } }
   const L = style === 'hatch' ? 1.2 : style === 'pickup' ? 1.5 : 1.4;
   for (const s of [-1, 1]) { wheel(g, s * 0.92, 0.38, L, 0.38); wheel(g, s * 0.92, 0.38, -L, 0.38); const f = style === 'hatch' ? 1.96 : style === 'pickup' ? 2.31 : 2.21; g.box(s * 0.6, 0.78, f, 0.34, 0.2, 0.04, 0xfff3c0); g.box(s * 0.6, 0.78, -f, 0.34, 0.18, 0.04, 0xd94040); }
+  return g.build();
+}
+/* freight stock and the tram: plain colour bands, invented livery, no lettering or logos */
+function railcarGeo(loco, col) {
+  const g = new Geo(), cream = 0xf4ead8, dark = 0x2a2c30;
+  g.box(0, 0.75, 0, 2.4, 0.5, 12, dark);
+  if (loco) { g.box(0, 2.3, -1.5, 2.6, 2.6, 8, col); g.box(0, 3.0, 4, 2.7, 3.4, 3, col); g.box(0, 3.6, 5.52, 2.2, 1.0, 0.06, 0x2c3a48); for (const s of [-1, 1]) g.box(s * 1.36, 3.6, 4, 0.04, 1.0, 1.8, 0x2c3a48); g.box(0, 2.3, -1.5, 2.66, 0.5, 8.04, cream); g.cyl(0, 3.6, -3.5, 0.4, 0.5, 0.8, 8, dark); g.box(0, 1.25, 5.56, 2.2, 0.34, 0.14, 0xf0c040); for (const s of [-0.7, 0.7]) g.box(s, 2.1, 5.52, 0.3, 0.3, 0.06, 0xfff3c0); }
+  else { g.box(0, 2.6, 0, 2.6, 3.2, 11.4, col); g.box(0, 2.6, 0, 2.66, 0.5, 11.44, cream); for (const s of [-1, 1]) g.box(s * 1.32, 2.4, 0, 0.06, 2.4, 2.6, 0x5a5f66); }
+  for (const t of [-4, 4]) for (const s of [-1, 1]) wheel(g, s * 0.82, 0.5, t, 0.5, 0.2);
+  return g.build();
+}
+function tramGeo() {
+  const g = new Geo(), teal = 0x3f8f8a, cream = 0xf4ead8, glass = 0x2c3a48;
+  g.box(0, 0.45, 0, 2.5, 0.3, 10.4, 0x2a2c30); g.box(0, 0.72, 0, 2.6, 0.24, 10.2, teal);
+  for (const e of [-1, 1]) { g.box(0, 1.5, e * 3.5, 2.6, 1.3, 3.2, teal); g.box(0, 2.55, e * 3.5, 2.6, 0.8, 3.2, cream); g.box(0, 2.5, e * 5.11, 2.1, 0.8, 0.05, glass); for (const s of [-1, 1]) g.box(s * 1.31, 2.5, e * 3.5, 0.04, 0.7, 2.6, glass); g.box(0, 1.2, e * 5.12, 1.2, 0.28, 0.06, 0xfff3c0); }
+  /* open middle platform: KC rides here where everyone can see her */
+  for (const s of [-1, 1]) for (const e of [-1, 1]) g.box(s * 1.22, 1.9, e * 1.85, 0.12, 2.1, 0.12, cream); for (const s of [-1, 1]) g.box(s * 1.24, 1.45, 0, 0.06, 0.08, 3.6, 0xf0c040);
+  g.box(0, 3.02, 0, 2.7, 0.16, 10.3, cream, 0x5fa39d); g.box(0, 3.3, 0, 0.5, 0.4, 1.6, 0x5a5f66);
+  for (const t of [-3.4, 3.4]) for (const s of [-1, 1]) wheel(g, s * 0.82, 0.36, t, 0.36, 0.2);
   return g.build();
 }
 const SKINS = {
@@ -53,7 +73,7 @@ function rideGeo(kind, skin) {
 const CFG = {
   skateboard: { max: 13, acc: 8, turn: 3.4, r: 0.5, seat: [0, 0.2, -0.05], camY: 1.2, camDist: 0.6, label: 'Hop on the skateboard', name: 'Skateboard', land: true },
   canoe: { max: 7.5, acc: 4, turn: 2.0, r: 0.8, seat: [0, 0.02, 0.2], camY: 1.2, camDist: 1.5, label: 'Hop in the canoe', name: 'Canoe', water: true },
-  van: { max: 19, acc: 6.5, turn: 1.7, r: 1.75, seat: [0.5, 1.12, 0.9], camY: 2.4, camDist: 4, label: 'Ride shotgun in the van', name: 'Camper van', land: true }
+  van: { max: 19, acc: 6.5, turn: 1.7, r: 1.75, seat: [0.5, 1.12, 0.9], camY: 2.4, camDist: 4, label: 'Hop in the van', name: 'Camper van', land: true }
 };
 
 export function createVehicles(game) {
@@ -117,10 +137,10 @@ export function createVehicles(game) {
   const okLand = (x, z, y, van) => { const g = world.groundAt(x, z, y + 0.3); return g > WATER_Y - 0.3 && g - y < 0.9 && (!van || world.slopeAt(x, z) < 0.8); };
   const okWater = (x, z) => world.heightAt(x, z) < WATER_Y - 0.42;
   V.enter = id => {
-    const r = V.rides.find(v => v.id === id); if (!r || kc.ride) return false;
-    while (kc.carried.length && r.kind !== 'van') kc.drop();
+    const r = V.rides.find(v => v.id === id) || (id === 'tram' ? tram : null); if (!r || kc.ride) return false;
+    while (kc.carried.length && r.kind !== 'van' && r.kind !== 'tram') kc.drop();
     kc.ride = r; r.active = true; r.speed = 0; kc.sit = false; kc.vel.set(0, 0, 0); kc.swimming = false; kc.onGround = true; state.stats.rides++;
-    game.audio.sfx(r.kind === 'van' ? 'door' : 'pickup'); game.cam.manualT = 9;
+    game.audio.sfx(r.kind === 'van' || r.kind === 'tram' ? 'door' : 'pickup'); game.cam.manualT = 9;
     bus.emit('vehicleEnter', { id: r.id, kind: r.kind }); return true;
   };
   V.exit = (silent) => {
@@ -133,6 +153,11 @@ export function createVehicles(game) {
     if (!silent) { game.audio.sfx(r.kind === 'van' ? 'door' : 'jump'); bus.emit('vehicleExit', { id: r.id, kind: r.kind, x: r.x, z: r.z }); }
     return true;
   };
+  /* rides stay where they were left: positions of moved rides are saved (state.rides) and restored if the spot is still sound */
+  for (const r of V.rides) { const sv = state.rides && state.rides[r.id]; if (!sv || !Number.isFinite(sv.x) || !Number.isFinite(sv.z)) continue;
+    const g = world.groundAt(sv.x, sv.z, 200), ok = r.cfg.water ? okWater(sv.x, sv.z) : world.heightAt(sv.x, sv.z) > WATER_Y + 0.15 || g > WATER_Y + 0.5;
+    if (ok && Math.abs(sv.x) < HALF - 4 && Math.abs(sv.z) < HALF - 4) { r.x = sv.x; r.z = sv.z; r.yaw = Number.isFinite(sv.yaw) ? sv.yaw : r.home.yaw; r.y = r.cfg.water ? WATER_Y : g; syncMesh(r, 1); } }
+  bus.on('beforeSave', s => { s.rides = {}; for (const r of V.rides) if (Math.hypot(r.x - r.home.x, r.z - r.home.z) > 1.5) s.rides[r.id] = { x: +r.x.toFixed(2), z: +r.z.toFixed(2), yaw: +r.yaw.toFixed(2) }; });
   V.setSkin = (kind, skin) => { V.skins[kind] = { ...V.skins[kind], ...skin }; for (const r of V.rides) if (r.kind === kind) { r.mesh.geometry.dispose(); r.mesh.geometry = rideGeo(kind, V.skins[kind]); } bus.emit('skinChanged', { kind, skin: V.skins[kind] }); };
   V.byId = id => V.rides.find(v => v.id === id);
   V.reset = id => { for (const r of V.rides) if ((!id || r.id === id) && kc.ride !== r) { r.x = r.home.x; r.z = r.home.z; r.yaw = r.home.yaw; r.y = r.cfg.water ? WATER_Y : world.groundAt(r.x, r.z, 200); r.speed = 0; syncMesh(r, 1); } };
@@ -144,7 +169,7 @@ export function createVehicles(game) {
       if (Math.hypot(r.x - r.home.x, r.z - r.home.z) > 60 && Math.hypot(kc.pos.x - r.x, kc.pos.z - r.z) > 130) V.reset(r.id);
       if (cfg.water) { r.y = WATER_Y + Math.sin(r.t * 1.6) * 0.03; r.roll = Math.sin(r.t * 1.1) * 0.03; }
       r.mesh.visible = Math.hypot(kc.pos.x - r.x, kc.pos.z - r.z) < 170; if (r.mesh.visible) { syncMesh(r, dt); if (!cfg.water) fx.blob(r.x, r.y, r.z, cfg.r * 1.1); }
-      if (r.kind === 'van' && !kc.ride) { const dx = kc.pos.x - r.x, dz = kc.pos.z - r.z, d = Math.hypot(dx, dz); if (d < 2.1 && d > 0.01 && Math.abs(kc.pos.y - r.y) < 1.5) { kc.pos.x = r.x + (dx / d) * 2.1; kc.pos.z = r.z + (dz / d) * 2.1; } }
+      if (r.kind === 'van' && !kc.ride) { let dx = kc.pos.x - r.x, dz = kc.pos.z - r.z, d = Math.hypot(dx, dz); if (d <= 0.01) { dx = Math.cos(r.yaw); dz = -Math.sin(r.yaw); d = 1; } if (d < 2.1 && Math.abs(kc.pos.y - r.y) < 1.5) { kc.pos.x = r.x + (dx / d) * 2.1; kc.pos.z = r.z + (dz / d) * 2.1; } }
       return;
     }
     const cy = game.cam.yaw, sy = Math.sin(cy), cc = Math.cos(cy), mx = input.moveX, my = input.moveY, mag = Math.min(1, Math.hypot(mx, my));
@@ -189,14 +214,72 @@ export function createVehicles(game) {
     if (r.kind === 'van') game.audio.engine(Math.abs(r.speed) / cfg.max);
   }
 
+  /* ---------------- transit: the freight train and the Heron Line tram. Both stop for anyone on the track ---------------- */
+  const railP = (() => { const pts = world.rail, cum = [0]; for (let i = 0; i < pts.length - 1; i++) cum.push(cum[i] + Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1])); return { pts, cum, len: cum[cum.length - 1] }; })();
+  const railAt = (s, out) => { const P = railP; s = clamp(s, 0, P.len); let i = out.i || 0; if (i > P.pts.length - 2 || P.cum[i] > s) i = 0; while (i < P.pts.length - 2 && P.cum[i + 1] < s) i++; out.i = i; const a = P.pts[i], b = P.pts[i + 1], f = (s - P.cum[i]) / Math.max(1e-6, P.cum[i + 1] - P.cum[i]); out.x = lerp(a[0], b[0], f); out.z = lerp(a[1], b[1], f); out.yaw = Math.atan2(b[0] - a[0], b[1] - a[1]); return out; };
+  const pushKC = (x, z, y, rad) => { if (kc.ride) return; const dx = kc.pos.x - x, dz = kc.pos.z - z, d = Math.hypot(dx, dz); if (d < rad && d > 0.01 && Math.abs(kc.pos.y - y) < 3.2) { kc.pos.x = x + (dx / d) * rad; kc.pos.z = z + (dz / d) * rad; } };
+  /* is anyone (not part of `self`) within `rad` of a point? */
+  const someoneAt = (x, z, rad, self) => { for (const o of obstacles) { if (o.owner === self || (o.isKC && kc.ride === self)) continue; if ((o.x - x) ** 2 + (o.z - z) ** 2 < (rad + (o.r || 0.4)) ** 2) return o; } return null; };
+  const CARCOL = [0x4f8a84, 0xa8604a, 0x5f7f9f, 0x8a7a4a, 0x3f6f6a], tp = {};
+  const train = { id: 'train', kind: 'train', name: 'Freight train', x: 0, z: 0, s: 0, dir: 1, speed: 0, wait: TRAIN.dwell * 0.4, honkT: 0, cars: [], circles: [] };
+  train.sMin = TRAIN.from + TRAIN.cars * TRAIN.gap; train.sMax = railP.len - TRAIN.endPad; train.s = train.sMin + (train.sMax - train.sMin) * 0.62;
+  for (let i = 0; i < TRAIN.cars; i++) { const mesh = new THREE.Mesh(railcarGeo(i === 0, CARCOL[i % CARCOL.length]), mat); mesh.name = 'train-' + i; scene.add(mesh); const car = { mesh, x: 0, z: 0, y: 0, yaw: 0, i: 0 }; train.cars.push(car); for (const t of [-4, 0, 4]) train.circles.push({ car, t, x: 0, z: 0, r: 1.7, owner: train, isTrain: true }); }
+  function placeTrain() {
+    for (let i = 0; i < train.cars.length; i++) { const c = train.cars[i]; railAt(train.s - 6 - i * TRAIN.gap, c); c.y = world.heightAt(c.x, c.z) + 0.14; }
+    for (const q of train.circles) { q.x = q.car.x + Math.sin(q.car.yaw) * q.t; q.z = q.car.z + Math.cos(q.car.yaw) * q.t; }
+    train.x = train.cars[0].x; train.z = train.cars[0].z;
+  }
+  function updateTrain(dt) {
+    const T = train;
+    if (T.wait > 0) { T.wait -= dt; T.speed = 0; if (T.wait <= 0) T.dir = T.s > (T.sMin + T.sMax) / 2 ? -1 : 1; }
+    else {
+      const left = T.dir > 0 ? T.sMax - T.s : T.s - T.sMin, lead = T.dir > 0 ? T.s : T.s - TRAIN.cars * TRAIN.gap; let target = Math.min(TRAIN.speed, Math.sqrt(Math.max(0, 2 * 0.9 * left)) + 0.25), blocked = null;
+      for (const a of [1.5, 5, 9, 13]) { railAt(lead + T.dir * a, tp); blocked = someoneAt(tp.x, tp.z, 2.0, T); if (blocked) break; }
+      if (blocked) { target = 0; T.honkT -= dt; if (T.honkT <= 0 && T.speed < 0.5) { T.honkT = 6; if (Math.hypot(kc.pos.x - T.x, kc.pos.z - T.z) < 90) game.audio.sfx('honk', { vol: 0.5 }); bus.emit('honk', { id: 'train' }); } }
+      T.speed += clamp(target - T.speed, -(blocked ? 9 : 2.4) * dt, 0.9 * dt); if (T.speed < 0) T.speed = 0;
+      T.s = clamp(T.s + T.dir * T.speed * dt, T.sMin, T.sMax);
+      if (left < 0.2) { T.speed = 0; T.wait = TRAIN.dwell; }
+    }
+    placeTrain(); const far = (world.viewFar || 200) + 30;
+    for (const c of T.cars) { const vis = Math.hypot(kc.pos.x - c.x, kc.pos.z - c.z) < far; c.mesh.visible = vis; if (!vis) continue; const f = world.heightAt(c.x + Math.sin(c.yaw) * 4, c.z + Math.cos(c.yaw) * 4), b = world.heightAt(c.x - Math.sin(c.yaw) * 4, c.z - Math.cos(c.yaw) * 4); c.mesh.position.set(c.x, c.y, c.z); c.mesh.rotation.set(-Math.atan2(f - b, 8), c.yaw, 0, 'YXZ'); }
+    for (const q of T.circles) pushKC(q.x, q.z, q.car.y, 2.0);
+  }
+  /* the tram: a ride KC boards at a stop (kc.ride = tram); it drives itself */
+  const tram = { id: TRAM.id, kind: 'tram', name: TRAM.name, cfg: { camY: 2.5, camDist: 5.5, r: 2.4, name: TRAM.name, max: TRAM.speed }, x: TRAM.stops[0].x, z: TRAM.z, y: 0, yaw: Math.PI / 2, dir: 1, speed: 0, wait: TRAM.dwell, r: 2.4, active: false, honkT: 0, at: 0, circles: [], home: { x: TRAM.stops[0].x, z: TRAM.z, yaw: Math.PI / 2 } };
+  tram.y = world.groundAt(tram.x, tram.z, 60); tram.mesh = new THREE.Mesh(tramGeo(), mat); tram.mesh.name = 'tram'; scene.add(tram.mesh);
+  for (const t of [-3.4, 0, 3.4]) tram.circles.push({ t, x: tram.x + t, z: tram.z, r: 1.7, owner: tram, isTram: true });
+  game.api.addInteractable({ id: 'ride:tram', kind: 'ride', getPos: () => tram, r: 4.6, label: () => 'Ride the ' + TRAM.name + ' to ' + TRAM.stops[tram.at ? 0 : 1].name, icon: 'paw', prio: 5, enabled: () => !kc.ride && !kc.swimming && tram.speed < 0.6, onInteract: () => V.enter('tram') });
+  function updateTram(dt) {
+    const M = tram, to = TRAM.stops[M.dir > 0 ? 1 : 0].x;
+    if (M.wait > 0) { M.wait -= dt; M.speed = 0; if (M.wait <= 0) { M.dir = M.at ? -1 : 1; if (M.active) game.audio.sfx('door'); } }
+    else {
+      const left = (to - M.x) * M.dir; let target = Math.min(TRAM.speed, Math.sqrt(Math.max(0, 2 * 1.3 * left)) + 0.25), blocked = null;
+      for (const a of [6, 9, 12.5]) { blocked = someoneAt(M.x + M.dir * a, M.z, 1.25, M); if (blocked) break; }
+      if (blocked) { target = 0; M.honkT -= dt; if (M.honkT <= 0 && M.speed < 0.5) { M.honkT = 5; if (Math.hypot(kc.pos.x - M.x, kc.pos.z - M.z) < 60) game.audio.sfx('ui'); bus.emit('honk', { id: 'tram' }); } }
+      M.speed += clamp(target - M.speed, -(blocked ? 9 : 2.6) * dt, 1.3 * dt); if (M.speed < 0) M.speed = 0;
+      M.x += M.dir * M.speed * dt;
+      if (left < 0.15) { M.x = to; M.speed = 0; M.wait = TRAM.dwell; M.at = M.dir > 0 ? 1 : 0; bus.emit('tramStop', { stop: TRAM.stops[M.at].name, index: M.at, riding: M.active }); if (M.active) { game.audio.sfx('door'); game.ui.toast(TRAM.name + ': ' + TRAM.stops[M.at].name, { icon: 'flag' }); } }
+    }
+    M.yaw = M.dir > 0 ? Math.PI / 2 : -Math.PI / 2;
+    const g = world.groundAt(M.x, M.z, M.y + 1.2), f = world.groundAt(M.x + 3.4, M.z, M.y + 1.6), b = world.groundAt(M.x - 3.4, M.z, M.y + 1.6); M.y = lerp(M.y, Math.max(g, (f + b) / 2), damp(12, dt));
+    for (const q of M.circles) { q.x = M.x + q.t; q.z = M.z; if (!M.active) pushKC(q.x, q.z, M.y, 1.9); }
+    M.mesh.visible = Math.hypot(kc.pos.x - M.x, kc.pos.z - M.z) < (world.viewFar || 200) + 20;
+    M.mesh.position.set(M.x, M.y, M.z); M.mesh.rotation.set(-Math.atan2(f - b, 6.8), Math.PI / 2, 0, 'YXZ');
+    if (M.active) { kc.pos.set(M.x, M.y + 0.86, M.z); kc.yaw = M.yaw; kc.root.rotation.set(0, M.yaw, 0, 'YXZ'); kc.vel.set(0, 0, 0); state.stats.distance += M.speed * dt; }
+  }
+  V.transit = [train, tram]; V.train = train; V.tram = tram; placeTrain();
+
+  const kcOb = { x: 0, z: 0, r: 0.5, isKC: true };
   V.update = (dt, input) => {
     obstacles.length = 0;
-    obstacles.push({ x: kc.pos.x, z: kc.pos.z, r: kc.ride ? kc.ride.r : 0.5, isKC: true });
+    kcOb.x = kc.pos.x; kcOb.z = kc.pos.z; kcOb.r = kc.ride ? kc.ride.r : 0.5; obstacles.push(kcOb);
     game.npcs.obstacles(obstacles);
     for (const c of V.cars) { c.isCar = true; obstacles.push(c); }
     for (const r of V.rides) if (!r.active && r.kind === 'van') obstacles.push(r);
+    for (const q of train.circles) obstacles.push(q); for (const q of tram.circles) obstacles.push(q);
     for (const c of V.cars) updateCar(c, dt);
     for (const r of V.rides) updateRide(r, dt, input);
+    updateTrain(dt); updateTram(dt);
     if (!kc.ride) game.audio.engine(0);
   };
   return V;

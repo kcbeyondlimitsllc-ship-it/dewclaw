@@ -1,6 +1,6 @@
 /* KC: Open Trail service worker: cache-first offline shell for this folder only.
    Bump VERSION whenever any file in SHELL changes. */
-const VERSION = "kc-open-trail-v2";
+const VERSION = "kc-open-trail-v3";
 const PREFIX = "kc-open-trail-";
 const SHELL = ["./", "./index.html", "./style.css", "./manifest.webmanifest",
   "./vendor/three/three.module.min.js",

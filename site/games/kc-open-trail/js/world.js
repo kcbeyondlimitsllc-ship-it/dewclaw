@@ -2,7 +2,7 @@
    colliders, districts, sky / day-night / weather, far-off volcanoes and the
    festival fog. Buildings and props live in scenery.js, trees in flora.js. */
 import { THREE, Geo, clamp, lerp, smooth, fbm, segDist, polyDist, smoothPath, rng, TAU } from './util.js';
-import { HALF, EXT, WATER_Y, BASE_Y, RIVERS, LAKES, ISLANDS, CREEK, RAIL, BUMPS, PADS, FLATS, RIDGE, RIDGE_H, RIDGE_W, ROADS, ZONES, PATCHES, FIELDS, PLAZA } from './data.js';
+import { HALF, EXT, WATER_Y, BASE_Y, RIVERS, LAKES, ISLANDS, CREEK, RAIL, BUMPS, PADS, FLATS, RIDGE, RIDGE_H, RIDGE_W, ROADS, ZONES, PATCHES, FIELDS, PLAZA, CROSSWALKS } from './data.js';
 import { buildScenery } from './scenery.js';
 import { buildFlora } from './flora.js';
 
@@ -65,6 +65,9 @@ export function createWorld(game) {
   for (const r of ROADS) world.roads.push({ ...r, path: smoothPath(r.pts, r.kind === 'trail' ? 5 : 4) });
   world.roadById = id => world.roads.find(r => r.id === id);
   world.roadDist = (id, x, z) => polyDist(x, z, world.roadById(id).pts);
+  /* the railway centre line (corners rounded); the train, the track geometry and the tree planter all use this one path */
+  world.rail = smoothPath(RAIL, 4);
+  world.railDist = (x, z) => polyDist(x, z, RAIL);
 
   /* surface grid: 0 grass, 1 road, 2 trail/gravel, 3 sand, 4 water, 5 paving */
   const SG = 720, SCELL = (EXT * 2) / SG, surf = new Uint8Array(SG * SG);
@@ -228,16 +231,14 @@ export function createWorld(game) {
     }
     /* lawns, lots, plazas */
     for (const p of PATCHES) rect(p[0], p[1], p[2], p[3], p[4]);
-    /* brick joints on the two squares */
-    x.strokeStyle = 'rgba(60,30,20,.13)'; x.lineWidth = Math.max(1, 0.12 * k);
-    for (const [x0, z0, x1, z1] of [[-198, -274, -146, -228], [-86, 400, -14, 460]]) { for (let a = x0; a <= x1; a += 4) { x.beginPath(); x.moveTo(px(a), px(z0)); x.lineTo(px(a), px(z1)); x.stroke(); } for (let a = z0; a <= z1; a += 4) { x.beginPath(); x.moveTo(px(x0), px(a)); x.lineTo(px(x1), px(a)); x.stroke(); } }
+    /* paving joints, road lines and zebra stripes are thin geometry (scenery.js): paint that fine would smear at this texture size */
     /* plaza ring around the Lantern Stack, splash pad, skate lines */
     x.fillStyle = '#d6c7ad'; x.beginPath(); x.arc(px(-170), px(-250), 8 * k, 0, 7); x.fill(); x.strokeStyle = '#8a5a42'; x.lineWidth = 0.5 * k; x.beginPath(); x.arc(px(-170), px(-250), 8 * k, 0, 7); x.stroke();
     x.fillStyle = '#7fc4e8'; x.beginPath(); x.arc(px(-122), px(-164), 6 * k, 0, 7); x.fill(); x.strokeStyle = '#eaf6ff'; x.lineWidth = 0.4 * k; for (const rr of [2, 4]) { x.beginPath(); x.arc(px(-122), px(-164), rr * k, 0, 7); x.stroke(); }
     x.fillStyle = '#c9b98f'; x.fillRect(px(-388), px(-104), 22 * k, 16 * k);   /* agility sand */
     /* creek and rails */
     stroke(CREEK, 4.2, 'rgba(120,150,110,.8)'); stroke(CREEK, 2.8, '#78b6d6'); stroke(CREEK, 0.5, 'rgba(255,255,255,.5)', [1.5, 3]);
-    stroke(RAIL, 4.2, '#8f8878'); stroke(RAIL, 3.4, '#9a9488');   /* ballast bed only: sleepers and rails are real geometry (scenery.js), which stays sharp */
+    stroke(world.rail, 4.2, '#8f8878'); stroke(world.rail, 3.4, '#9a9488');   /* ballast bed only: sleepers and rails are real geometry (scenery.js), which stays sharp */
     for (const r of world.roads) if (r.kind === 'trail') { stroke(r.path, r.w + 0.8, 'rgba(120,96,60,.55)'); stroke(r.path, r.w, '#c4a26c'); }
     for (const r of world.roads) if (r.kind === 'gravel') { stroke(r.path, r.w + 1, '#8a8474'); stroke(r.path, r.w, '#b3ab98'); }
     for (const r of world.roads) if (r.kind === 'walk') { stroke(r.path, r.w + 0.6, '#a39c8c'); stroke(r.path, r.w, '#d2cab8'); }
@@ -247,9 +248,8 @@ export function createWorld(game) {
     x.restore();
     for (const r of world.roads) if (r.kind === 'road') stroke(r.path, r.w + 0.8, '#4a4c52');
     for (const r of world.roads) if (r.kind === 'road') stroke(r.path, r.w, '#5d6068');
-    for (const r of world.roads) if (r.kind === 'road') { if (r.id === 'hwy30') { stroke(r.path, r.w - 1.2, '#e8e8e2'); stroke(r.path, r.w - 1.8, '#5d6068'); stroke(r.path, 0.7, '#f0d98a'); stroke(r.path, 0.3, '#5d6068'); } else stroke(r.path, 0.3, '#f0d98a', [2.4, 2.4]); }
-    /* zebra crossings */
-    for (const [cx, cz, ns] of [[-205, -262, 1], [-205, -238, 1], [-140, -250, 1], [-205, -300, 1], [-350, -262, 1], [-272, 60, 1], [-100, 430, 1], [5, 430, 1], [-50, 390, 0], [-50, 470, 0], [245, 428, 1], [245, 290, 1]]) for (let s = -3.6; s <= 3.6; s += 1.6) ns ? rect(cx + s - 0.45, cz - 1.6, cx + s + 0.45, cz + 1.6, '#eeeeea') : rect(cx - 1.6, cz + s - 0.45, cx + 1.6, cz + s + 0.45, '#eeeeea');
+    /* zebra crossings: a pale band for the map; the crisp stripes are geometry */
+    for (const [cx, cz, ns] of CROSSWALKS) ns ? rect(cx - 4, cz - 1.6, cx + 4, cz + 1.6, 'rgba(238,238,234,.5)') : rect(cx - 1.6, cz - 4, cx + 1.6, cz + 4, 'rgba(238,238,234,.5)');
     /* the water wins back anything painted across it (bridges carry their own decks) */
     { const m = document.createElement('canvas'); m.width = m.height = B; const mx = m.getContext('2d'), mi = mx.createImageData(B, B);
       for (let q = 0; q < B * B; q++) { const hh = world.heightAt(-EXT + ((q % B) + 0.5) * (2 * EXT / B), -EXT + (((q / B) | 0) + 0.5) * (2 * EXT / B)); mi.data[q * 4] = WA[0]; mi.data[q * 4 + 1] = WA[1]; mi.data[q * 4 + 2] = WA[2]; mi.data[q * 4 + 3] = hh < -0.9 ? 255 : hh < -0.2 ? 255 * (-0.2 - hh) / 0.7 : 0; }

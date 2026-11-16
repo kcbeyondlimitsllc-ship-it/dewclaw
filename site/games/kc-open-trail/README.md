@@ -4,8 +4,9 @@ A free-roam 3D dog adventure. You are KC (she is a real dog), loose in a
 stylised St. Helens, Oregon: the riverfront old town and courthouse plaza, the
 docks and Sand Island on the Columbia, parks and a quarry, then Highway 30
 south-east past Scappoose and Sauvie Island's farms to a compact Portland with
-the St. Johns Bridge, a riverside park, Forest Park trails, a brick market
-square, food carts and dog parks. Snow-capped volcanoes sit on the horizon.
+the St. Johns Bridge, the car-free Tilikum Crossing with a little tram, a
+riverside park, Forest Park trails, a brick market square, food carts and dog
+parks. Snow-capped volcanoes sit on the horizon.
 Original game; plain HTML/CSS/JS, no build step.
 
 Served at `/games/kc-open-trail/`. Everything is procedural: geometry and
@@ -34,7 +35,7 @@ ES modules need http(s); opening `index.html` from disk will not work.
 | | Keyboard / mouse | Touch | Gamepad |
 | --- | --- | --- | --- |
 | Move | W A S D or arrows | left thumb stick (anywhere on the left half) | left stick |
-| Look | drag with the mouse, wheel to zoom, Q / E | drag on the other half | right stick |
+| Look | drag with the mouse, wheel to zoom, Q / E | drag on the other half; pinch with two fingers to zoom | right stick |
 | Zoomies (sprint, uses stamina) | Shift | Zoom (hold) | right trigger / bumper |
 | Jump (ollie on a skateboard) | Space | Jump | A |
 | Paw: sniff, pick up, talk, hop on / off | F or Enter | Paw, or tap the prompt | X |
@@ -49,9 +50,10 @@ Festival dressing. A mute button sits in the HUD.
 
 - World (1000 x 1000 units): heightfield terrain with collision, the Columbia,
   the Multnomah Channel and the Willamette to swim or paddle, three lakes,
-  Sand Island, painted roads / trails / fields, about 100 buildings, three
-  bridges you can cross, instanced trees / rocks / bushes / flowers, a
-  day-night cycle, light rain, 38 named districts shown on the HUD and maps.
+  Sand Island, painted roads / trails / fields, about 100 buildings, four
+  bridges you can cross (St. Johns, Hawthorne, Wapato and the car-free
+  Tilikum Crossing), a railway beside Highway 30 with level crossings, instanced trees / rocks / bushes / flowers, a
+  day-night cycle, light rain, 42 named districts shown on the HUD and maps.
 - KC: walk, run, sprint with a stamina bar, jump, swim, sit, bark, dig, shake,
   carry things in her mouth. Collision with buildings, props and water. A
   follow camera with mouse / touch look that shortens instead of clipping.
@@ -59,9 +61,13 @@ Festival dressing. A mute button sits in the HUD.
   wave and pet her), ten other dogs that play, birds / ducks / squirrels /
   chickens / sheep that scatter, polite traffic that stops and honks.
 - Rides: skateboards (anywhere dry, ollie), canoes (water only), camper vans
-  (roads; they crawl on grass). One button in, same button out.
+  (roads; they crawl on grass). One button in, same button out. A ride stays
+  where it was left (saved). The Heron Line tram (an invented two-stop line)
+  shuttles over Tilikum Crossing and KC can board it at either stop; a freight
+  train in an invented livery shuttles along the Highway 30 line. Both stop
+  for anyone on the track.
 - Things to find: bones (respawn), 36 golden tennis balls, 32 dig spots,
-  16 photo spots, 34 signposts, the Old Fog Bell to ring, free treat samples,
+  16 photo spots, 36 signposts, the Old Fog Bell to ring, free treat samples,
   KC's orange-and-blue ball (drop it by a person and they throw it).
 - Festival layer, off by default: `game.economy.setFlag('festival', true)` or
   the Settings checkbox.
@@ -91,7 +97,7 @@ js/flora.js                instanced trees, rocks, bushes, flowers
 js/kc.js                   dog model, animation, player controller, cosmetics
 js/camera.js, js/input.js  follow camera; keyboard / mouse / touch / gamepad
 js/npc.js                  people (with chat), dogs, wildlife
-js/vehicles.js             traffic and rideables
+js/vehicles.js             traffic, rideables, the freight train and the tram
 js/collect.js              bones, golden balls, dig / photo spots, signposts, fog bell, carriables
 js/api.js                  registry: interactables, markers, zones, wallet, economy + shop seams
 js/hud.js                  HUD, modal shell, menus, shop shell, map, photo mode
@@ -117,7 +123,8 @@ NODE_PATH=$(npm root -g) node tests/smoke.js /tmp/kc-shots
 The test starts its own static server (port 8947, `PORT=` to change) and, at
 390x844 and 844x390 with touch and at 1280x720 with mouse and keys: loads,
 starts play, checks the HUD and thumb controls fit, walks / sprints / jumps /
-swims, tours the districts, rides the skateboard, canoe and van, swings the
+swims, tours the districts, rides the skateboard, canoe, van and tram, watches the freight train move,
+swings the
 camera against walls, talks to a townsperson, exercises the economy, shop and
 festival seams, pauses, saves and reloads, measures frame time, and fails on
 any console error or off-origin request. It also checks a damaged save, the

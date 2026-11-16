@@ -156,7 +156,7 @@ export class Geo {
     }
     return this;
   }
-  get tris() { return this.p.length / 9; }
+  get tris() { return this.p.length / 9 || this._built || 0; }
   build() {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(this.p, 3));
@@ -164,6 +164,8 @@ export class Geo {
     g.setAttribute('color', new THREE.Float32BufferAttribute(this.c, 3));
     g.setAttribute('uv', new THREE.Float32BufferAttribute(this.uv, 2));
     g.computeBoundingSphere(); g.computeBoundingBox();
+    /* the typed arrays now hold the data: let the big plain arrays go (a builder can be reused, it just starts empty) */
+    this._built = this.p.length / 9; this.p = []; this.n = []; this.c = []; this.uv = [];
     return g;
   }
 }

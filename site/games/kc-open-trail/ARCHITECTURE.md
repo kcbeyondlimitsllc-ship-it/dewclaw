@@ -44,6 +44,25 @@ Flags the core reacts to:
 | Flag | Effect |
 | --- | --- |
 | `festival` | `true` switches on the Fog Bell Festival dressing layer (lantern strings, bunting, painted pumpkins, the lit Lantern Stack, a festival arch) and pulls the fog in; `false` removes it. Also a checkbox in Settings. |
+| `coached` | set by the HUD once a touch player has both moved and looked; the first-run touch coach stays hidden after that. |
+
+Edge cases the seams guarantee (so modules need not re-check):
+
+- `wallet.add(cur, n)` ignores an unknown currency and a non-finite or zero
+  `n`, rounds, and never lets a balance go below 0.
+  `wallet.spend(cur, n)` returns `false` for a non-finite or negative `n` or
+  when the balance is short; `spend(cur, 0)` is `true` and changes nothing.
+- `grant(what)` treats `null` / a non-object as `{}`. `items` may be one id, one
+  `{ id, n }` or an array of either. `n` is coerced with `Number` and floored;
+  entries with a missing id or `n < 1` are skipped. An owned count is always
+  `true` or a positive integer.
+- `registerTab()` replaces a tab with the same id. Its unregister function
+  removes the tab from `game.shop.tabs` in place (the array object never
+  changes). `ui.addMenuItem()` likewise returns a working unregister function
+  and replaces an entry with the same id.
+- `spawnProp(...).remove()` and `addCarriable(...).remove()` take everything
+  with them: meshes, GPU geometry, colliders, camera view volumes and any
+  per-frame animation (the campfire flame). Calling `remove()` twice is safe.
 
 The HUD wallet pill (bones, gems) redraws on every `wallet` event, so anything
 paid through `grant()` or `game.wallet` shows up at once.
@@ -53,7 +72,7 @@ Debug hooks (only with `?debug=1`, on `window.__ot`): `state()`, `start()`,
 `setFlag(key, value)`, `festival(on)`, `setTime(h)`, `setRain(0..1)`,
 `setQuality(q)`, `setCam(yaw, pitch, dist)`, `step(n, dt)`, `info()`,
 `frameStats()` / `resetFrameStats()`, `press(action)`, `hold(keyCode, down)`,
-`enter(rideId)`, `exit()`, `rides()`, `districts()`, `zoneAt(x, z)`,
+`enter(rideId)`, `exit()`, `rides()`, `transit()` (train and tram), `districts()`, `zoneAt(x, z)`,
 `surfaceAt(x, z)`, `heightAt(x, z)`, `save()`, `startMission(id)` and
 `completeMission()` (these two call `game.modules.missions.start / .complete`
 when the missions module provides them), `emit(type, data)`, `events` (recent
@@ -72,7 +91,7 @@ bus events) and `game`.
 | `game.cam` | `yaw`, `pitch`, `dist`, `three` (the PerspectiveCamera) |
 | `game.npcs` | `peds`, `dogs`, `groups` (wildlife), `addPed(route, look, name)` |
 | `game.economy`, `game.shop` | the seams above |
-| `game.vehicles` | `rides`, `cars`, `enter(id)`, `exit()`, `byId(id)`, `reset(id)`, `setSkin(kind, { primary, secondary })` |
+| `game.vehicles` | `rides`, `cars`, `enter(id)` (a ride id or `'tram'`), `exit()`, `byId(id)`, `reset(id)`, `setSkin(kind, { primary, secondary })`, `transit` = `[train, tram]` (each has `x`, `z`, `speed`, `dir`, `wait`), `train`, `tram` |
 | `game.collect` | bones, golden balls, dig spots, carriables; `counts()` |
 | `game.ui` | HUD + modal shell (below) |
 | `game.audio` | `sfx(name)`: pickup, gold, reward, bark, jump, splash, dig, honk, whistle, bell, pet, ui, door, eat, shutter; `applyVolume()` (honours `settings.muted`) |
@@ -87,9 +106,10 @@ bus events) and `game`.
   owned: {},        // itemId -> true | count      (shop)
   upgrades: {},     // upgradeId -> level           (economy)
   equipped: {},     // slot -> itemId               (shop): bandana, harness, collar, hat, tag, trail, skin:skateboard ...
-  stats: { distance, bones, balls, digs, barks, pets, photos, jumps, swims, rides, talks, bells, days, playTime },
+  stats: { distance, bones, balls, digs, barks, pets, photos, jumps, swims, rides, talks, bells, fetches, days, playTime },
   collected: { balls: [], photos: [], signs: [], zones: [] },
-  pos, time, day, settings: { quality, autoQuality, sound, music, muted, invertY, invertX, leftHanded, rain },
+  pos, time, day, settings: { quality, autoQuality, sound, music, muted, invertY, invertX, leftHanded, rain, camDist },
+  rides: {},        // rideId -> { x, z, yaw } for skateboards, canoes and vans left away from home (written by vehicles.js on beforeSave)
   flags: {},        // world flags (game.economy.setFlag), e.g. festival: true
   modules: {} }     // free-form per-module data
 ```
@@ -100,6 +120,12 @@ defaults field by field (the raw text is kept under `...-corrupt`). `owned`,
 Every read and write of localStorage is inside try/catch; with storage blocked
 the game still runs, it just does not persist. `v1` was the prototype map and
 is not migrated.
+
+Out-of-range values are clamped on load (day >= 1, sound / music 0..1, camera
+distance, position inside the map, a non-numeric yaw becomes the spawn yaw).
+`game.save.reset()` writes a fresh state straight to storage without emitting
+`beforeSave` and then refuses further saves, so the reload that follows starts
+at the spawn with "Play".
 
 Per-module storage: `const data = game.moduleData('missions', { done: [], active: null })`
 returns a live object inside `state.modules` (defaults are filled in for
@@ -178,7 +204,8 @@ bumps on every `wallet` event.
 | `enterZone` / `exitZone` | district: `{ id, name, district: true, first }`; custom: `{ id, name, custom: true, zone }` |
 | `discover` | `{ id, name }` first visit to a district |
 | `interact` | `{ id, kind, target }` any interactable used |
-| `vehicleEnter` / `vehicleExit` | `{ id, kind }` (`skateboard`, `canoe`, `van`) |
+| `vehicleEnter` / `vehicleExit` | `{ id, kind }` (`skateboard`, `canoe`, `van`, `tram`) |
+| `tramStop` | `{ stop, index, riding }` the Heron Line tram reached a stop (`riding`: KC is aboard) |
 | `trick` | `{ kind: 'ollie', id }` |
 | `npcTalk` | `{ id, name, line, where }` KC used a talk prompt; `npcPet` `{ id, name, x, z }` a person petted KC; `npcWave` `{ id, name }` |
 | `fogBell` | `{ x, z }` KC rang the Old Fog Bell; `chime` `{ hour }` the courthouse clock struck (heard within 260 units) |
@@ -188,7 +215,7 @@ bumps on every `wallet` event.
 | `digStart`, `dig` | `{ x, z }` (`dig` fires when the dig finishes) |
 | `swimStart`, `swimEnd`, `land`, `exhausted`, `respawn`, `teleport` | movement moments |
 | `carry` / `drop` | `{ item, id, kind }` (+ `x, z` on drop); `eat` `{ id, kind }`; `throw`, `fetch` `{ id, value }` |
-| `honk` | `{ id }` a car or the van is waiting for someone |
+| `honk` | `{ id }` a car, the van, the train (`'train'`) or the tram (`'tram'`) is waiting for someone |
 | `timeOfDay` | `{ phase: 'dawn'|'day'|'dusk'|'night', time, day }`; `dayChange` `{ day }`; `weather` `{ rain }` |
 | `photoMode` `{ on }`, `photoTaken` `{ x, z, zone }` | |
 | `objective`, `modalOpen`, `modalClose`, `toast`, `quality`, `modsChanged`, `cosmeticChanged`, `skinChanged`, `beforeSave`, `saved` | housekeeping |
@@ -208,9 +235,15 @@ painted `PATCHES` and `FIELDS`, `RIDEABLES`, `TRAFFIC`, `PED_ROUTES` + `CHATTER`
 District ids (`ZONES`, first match wins; `enterZone` / `discover` carry these):
 plaza, cvpark, marina, greycliffs, dalton, quarry, nobhill, sand, oldtown,
 mccormick, mill, sthelens, scappoose, lighthouse, farm, islandbeach, wildlife,
-stjohns, cathedral, chimney, carts, tabor, mansion, square, makers, waterfront,
-linnton, downtown, forestpark, eastside, sauvie, columbia, channel, willamette,
-hwy30, farshore, tualatin, valley.
+stjohns (the bridge), tilikum, hawthorne, cathedral, chimney, carts, tabor,
+mansion, square, makers, waterfront, linnton, downtown, forestpark, sauvie,
+columbia, channel, willamette, stjohnstown (the St. Johns neighbourhood),
+eastside, hwy30, farshore, tualatin, bottoms, valley (42 in all).
+
+Other world data: `RAIL` (the railway centre line; `world.rail` is the smoothed
+path the track geometry and the train share), `RAIL_CROSSINGS`, `TRAIN`,
+`TILIKUM`, `TRAM` (the invented Heron Line: two stops, speed, dwell),
+`CROSSWALKS`, `CLEARINGS` (no-tree view corridors at the viewpoints).
 
 Naming rules (from the brief, section 2 and 3): real public places keep their
 names (St. Helens, Columbia County Courthouse, Sand Island, St. Johns Bridge,
@@ -227,9 +260,24 @@ Static scenery is merged into one vertex-coloured mesh per 170-unit chunk (plus
 a glow mesh each); a chunk is hidden once it is further away than the fog.
 Flora is `InstancedMesh` per 90-unit chunk and kind with the same distance
 cut-off, wildlife / bones / shadows / particles / beacons are one draw call
-each, people and dogs freeze beyond 170 units. The terrain is one 180 x 180
-heightfield with a single painted texture; the far volcanoes are one mesh that
+each, people and dogs freeze beyond 170 units. The terrain is one 144 x 144
+heightfield (`N = 144` in `world.js`, 41,472 triangles) with a single painted texture; the far volcanoes are one mesh that
 rides with the camera. Quality presets live in `main.js` (`QUALITY`):
 pixel-ratio cap (1 / 1.5 / 2), fog distance, plant density, shadow map on/off.
 If the frame time stays above ~36 ms for 3 s and "lower graphics automatically"
 is on, quality steps down, then render resolution.
+
+Memory: the ground texture is painted once at boot at 1024 px when the game
+boots on Low, 2048 px on Medium / High (4096 px only on desktop-class GPUs);
+its CPU-side canvas is released once it is on the GPU and copied into
+`world.mapCanvas` (1024 px on Low, else 2048 px). The sign atlas is 1024 px
+when booting on Low, else 2048 px. `Geo.build()` hands its vertex data to the
+typed arrays and empties the builder, so no plain-array copies stay alive.
+Fine ground markings (road lines, zebra stripes, paving joints, sleepers and
+rails) are thin geometry in the scenery chunks, not paint.
+
+The camera boom is shortened by `world.camBlocked(x, z, y)`: tall solid
+colliders plus "view volumes" (`world.addView({ x, z, r, bottom, top, shape:
+'cone' | 'ball' | 'cyl' } | { box, bottom, top })` -> object with `remove()`),
+which mark things KC can walk under but the camera must stay out of: tree
+canopies, stall and stage roofs, the cinema marquee, tram shelters.

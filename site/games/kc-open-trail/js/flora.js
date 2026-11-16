@@ -27,7 +27,7 @@ export function buildFlora(game, world) {
     else if (kind === 'rock') world.addCircle(x, z, 0.8 * s, world.heightAt(x, z) + 0.95 * s);
   };
   const inRect = (x, z, r) => x >= r[0] && z >= r[1] && x <= r[2] && z <= r[3];
-  const nearPath = (x, z, m) => { for (const [dx, dz] of [[0, 0], [m, 0], [-m, 0], [0, m], [0, -m]]) { const s = world.surfaceAt(x + dx, z + dz); if (s === 1 || s === 2 || s === 5) return true; } return false; };
+  const nearPath = (x, z, m) => { for (const [dx, dz] of [[0, 0], [m, 0], [-m, 0], [0, m], [0, -m]]) { const s = world.surfaceAt(x + dx, z + dz); if (s === 1 || s === 2 || s === 5) return true; } return world.railDist(x, z) < m + 3.2; };
   const inField = (x, z) => { for (const f of FIELDS) if (x > f[0] - 2 && z > f[1] - 2 && x < f[2] + 2 && z < f[3] + 2) return true; return false; };
   const inPatch = (x, z) => { for (const c of CLEARINGS) if ((x - c[0]) ** 2 + (z - c[1]) ** 2 < c[2] * c[2]) return true; for (const f of PATCHES) if ((f[5] === 5 || f[5] === 3) && x > f[0] - 1 && z > f[1] - 1 && x < f[2] + 1 && z < f[3] + 1) return true; return false; };
   const TOWNS = [[-470, -420, -96, -190], [-320, 10, -226, 114], [-150, 296, 9, 505], [120, 236, 330, 505]];

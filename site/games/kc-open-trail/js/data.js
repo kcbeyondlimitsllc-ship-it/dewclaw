@@ -29,7 +29,7 @@ export const ISLANDS = [{ id: 'sand', name: 'Sand Island', e: [-46, -298, 19, 92
 export const CREEK = [[-505, -96], [-440, -84], [-390, -92], [-330, -70], [-282, -66], [-246, -60]];
 /* the railway beside Highway 30, always on the river side of it; it ends at a buffer stop in the Linnton yard.
    A freight train (invented livery, no logos) shuttles along it: see TRAIN and js/vehicles.js */
-export const RAIL = [[-436, -535], [-436, -150], [-430, -62], [-336, 48], [-236, 148], [-156, 228]];
+export const RAIL = [[-438, -535], [-438, -150], [-431, -62], [-336, 48], [-236, 148], [-156, 228]];
 export const TRAIN = { cars: 5, gap: 13.2, speed: 8.5, dwell: 22, from: 62, endPad: 6 };   /* from / endPad: how far the consist stays from each end of the rail */
 
 /* ---------- terrain shaping ---------- */
@@ -75,6 +75,10 @@ export const TILIKUM = { x0: 78, x1: 164, z: 432, top: 4.2, w: 9 };      /* car-
 export const TRAM = { id: 'tram', name: 'Heron Line', z: 432, x0: 18, x1: 232, stops: [{ x: 26, name: 'Waterfront Park' }, { x: 224, name: 'Eastbank' }], speed: 8, dwell: 11 };
 /* no trees here: view corridors from the two viewpoints, and the tram line */
 export const CLEARINGS = [[-226, -131, 15], [-206, -126, 14], [-188, -120, 12], [-224, 452, 15], [-205, 452, 14], [-186, 452, 12], [-128, -404, 15]];
+/* zebra crossings: [x, z, ns] ns = 1 when the road runs north-south (painted on the ground texture and drawn again as crisp geometry) */
+export const CROSSWALKS = [[-205, -262, 1], [-205, -238, 1], [-140, -250, 1], [-205, -300, 1], [-350, -262, 1], [-272, 60, 1], [-100, 430, 1], [5, 430, 1], [-50, 390, 0], [-50, 470, 0], [245, 428, 1], [245, 290, 1]];
+/* where a road crosses the railway: [x, z, road yaw] (planked crossing and a plain crossbuck sign, no railway branding) */
+export const RAIL_CROSSINGS = [[-438, -350, Math.PI / 2], [-438, -250, Math.PI / 2], [-438, -150, Math.PI / 2], [-255.2, 128.8, 0.24]];
 export const WAPATO = { x: -62, z0: 153, z1: 212, top: 4.0, w: 9 };
 export const LIGHTHOUSE = { x: -34, z: -92 };
 export const MANSION = { x: -252, z: 448 };
@@ -111,7 +115,7 @@ export const ROADS = [
   { id: 'nobhill', name: 'Nob Hill Loop', kind: 'trail', w: 3.4, pts: [[-232, -176], [-262, -150], [-266, -122], [-246, -108], [-226, -124], [-228, -156], [-232, -176]] },
   { id: 'greycliffs', name: 'Grey Cliffs Path', kind: 'trail', w: 3.4, pts: [[-140, -344], [-146, -372], [-152, -398], [-168, -418]] },
   { id: 'dalton', name: 'Dalton Lake Loop', kind: 'trail', w: 3.4, pts: [[-168, -418], [-190, -428], [-232, -428], [-278, -444], [-282, -464], [-240, -484], [-196, -480], [-180, -456], [-190, -428]] },
-  { id: 'mccloop', name: 'McCormick Loop', kind: 'trail', w: 3.4, pts: [[-400, -144], [-432, -126], [-434, -84], [-398, -66], [-352, -70], [-338, -104], [-352, -138], [-400, -144]] },
+  { id: 'mccloop', name: 'McCormick Loop', kind: 'trail', w: 3.4, pts: [[-400, -144], [-424, -126], [-424, -86], [-398, -66], [-352, -70], [-338, -104], [-352, -138], [-400, -144]] },
   { id: 'sandisland', name: 'Sand Island Trail', kind: 'trail', w: 3.2, pts: [[-46, -374], [-42, -330], [-48, -290], [-44, -250], [-46, -222]] },
   { id: 'warrior', name: 'Warrior Rock Trail', kind: 'trail', w: 3.4, pts: [[-22, -78], [-34, -90]] },
   { id: 'wildlife', name: 'Wildlife Loop', kind: 'trail', w: 3.4, pts: [[46, -20], [70, -40], [112, -44], [150, -28], [156, 6], [124, 28], [80, 24], [50, 40]] },
@@ -226,7 +230,7 @@ export const BUILDINGS = [
   /* Scappoose */
   shop('fuel', -292, 40, 'e', 'Scappoose Fuel & Treats', P.white, 0xd9534f, { roof: 'flat' }),
   shop('feed', -288, 62, 'e', 'Peak Feed & Seed', P.barn, 0xffffff),
-  shop('pie', -282, 84, 'e', 'Blue Heron Pie Co.', P.butter, 0x3f7fd6),
+  shop('pie', -279, 82, 'e', 'Blue Heron Pie Co.', P.butter, 0x3f7fd6),
   shop('antiques', -252, 46, 'w', 'Second Wind Antiques', P.sage, 0xe8d9a8),
   shop('bikes', -246, 68, 'w', 'Channel Cyclery', P.teal, 0xffd27a),
   house(-240, 92, 'w'), house(-306, 16, 'e'),
@@ -284,7 +288,7 @@ export const PATCHES = [
   [-196, -184, -166, -170, '#6a6c72', 5],       /* park parking */
   [-132, -372, -100, -330, '#8f8a80', 5],       /* marina yard */
   [-440, -144, -330, -60, '#7cc064', 0],        /* McCormick lawn */
-  [-434, -136, -404, -106, '#b8b4aa', 5],       /* skate park slab */
+  [-433, -136, -404, -106, '#b8b4aa', 5],       /* skate park slab */
   [-396, -112, -350, -74, '#8fcf70', 0],        /* off-leash meadow */
   [-378, -52, -330, 6, '#8d8a84', 5],           /* mill yard */
   [-304, 30, -280, 52, '#6a6c72', 5],           /* fuel forecourt */
@@ -343,9 +347,9 @@ export const PED_ROUTES = [
   { pts: [[-146, -330], [-146, -200]], n: 2, where: 'oldtown' },
   { pts: [[-110, -340], [-103, -300], [-102, -250], [-104, -200], [-118, -152], [-160, -136]], n: 3, where: 'riverwalk' },
   { pts: [[-190, -176], [-120, -176], [-112, -140], [-180, -134]], loop: true, n: 3, where: 'cvpark' },
-  { pts: [[-440, -257], [-232, -257]], n: 2, where: 'uptown' },
+  { pts: [[-428, -257], [-232, -257]], n: 2, where: 'uptown' },
   { pts: [[-357, -340], [-357, -160]], n: 2, where: 'uptown' },
-  { pts: [[-400, -144], [-432, -126], [-434, -84], [-398, -66], [-352, -70], [-338, -104], [-352, -138]], loop: true, n: 3, where: 'mccormick' },
+  { pts: [[-400, -144], [-424, -126], [-424, -86], [-398, -66], [-352, -70], [-338, -104], [-352, -138]], loop: true, n: 3, where: 'mccormick' },
   { pts: [[-232, -176], [-262, -150], [-266, -122], [-246, -108], [-226, -124], [-228, -156]], loop: true, n: 1, hiker: true, where: 'nobhill' },
   { pts: [[-190, -428], [-232, -428], [-278, -444], [-282, -464], [-240, -484], [-196, -480], [-180, -456]], loop: true, n: 2, hiker: true, where: 'dalton' },
   { pts: [[-46, -370], [-42, -330], [-48, -290], [-44, -250], [-46, -226]], n: 2, beach: true, where: 'sand' },
@@ -458,7 +462,7 @@ export const SIGNPOSTS = [
   { id: 'nobhill', x: -236, z: -172, title: 'Nob Hill Nature Park', text: 'Oak woodland on a basalt bluff above the river junction. Wildflowers in spring; keep to the trail.' },
   { id: 'mccormick', x: -404, z: -148, title: 'McCormick Park', text: 'The big one: loop trail, skate park, creek and an off-leash meadow. Zoomies encouraged.' },
   { id: 'mill', x: -318, z: -46, title: 'The Paper Mill', text: 'The old mill is quiet for now. People say it only needs the right owner, and a good dog, to get the rolls moving again.' },
-  { id: 'hwy', x: -438, z: -214, title: 'Highway 30', text: 'South-east for Scappoose, Sauvie Island and Portland. Stay on the verge, pup: the road is for wheels.', ry: Math.PI / 2 },
+  { id: 'hwy', x: -428, z: -214, title: 'Highway 30', text: 'South-east for Scappoose, Sauvie Island and Portland. Stay on the verge, pup: the road is for wheels.', ry: Math.PI / 2 },
   { id: 'scappoose', x: -286, z: 18, title: 'Scappoose', text: 'Rest stop: fuel, treats and a noticeboard. Portland is down the highway; St. Helens is back the way you came.' },
   { id: 'stand', x: -366, z: 62, title: 'Highway Farm Stand', text: 'Apples, squash and bandanas. Honesty box on the counter.' },
   { id: 'wapato', x: -54, z: 218, title: 'Wapato Bridge', text: 'The only road onto Sauvie Island. Farms, beaches and the smallest lighthouse in Oregon are all on the far side.', ry: Math.PI / 2 },

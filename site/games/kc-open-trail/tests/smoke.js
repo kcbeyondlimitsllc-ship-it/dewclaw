@@ -132,6 +132,11 @@ async function runViewport(browser, name, vp, touch, quality, tourIdx) {
   }
   const skate = await page.evaluate(() => { __ot.game.vehicles.reset('board-park'); __ot.enter('board-park'); __ot.step(3); const y0 = __ot.rides().find(r => r.id === 'board-park').y; __ot.press('jump'); __ot.step(5); const y1 = __ot.rides().find(r => r.id === 'board-park').y; __ot.step(40); __ot.exit(); return y1 - y0; });
   ok(`${name}: skateboard ollies`, skate > 0.2, skate.toFixed(2));
+  /* transit: board the tram at its stop and ride it over the car-free bridge; the freight train runs along the Highway 30 line */
+  const tram = await page.evaluate(() => { __ot.exit(); const T = __ot.game.vehicles.tram; __ot.teleport(120, 300, 0); for (let i = 0; i < 120 && !(T.wait > 4); i++) __ot.step(30); const x0 = T.x, at0 = T.at; __ot.teleport(T.x, 435.4, 1.57); __ot.step(6); const prompt = __ot.state().prompt, on = __ot.enter('tram'); let maxY = 0; for (let i = 0; i < 90 && !(T.at !== at0 && T.wait > 0); i++) { __ot.step(30); maxY = Math.max(maxY, __ot.state().pos.y); } const ride = __ot.state().ride, far = Math.abs(T.x - x0); __ot.exit(); __ot.step(6); const s = __ot.state(); return { prompt, on, ride, far, maxY, off: s.ride, swimming: s.swimming, y: s.pos.y }; });
+  ok(`${name}: tram: prompt at the stop, KC rides it over Tilikum Crossing and hops off on dry ground`, /Heron Line/.test(tram.prompt || '') && tram.on && tram.ride === 'tram' && tram.far > 140 && tram.maxY > 4.6 && tram.off === null && !tram.swimming, `"${tram.prompt}", ${tram.far.toFixed(0)} units, deck height ${tram.maxY.toFixed(1)}`);
+  const train = await page.evaluate(() => { const T = __ot.game.vehicles.train, a = [T.x, T.z]; let moved = 0; __ot.teleport(T.x + 14, T.z, 0); for (let i = 0; i < 80 && moved < 40; i++) { __ot.step(30); moved = Math.hypot(T.x - a[0], T.z - a[1]); } const onRail = __ot.game.world.railDist(T.x, T.z); return { moved, onRail }; });
+  ok(`${name}: freight train moves along the railway`, train.moved >= 40 && train.onRail < 3, `moved ${train.moved.toFixed(0)}, ${train.onRail.toFixed(1)} from the centre line`);
 
   /* camera never ends up inside a building: stand against shop fronts and walls and swing the camera right round */
   const camTest = await page.evaluate(() => { const w = __ot.game.world, fp = w.scenery.footprints; let bad = 0, n = 0, worst = '';
@@ -185,10 +190,11 @@ async function runViewport(browser, name, vp, touch, quality, tourIdx) {
   ok(`${name}: scene stays inside the mobile budget (under 220 draw calls, under 260k triangles)`, fs1.calls < 220 && fs1.tris < 260000, `${fs1.calls} calls, ${fs1.tris} tris`);
 
   /* save and reload */
-  const saved = await page.evaluate(() => { __ot.teleport(-272, 50, 0.3); __ot.step(4); __ot.save(); return { wallet: __ot.state().wallet, raw: !!localStorage.getItem('kc-open-trail-save-v2') }; });
+  const saved = await page.evaluate(() => { __ot.exit(); __ot.game.vehicles.reset('van-park'); __ot.teleport(-181, -172, 0); __ot.step(3); __ot.enter('van-park'); __ot.setCam(Math.PI / 2, 0.3, 9); __ot.hold('KeyW', true); __ot.step(90); __ot.hold('KeyW', false); __ot.exit(); const v = __ot.game.vehicles.byId('van-park'); window.__van = [v.x, v.z]; __ot.teleport(-272, 50, 0.3); __ot.step(4); __ot.save(); return { wallet: __ot.state().wallet, raw: !!localStorage.getItem('kc-open-trail-save-v2'), van: window.__van }; });
   await page.reload(); await page.waitForFunction(() => window.__ot && __ot.ready, null, { timeout: 120000 });
-  const back = await page.evaluate(() => ({ s: __ot.state(), btn: document.getElementById('playBtn').textContent, owned: __ot.game.economy.owns('test-bandana'), flag: __ot.game.economy.getFlag('smoke-flag') }));
+  const back = await page.evaluate(() => ({ van: (v => [v.x, v.z])(__ot.game.vehicles.byId('van-park')), s: __ot.state(), btn: document.getElementById('playBtn').textContent, owned: __ot.game.economy.owns('test-bandana'), flag: __ot.game.economy.getFlag('smoke-flag') }));
   ok(`${name}: save survives a reload (wallet, place, owned item, flag)`, saved.raw && back.s.wallet.bones >= saved.wallet.bones && Math.hypot(back.s.pos.x + 272, back.s.pos.z - 50) < 3 && back.btn === 'Continue' && back.owned && back.flag === 7, `${back.s.wallet.bones} bones at ${back.s.pos.x.toFixed(0)},${back.s.pos.z.toFixed(0)}`);
+  ok(`${name}: a ride left away from home is still there after a reload`, Math.hypot(saved.van[0] + 181, saved.van[1] + 177) > 4 && Math.hypot(back.van[0] - saved.van[0], back.van[1] - saved.van[1]) < 0.5, `van at ${back.van[0].toFixed(0)},${back.van[1].toFixed(0)}`);
 
   const ext = requests.filter(u => !u.startsWith(BASE) && !u.startsWith('data:') && !u.startsWith('blob:'));
   ok(`${name}: no console errors or page errors`, errors.length === 0, errors.slice(0, 3).join(' | '));
@@ -205,8 +211,13 @@ async function runViewport(browser, name, vp, touch, quality, tourIdx) {
     const real = ['index.html', 'style.css', 'manifest.webmanifest', ...fs.readdirSync(path.join(ROOT, 'js')).map(f => 'js/' + f), ...fs.readdirSync(path.join(ROOT, 'icons')).map(f => 'icons/' + f), 'vendor/three/three.module.min.js'];
     ok('service worker cache name is kc-open-trail-vN', /const VERSION = "kc-open-trail-v\d+"/.test(sw));
     ok('service worker file list matches the real files', real.every(f => listed.includes(f)) && listed.every(f => fs.existsSync(path.join(ROOT, f))), real.filter(f => !listed.includes(f)).concat(listed.filter(f => !fs.existsSync(path.join(ROOT, f)))).join(' '));
-    const shipped = ['index.html', 'style.css', 'manifest.webmanifest', 'sw.js', 'README.md', 'ARCHITECTURE.md', ...fs.readdirSync(path.join(ROOT, 'js')).map(f => 'js/' + f)].map(f => [f, read(f)]);
-    const banned = [/cedar\s*hollow/i, /halloween\s*town/i, /spirit of hallow/i, /pumpkin plaza/i, /portlandia/i, /keep portland weird/i, /cromwell/i, /kalabar/i];
+    const shipped = ['index.html', 'style.css', 'manifest.webmanifest', 'sw.js', 'README.md', 'ARCHITECTURE.md', ...fs.readdirSync(path.join(ROOT, 'js')).map(f => 'js/' + f), ...fs.readdirSync(path.join(ROOT, 'tools')).map(f => 'tools/' + f)].map(f => [f, read(f)]);
+    /* the do-not-copy list from sections 2 and 3 of the setting brief, plus the prototype town name. Phrases are matched in any case;
+       the film's character first names only as capitalised whole words, so colour names such as "sage" stay usable. This file is not scanned (it holds the list). */
+    const banned = [/cedar\s*hollow/i, /halloween\s*town/i, /spirit of hallow/i, /pumpkin plaza/i, /jack the pumpkin/i, /boo bash/i, /portlandia/i, /keep portland weird/i, /cromwell/i, /kalabar/i,
+      /mortal world/i, /talisman/i, /witch u\b/i, /monster high/i, /dalloway/i, /silas sinister/i, /periwinkle/i, /dr\.? grogg/i, /flanagan/i, /aneesa/i, /burp-urp/i,
+      /petite jolie/i, /thunderbird and whale/i, /bloated toad/i, /bella'?s house/i, /white stag/i, /allow me/i, /13 nights/i, /lewis (and|&) clark/i, /ride shotgun/i, /linnton feed/i, /rose building/i, /stumptown/i,
+      /\b(Marnie|Aggie|Gwen|Piper|Dylan|Sophie|Luke|Benny|Harriet|Kal|Astrid|Gort|Ethan|Cody|Cassie|Chester|Natalie|Bobby|Scarlett|Sage|Sapphire|Goodwin)\b/];
     const hits = shipped.flatMap(([f, t]) => banned.filter(b => b.test(t)).map(b => f + ':' + b.source));
     ok('no leftover prototype names and nothing from the do-not-copy list in shipped files', hits.length === 0, hits.join(' '));
     ok('no network calls in the game code (fetch / XHR / WebSocket / beacon)', !shipped.some(([f, t]) => f.startsWith('js/') && /\bfetch\s*\(|XMLHttpRequest|WebSocket|sendBeacon/.test(t)));

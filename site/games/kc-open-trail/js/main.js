@@ -78,7 +78,8 @@ function boot() {
   if (state.pos && Number.isFinite(state.pos.x) && Number.isFinite(state.pos.z)) kc.teleport(state.pos.x, state.pos.z, Number.isFinite(state.pos.yaw) ? state.pos.yaw : SPAWN.yaw); else kc.teleport(SPAWN.x, SPAWN.z, SPAWN.yaw);
   if (Number.isFinite(state.settings.camDist)) cam.dist = clamp(state.settings.camDist, 2.6, 13);
   cam.yaw = kc.yaw; cam.snap();
-  bus.on('beforeSave', s => { const r = kc.ride, x = r ? r.x : kc.pos.x, z = r ? r.z : kc.pos.z; if (!Number.isFinite(x) || !Number.isFinite(z)) return; s.pos = { x: +x.toFixed(2), z: +z.toFixed(2), yaw: Number.isFinite(kc.yaw) ? +kc.yaw.toFixed(2) : SPAWN.yaw }; if (!ui.photo) s.settings.camDist = +clamp(cam.dist, 2.6, 13).toFixed(2); });
+  /* saved while riding: KC is put down beside the ride (which keeps its own saved spot), not inside it */
+  bus.on('beforeSave', s => { const r = kc.ride, off = r ? r.r + 1.3 : 0, x = r ? r.x + Math.cos(r.yaw) * off : kc.pos.x, z = r ? r.z - Math.sin(r.yaw) * off : kc.pos.z; if (!Number.isFinite(x) || !Number.isFinite(z)) return; s.pos = { x: +x.toFixed(2), z: +z.toFixed(2), yaw: Number.isFinite(kc.yaw) ? +kc.yaw.toFixed(2) : SPAWN.yaw }; if (!ui.photo) s.settings.camDist = +clamp(cam.dist, 2.6, 13).toFixed(2); });
 
   /* other agents' modules: each exports init(game) */
   for (const [name, mod] of [['economy', economy], ['missions', missions], ['shop', shop], ['store', store]]) { try { game.modules[name] = (mod.init && mod.init(game)) || mod; } catch (e) { console.error('[module ' + name + ']', e); } }
@@ -124,8 +125,10 @@ function boot() {
   addEventListener('pagehide', () => game.save.save());
   for (const ev of ['pointerdown', 'keydown', 'touchend']) addEventListener(ev, () => game.audio.unlock(), { passive: true });
 
-  playBtn.disabled = false; playBtn.textContent = had ? 'Continue' : 'Play';
-  playBtn.addEventListener('click', () => { game.audio.unlock(); game.audio.sfx('ui'); cam.yaw = kc.yaw; cam.snap(); ui.start(); if (!had) { ui.toast('Welcome to St. Helens! Follow your nose.', { icon: 'paw', ms: 4200 }); } });
+  /* a save that has never been played (first run, or straight after Start over) is a new game */
+  const fresh = !had || (!state.pos && state.stats.playTime < 1);
+  playBtn.disabled = false; playBtn.textContent = fresh ? 'Play' : 'Continue';
+  playBtn.addEventListener('click', () => { game.audio.unlock(); game.audio.sfx('ui'); cam.yaw = kc.yaw; cam.snap(); ui.start(); if (fresh) { ui.toast('Welcome to St. Helens! Follow your nose.', { icon: 'paw', ms: 4200 }); } });
   requestAnimationFrame(frame);
   window.dispatchEvent(new CustomEvent('kc-open-trail-ready', { detail: { version: VERSION } }));
 
@@ -152,7 +155,7 @@ function boot() {
       festival: on => game.economy.setFlag('festival', on !== false), setFlag: (k, v) => game.economy.setFlag(k, v), grant: (what, src) => game.economy.grant(what, src || 'debug'),
       districts: () => api.districts.map(z => ({ id: z.id, name: z.name })), zoneAt: (x, z) => world.zoneAt(x, z).id, surfaceAt: (x, z) => world.SURF[world.surfaceAt(x, z)], heightAt: (x, z) => world.heightAt(x, z),
       frameStats: () => ({ ...frameStats }), resetFrameStats: () => { frameStats.n = 0; frameStats.sum = 0; frameStats.max = 0; frameStats.cpuSum = 0; },
-      enter: id => vehicles.enter(id), exit: () => vehicles.exit(), rides: () => vehicles.rides.map(r => ({ id: r.id, kind: r.kind, x: r.x, z: r.z, y: r.y })),
+      enter: id => vehicles.enter(id), exit: () => vehicles.exit(), rides: () => vehicles.rides.map(r => ({ id: r.id, kind: r.kind, x: r.x, z: r.z, y: r.y })), transit: () => vehicles.transit.map(t => ({ id: t.id, kind: t.kind, x: t.x, z: t.z, speed: t.speed, dir: t.dir, wait: t.wait })),
       save: () => game.save.save(), toast: t => ui.toast(t),
       startMission: id => { const m = game.modules.missions; return m && m.start ? m.start(id) : false; },
       completeMission: () => { const m = game.modules.missions; return m && m.complete ? m.complete() : false; },
