@@ -28,7 +28,7 @@ export function createUiKit(game, ui, env) {
     let cur = tabs.find(t => t.id === o.current) || tabs[0];
     const edges = () => { strip.classList.toggle('more-l', strip.scrollLeft > 6); strip.classList.toggle('more-r', strip.scrollWidth - strip.clientWidth - strip.scrollLeft > 6); };
     const draw = () => { pane.innerHTML = ''; if (!cur) return; try { cur.render && cur.render(pane); } catch (e) { console.error('[tab ' + cur.id + ']', e); pane.textContent = o.errorText || 'This page is being tidied up.'; } moreCue(); setTimeout(moreCue, 60); };
-    const mark = () => { for (const b of strip.children) { const on = cur && b.dataset.tab === cur.id; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); if (on) { const want = b.offsetLeft - (strip.clientWidth - b.offsetWidth) / 2; strip.scrollLeft = Math.max(0, want); } } edges(); };
+    const mark = () => { for (const b of strip.children) { const on = cur && b.dataset.tab === cur.id; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); if (on) { const want = b.offsetLeft - (strip.clientWidth - b.offsetWidth) / 2; strip.scrollTo({ left: Math.max(0, want), behavior: 'instant' }); } } edges(); };
     const pick = (t, byUser) => { if (!t) return; cur = t; mark(); if (byUser) body.scrollTop = 0; draw(); if (o.onChange) o.onChange(t.id, !!byUser); };
     for (const t of tabs) {
       const b = el('button', { type: 'button', role: 'tab', 'data-tab': t.id }, (t.icon ? icon(t.icon, 18) : '') + '<span></span>'); b.lastChild.textContent = t.title || t.id;

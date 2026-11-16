@@ -23,8 +23,9 @@ import * as shop from './shop.js';
 import * as missions from './missions.js';
 import * as store from './store.js';
 import * as merch from './merch.js';
+import * as guide from './guide.js';   /* first steps for a new player; booted last because it only points at what the others built */
 
-export const VERSION = '0.2.0';
+export const VERSION = '0.3.0';
 const params = new URLSearchParams(location.search), DEBUG = params.get('debug') === '1';
 const QUALITY = {
   low: { name: 'low', pr: 1, fog: 130, veg: 0.3, shadows: false, texSize: 1024 },
@@ -92,8 +93,8 @@ function boot() {
   /* saved while riding: KC is put down beside the ride (which keeps its own saved spot), not inside it */
   bus.on('beforeSave', s => { const r = kc.ride, off = r ? r.r + 1.3 : 0, x = r ? r.x + Math.cos(r.yaw) * off : kc.pos.x, z = r ? r.z - Math.sin(r.yaw) * off : kc.pos.z; if (!Number.isFinite(x) || !Number.isFinite(z)) return; s.pos = { x: +x.toFixed(2), z: +z.toFixed(2), yaw: Number.isFinite(kc.yaw) ? +kc.yaw.toFixed(2) : SPAWN.yaw }; if (!ui.photo) s.settings.camDist = +clamp(cam.dist, 2.6, 13).toFixed(2); });
 
-  /* other agents' modules: each exports init(game) */
-  for (const [name, mod] of [['economy', economy], ['upgrades', upgrades], ['shop', shop], ['missions', missions], ['store', store], ['merch', merch]]) { try { game.modules[name] = (mod.init && mod.init(game)) || mod; } catch (e) { console.error('[module ' + name + ']', e); } }
+  /* feature modules: each exports init(game); boot order matters (economy before everything that prices or grants) */
+  for (const [name, mod] of [['economy', economy], ['upgrades', upgrades], ['shop', shop], ['missions', missions], ['store', store], ['merch', merch], ['guide', guide]]) { try { game.modules[name] = (mod.init && mod.init(game)) || mod; } catch (e) { console.error('[module ' + name + ']', e); } }
   game.cosmetics.restore(); bus.emit('modulesReady', { names: Object.keys(game.modules) });
 
   /* ---------- loop ---------- */
@@ -140,7 +141,7 @@ function boot() {
   /* a save that has never been played (first run, or straight after Start over) is a new game */
   const fresh = !had || (!state.pos && state.stats.playTime < 1);
   playBtn.disabled = false; playBtn.textContent = fresh ? 'Play' : 'Continue';
-  playBtn.addEventListener('click', () => { game.audio.unlock(); game.audio.sfx('ui'); cam.yaw = kc.yaw; cam.snap(); ui.start(); if (fresh) { ui.toast('Welcome to St. Helens! Follow your nose.', { icon: 'paw', ms: 4200 }); } });
+  playBtn.addEventListener('click', () => { game.audio.unlock(); game.audio.sfx('ui'); cam.yaw = kc.yaw; cam.snap(); ui.start(); if (fresh) { ui.toast('Welcome to St. Helens! Clockkeeper Odile on the plaza has a first job for KC.', { icon: 'paw', ms: 4200 }); } });
   requestAnimationFrame(frame);
   window.dispatchEvent(new CustomEvent('kc-open-trail-ready', { detail: { version: VERSION } }));
 

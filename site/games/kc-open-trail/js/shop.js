@@ -179,7 +179,7 @@ export function init(game) {
   const P = game.place, spot = id => [P.door(id, 2.6), P.door(id, 3.8), P.beside(id, 1, 2.6, 2.6), P.beside(id, -1, 2.6, 2.6), P.door(id, 5.2)].filter(Boolean).find(q => P.clear(q.x, q.z, 0.6)) || P.door(id);   /* the first clear spot at the shop front */
   const door = (id, at, prompt, label, tab, section) => { if (!at) return; game.place.counter({ id: 'eco:shop:' + id, x: at.x, z: at.z, r: 3, prompt, icon: 'bone', onInteract: () => open(tab, section), marker: { label, color: '#7fe08f', icon: 'bone' } }); };
   door('tailor', spot('tailor'), 'Visit the costume tailor', 'Stitch & Sit Costume Tailor', 'wardrobe', 'hat');
-  door('pets', spot('pets'), 'Visit the pet supply', 'Tailwind Pet Supply', 'den', 'buddies');
+  door('pets', spot('pets'), 'Visit the pet supply', 'Tailwind Pet Supply', 'upgrades', 'abilities');
   door('bakery', spot('bakery'), 'Visit the bakery', 'Flour & Paw Bakery', 'upgrades', 'treats');
   door('toys', spot('toys'), 'Visit the toy shop', 'Driftwood Toys', 'wardrobe', 'trail');
   door('bikes', spot('bikes'), 'Visit the cyclery', 'Channel Cyclery', 'rides', 'skateboard');

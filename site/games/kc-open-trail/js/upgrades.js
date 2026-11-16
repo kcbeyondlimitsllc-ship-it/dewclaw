@@ -50,6 +50,8 @@ export function init(game) {
     goldhydrant(g) { const c = 0xf0c040; g.cyl(0, 0, 0, 0.24, 0.26, 0.1, 8, 0xc99a20); g.cyl(0, 0.1, 0, 0.17, 0.17, 0.62, 8, c); g.ball(0, 0.78, 0, 0.19, 0.16, 0.19, c, 7, 4); g.ball(0, 0.96, 0, 0.07, 0.07, 0.07, 0xfff0a0, 5, 3); for (const sx of [-1, 1]) g.box(sx * 0.22, 0.5, 0, 0.14, 0.13, 0.13, 0xc99a20); g.box(0, 0.5, 0.2, 0.15, 0.15, 0.12, 0xc99a20); },
     bed(g, o) { g.ball(0, 0.12, 0, 0.8, 0.14, 0.6, o.col ?? 0x2f6fb0, 8, 3); g.ball(0, 0.2, 0, 0.58, 0.1, 0.4, 0xcfe6f5, 8, 3); },
     mug(g, o) { g.box(0, 0.2, 0, 0.5, 0.4, 0.5, 0x8a5a3a); g.cyl(0, 0.4, 0, 0.13, 0.11, 0.26, 8, o.col ?? 0xf4ead8, 0x4f8f4f); g.box(0.17, 0.53, 0, 0.08, 0.14, 0.04, o.col ?? 0xf4ead8); },
+    /* Supporter set: a gold-trimmed arch over the path to the den door (den:gold-trim). Looks only. */
+    goldtrim(g) { const c = 0xf0c040, d = 0xc99a20; for (const sx of [-1.5, 1.5]) { g.cyl(sx, 0, 0, 0.09, 0.11, 2.3, 7, c); g.ball(sx, 2.38, 0, 0.16, 0.16, 0.16, d, 6, 4); } g.box(0, 2.2, 0, 3.1, 0.1, 0.12, c); for (let i = 0; i < 5; i++) g.box(-1.1 + i * 0.55, 1.93, 0, 0.3, 0.42, 0.04, i % 2 ? 0xf4ead8 : c); },
     telescope(g) { g.cyl(0, 0, 0, 0.09, 0.14, 1.15, 7, 0x3a4046); g.ball(0, 1.2, 0, 0.14, 0.14, 0.14, 0xe0b040, 6, 4); g.tf(0, 1.3, 0, Math.PI / 2 - 0.25, 0, 0); g.cyl(0, -0.55, 0, 0.11, 0.08, 1.1, 8, 0xe0b040, 0x2a2c30); g.notf(); }
   };
   function custom(kind, x, z, o = {}) { const g = new Geo(); CUSTOM[kind](g, o); const mesh = new THREE.Mesh(g.build(), dogMaterial()); mesh.position.set(x, place.groundY(x, z), z); mesh.rotation.y = o.ry || 0; mesh.castShadow = true; game.scene.add(mesh); let gone = false; return { mesh, remove() { if (gone) return; gone = true; game.scene.remove(mesh); mesh.geometry.dispose(); } }; }
@@ -70,6 +72,8 @@ export function init(game) {
   ];
   const den = place.staged({ id: 'eco:den', x: D.x, z: D.z, ry: 0, level: lv('den'), stages: denStages });
   place.counter({ id: 'eco:den:door', x: home.x, z: home.z - 1.2, r: 3.4, prompt: () => (lv('den') ? "Go into KC's den" : 'Look at the den spot'), icon: 'star', onInteract: () => game.shop.open('den'), marker: { label: "KC's Den", color: '#ffb238', icon: 'star' } });
+  let trim = null; const syncTrim = () => { const want = lv('den') >= 1 && game.economy.owns('den:gold-trim'); if (want && !trim) trim = custom('goldtrim', home.x, home.z + 1.6); else if (!want && trim) { trim.remove(); trim = null; } };
+  syncTrim(); game.on('grant', syncTrim); game.on('upgrade', e => { if (e && e.id === 'den') syncTrim(); }); game.on('modulesReady', syncTrim);
   game.travel.add({ id: 'den', name: "KC's Den", x: home.x, z: home.z, yaw: home.yaw, color: '#ffb238', enabled: () => lv('den') >= 3 });
   const denSlots = () => { const l = eco.ladder('den'), n = lv('den'); return (n ? l.eff.slots[n - 1] : 0) + (n ? lv('denstore') * eco.ladder('denstore').eff.slots : 0); };
   const outfitSlots = () => (lv('den') ? 1 + lv('denstore') : 0);
@@ -205,7 +209,7 @@ export function init(game) {
   bus.on('upgrade', e => { const l = eco.ladder(e.id); if (l) try { apply(l, false); } catch (err) { console.error('[upgrade ' + e.id + ']', err); } });
 
   const maxIncome = () => Object.keys(BIZ).reduce((s, id) => s + eco.ladder(id).eff.rate * 1.75, 0);
-  return { sites, biz: Object.keys(BIZ), bizName: id => (BIZ[id] ? BIZ[id].label : id), rate, cap, till, collect, collectAll, near, remote, maxIncome,
+  return { goldTrim: () => !!trim, sites, biz: Object.keys(BIZ), bizName: id => (BIZ[id] ? BIZ[id].label : id), rate, cap, till, collect, collectAll, near, remote, maxIncome,
     home, nap, napTimes: NAP, bowl, bowlReady, planning, trophies, wall: () => U.wall, denSlots, decorPlaced: () => Object.keys(U.decor), decorOn: id => id in U.decor, decorStanding: id => { const h = stood.get(id); return !!(h && h.mesh && h.mesh.parent); }, placeDecor, removeDecor, outfitSlots,
     dogs, hearts, favourite, callBuddy, sendHome, called, useTreat, apply: id => { const l = eco.ladder(id); if (l) apply(l, true); } };
 }

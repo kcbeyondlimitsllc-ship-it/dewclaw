@@ -239,6 +239,8 @@ const FAR = Date.UTC(2200, 0, 1);
 const stripeKey = env => String(env.STRIPE_SECRET_KEY || "");
 const stripeOn = env => !!(stripeKey(env) && env.STRIPE_PRICES);
 const stripePrices = env => { try { return JSON.parse(env.STRIPE_PRICES || "{}") || {}; } catch { return {}; } };
+/* a table lookup that only ever answers for the table's own keys, so "__proto__" or "constructor" sent as a SKU finds nothing */
+const own = (table, k) => (typeof k === "string" && table && Object.hasOwn(table, k) ? table[k] : undefined);
 async function stripe(env, deps, method, path, form) {
   if (!stripeKey(env)) throw new HttpError(503, "The server isn't set up for web payments yet.");
   const init = { method, headers: { authorization: `Bearer ${stripeKey(env)}` } };
@@ -308,9 +310,9 @@ async function webCheck(env, deps, token, force) {
 async function handleStripeCheckout(env, deps, req) {
   if (!stripeOn(env)) throw new HttpError(503, "Web payments aren't switched on yet. Plus is sold in the Dewclaw app on Google Play.");
   const { sku, back, install } = await readJson(req);
-  const price = stripePrices(env)[sku];
-  if (Object.hasOwn(OT_GRANTS, String(sku))) return otCheckout(env, deps, sku, price, install);
-  const w = WEB_PRODUCTS[sku], g = PP_GRANTS[sku];
+  const price = own(stripePrices(env), sku);
+  if (typeof sku === "string" && Object.hasOwn(OT_GRANTS, sku)) return otCheckout(env, deps, sku, price, install);
+  const w = own(WEB_PRODUCTS, sku), g = own(PP_GRANTS, sku);
   if (!price || !(w || g)) throw new HttpError(400, "That isn't something Dewclaw sells on the web.");
   const origin = String(env.APP_ORIGIN || "").replace(/\/+$/, "");
   if (!origin) throw new HttpError(503, "APP_ORIGIN isn't set on the server.");
@@ -359,9 +361,9 @@ async function handleStripeClaim(env, deps, req) {
   const s = await stripe(env, deps, "GET", `/checkout/sessions/${encodeURIComponent(session)}`);
   if (s.status !== "complete") throw new HttpError(402, s.status === "expired" ? "That checkout expired. Start again." : "That payment hasn't finished yet.");
   if (!(s.payment_status === "paid" || s.payment_status === "no_payment_required")) throw new HttpError(402, "That payment hasn't gone through yet.");
-  const sku = s.metadata && s.metadata.sku, w = WEB_PRODUCTS[sku], g = PP_GRANTS[sku];
+  const sku = s.metadata && s.metadata.sku, w = own(WEB_PRODUCTS, sku), g = own(PP_GRANTS, sku);
   const customer = typeof s.customer === "string" ? s.customer : (s.customer && s.customer.id) || "";
-  if (Object.hasOwn(OT_GRANTS, String(sku))) {
+  if (typeof sku === "string" && Object.hasOwn(OT_GRANTS, sku)) {
     const out = await otClaim(env, deps, s, sku, install, trailKey);
     await env.DEWCLAW.put(key, JSON.stringify(out), { expirationTtl: 400 * 86400 });
     const { install: _i, ...pub } = out;
@@ -381,7 +383,7 @@ async function handleStripeClaim(env, deps, req) {
 /* what a paid one-time purchase is worth, whichever processor took the money:
    Plus for life, a gift year (as a code), or a Pocket Pup grant */
 async function oneTimeGrant(env, deps, sku, ref, customer) {
-  const w = WEB_PRODUCTS[sku], g = PP_GRANTS[sku];
+  const w = own(WEB_PRODUCTS, sku), g = own(PP_GRANTS, sku);
   if (w && w.plus === "lifetime") {
     const token = await signToken(env, { k: "l", c: customer, s: ref, sku, t: deps.now() });
     await env.DEWCLAW.put("web:" + await sha256(token), JSON.stringify({ until: FAR, sku }));

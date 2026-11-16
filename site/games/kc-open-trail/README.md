@@ -9,10 +9,12 @@ riverside park, Forest Park trails, a brick market square, food carts and dog
 parks. Snow-capped volcanoes sit on the horizon.
 Original game; plain HTML/CSS/JS, no build step.
 
-Served at `/games/kc-open-trail/`. Everything is procedural: geometry and
+Served at `/games/kc-open-trail/`. The world is procedural: geometry and
 textures are built in code and all sound is WebAudio synthesis. No CDN, no
-fonts, no analytics, no ads, no network calls. Works offline after the first
-visit (service worker + manifest).
+fonts, no analytics, no ads, no tracking. As shipped the game makes no network
+call outside its own folder (the real-money store is switched off by
+placeholder config; see "Money" below). Works offline after the first visit
+(service worker + manifest).
 
 The setting follows `marketing/kc-open-trail/SETTING-BRIEF.md`. Real public
 places keep their names; every private business is an invented stand-in; the
@@ -28,7 +30,8 @@ cd site/games/kc-open-trail && python3 -m http.server 8931
 
 ES modules need http(s); opening `index.html` from disk will not work.
 `?q=low|medium|high` forces a quality level, `?nosw` skips the service worker,
-`?debug=1` adds the debug hooks.
+`?debug=1` adds the debug hooks (`?debug=1&mock=1` together also give the
+store a pretend payment page for tests; neither works alone for that).
 
 ## Controls
 
@@ -77,16 +80,58 @@ Festival dressing. A mute button sits in the HUD.
 - Save: localStorage, versioned (`kc-open-trail-save-v2`), tolerant of damaged
   data, every access wrapped in try/catch.
 
-The economy, the upgrade ladders, the shop screens, missions, real-money
-purchases and the merch shelves are six separate modules (`js/economy.js`,
-`js/upgrades.js`, `js/shop.js`, `js/missions.js`, `js/store.js`, `js/merch.js`).
-Each exports `init(game)`, `js/main.js` already imports and boots all six, and
-**modules never edit core files**. **Read the "Module seams" section of
-`ARCHITECTURE.md`** for every hook they build on: modifiers, ride tuning,
-followers, cosmetics by id, the photo overlay, world placement, timed runs,
-fast travel, the Shop tab strip, the shared screen pieces, the grown-up gate
-and the save namespaces. Until a module is written its file is a stub that
-returns `{}`.
+## What the modules add
+
+Seven modules sit on the core (`js/main.js` boots them in this order). The
+contract between them and the core, and each module's public API, are in
+`ARCHITECTURE.md` ("Module seams" and "The feature modules as built").
+
+- **Economy and upgrades** (`economy.js`, `upgrades.js`): 30 upgrade ladders
+  bought with bones (KC's abilities, gear, storage, the Trail Camera, parts
+  for the three rides), KC's Den in six stages a short walk from the spawn
+  (pay-later bar, nap, bone bowl, decor with a full refund), ten Trail
+  Buddies and the Buddy Whistle, three small businesses whose tills fill only
+  while the game is played, the Lantern Fund, the Town Fund and eight Trail
+  Markers. Bones cosmetics, bakery treats, and gem cosmetics that always
+  carry a bones price too. Every price is multiplied by one constant,
+  `ECON_SCALE` in `economy.js` (1.0).
+- **Shop** (`shop.js` and the tabs other modules register): nine tabs on one
+  screen: Upgrades, Wardrobe, Rides, Den & Buddies, Businesses, Town, Trail
+  Journal, KC Gear, Store. It opens from the pause menu and from prompts at
+  ten shop doors and market stalls. Two-step confirm on every spend.
+- **Missions** (`missions.js`, `activities.js`): 16 story missions with a
+  giver on the map, 8 Fog Bell Festival activities (only while the festival
+  is on), a journal in the pause menu, three weekly trail tasks and the Sand
+  Island ferry. Bones only; failing costs nothing.
+- **First steps** (`guide.js`): a new player is pointed at the first job
+  (Clockkeeper Odile on the plaza, 50 bones), then at Tailwind Pet Supply for
+  a first upgrade (Super Sniffer, 80 bones), then left alone.
+- **Store** (`store.js`, `store-config.js`): the real-money catalogue (16
+  items, prices always shown in dollars), a device spending limit, a purchase
+  journal, restore by Trail Key, and the Trail Journal (30 steps earned by
+  play: a free column and a paid cosmetic column).
+- **KC Gear** (`merch.js`, `merch.json`, `img/merch/`): shelves in the world
+  with 14 in-game twins of real KC Beyond Limits products, bought with bones.
+  Behind the grown-up gate: the 54 real products with local thumbnails and a
+  "You are leaving the game" screen before the shop page opens in a new tab.
+
+## Money
+
+- Real-money spending is **off** until a grown-up turns it on in Settings,
+  behind the grown-up gate. The gate is asked again before every purchase,
+  before restore, and before any link that leaves the game.
+- Money never buys bones or anything that changes how KC plays. It buys gems
+  (cosmetics only) and cosmetic sets. Everything that affects play is earned
+  with bones. Nothing is random, nothing has a countdown.
+- **Nothing is live.** `js/store-config.js` holds placeholders, so every
+  store item says "Coming soon" and no checkout can start. The owner's
+  steps (Stripe products, worker settings, wording for a lawyer) are in
+  `marketing/kc-open-trail/MONETIZATION.md`. The worker side is
+  `worker/dewclaw-worker.js`, tested by `worker/test.js`.
+- The merch claim ("bought the real one, get the twin") is local and on
+  trust; no order number is stored or sent.
+- Before each release and around each shop sale, refresh the product list:
+  `node tools/sync-merch.js --live --accept` (`--check` verifies it).
 
 ## Files
 
@@ -111,37 +156,67 @@ js/photo.js                photo mode frames, filters, stickers, zoom and poses 
 js/seams.js                module seams: cosmetics by id, world placement, staged objects, timed runs, fast travel, followers
 js/audio.js, js/fx.js      synthesised sound; particles + blob shadows
 js/events.js, js/save.js, js/util.js   bus, save, helpers + geometry builder
-js/economy.js, js/upgrades.js, js/shop.js, js/missions.js, js/store.js, js/merch.js   feature modules (stubs until written); each exports init(game)
+js/economy.js              price table: ladders, items, ECON_SCALE, free gems, daily sniff-outs (extends game.economy)
+js/upgrades.js             what the ladders do: den, buddies, businesses, funds, trail markers
+js/shop.js                 six Shop tabs and the shop-door prompts
+js/missions.js, js/activities.js   story missions, festival activities, journal, weekly tasks, ferry
+js/store.js, js/store-config.js    real-money store, Trail Journal; the config is placeholders until the owner fills it in
+js/merch.js                KC shelves, twins, real products behind the gate, leaving screen, claim
+js/guide.js                first steps for a new player
+css/economy.css, css/missions.css, css/store.css, css/merch.css   the modules' styles (each injected by its module)
+merch.json, img/merch/     the 54 real products and their 240 px thumbnails (made by tools/sync-merch.js)
 tools/make-icons.js        regenerates icons/ (dev only, needs Playwright)
-tests/smoke.js             Playwright smoke test
+tools/sync-merch.js        rebuilds merch.json and the thumbnails from the shop (owner tool, run by hand)
+tests/smoke.js             the single test entry point (Playwright); also runs the five suites below
+tests/economy.test.js, tests/missions.test.js, tests/store.test.js, tests/merch.test.js   the module suites
 ```
 
 When you change any shipped file, bump `VERSION` in `sw.js`
 (`kc-open-trail-vN`) and keep its `SHELL` list in step with the real files
-(the smoke test checks the list).
+(the smoke test checks `js/`, `css/`, `merch.json` and the icons against it).
+The thumbnails in `img/merch/` are left out of `SHELL` on purpose: they load
+only when a grown-up opens the real-gear list, and the service worker keeps
+each one from then on.
 
 ## Test
 
 ```sh
 cd site/games/kc-open-trail
-for f in js/*.js sw.js tests/smoke.js; do node --check "$f"; done
+for f in js/*.js sw.js tests/*.js tools/*.js; do node --check "$f"; done
 NODE_PATH=$(npm root -g) node tests/smoke.js /tmp/kc-shots
 ```
 
-The test starts its own static server (port 8947, `PORT=` to change) and, at
-390x844 and 844x390 with touch and at 1280x720 with mouse and keys: loads,
-starts play, checks the HUD and thumb controls fit, walks / sprints / jumps /
-swims, tours the districts, rides the skateboard, canoe, van and tram, watches the freight train move,
-swings the
-camera against walls, talks to a townsperson, exercises the economy, shop and
-festival seams and every module seam (events, modifiers, ride tuning,
-followers, cosmetics, placement, staged objects, timed runs, fast travel, a
-ten-tab Shop, confirm-spend, the grown-up gate, the spending switch, leaving
-links and the photo overlay), pauses, saves and reloads, measures frame time, and fails on
-any console error or off-origin request. `SEAMS_ONLY=1` runs just the seam
-checks in the three viewports (a few minutes less). It also checks a damaged save, the
-offline reload and the service worker file list. Screenshots go to the folder
-given as the first argument. Exit code is non-zero if anything fails.
+`tests/smoke.js` is the one command. It starts its own static server (port
+8947, `PORT=` to change) and runs, in order:
+
+1. **Static checks**: the service worker file list, the do-not-copy name
+   scan over every shipped file, no network calls outside `store.js` /
+   `merch.js`, the module imports.
+2. **Core seams, modules stubbed**: at 390x844 and 844x390 with touch and at
+   1280x720 with mouse and keys, every hook in "Module seams" is exercised
+   with the seven module files replaced by empty ones, so the core's
+   contract is tested on its own.
+3. **The whole game, all modules live**, in the same three viewports: loads,
+   the first-steps pointer, HUD and thumb controls, walking / sprinting /
+   jumping / swimming, the district tour, the rides, the festival layer, then
+   the integrated flow: first job pays the real wallet, the pet supply door
+   opens the Shop, the first upgrade is bought by tapping, all nine Shop tabs
+   fit a phone with 44 px targets, a mission in progress on the HUD, KC's Den,
+   the Biscuit Cart handed over by the last story mission and its till, every
+   store grant / journal reward / twin resolving to a real item, a twin on
+   KC's head, the real-product cards and the leaving screen behind the switch
+   and the gate, pause / settings / map, frame time, save and reload.
+4. A damaged save, "Start over", and the offline reload from the service worker.
+5. **The suites**, each as its own process: `tests/economy.test.js`,
+   `tests/missions.test.js`, `tests/store.test.js`, `tests/merch.test.js` and
+   `worker/test.js`. Each can also be run by itself the same way.
+
+It fails on any console error or off-origin request. Screenshots go to the
+folder given as the first argument (the suites write into sub-folders of it).
+Exit code is non-zero if anything fails. Switches: `SEAMS_ONLY=1` (step 1 and
+2), `LIVE_ONLY=1` (skip step 2), `SKIP_SUITES=1` (skip step 5),
+`VIEWPORTS=phone-portrait,desktop` (only those viewports, no suites). The
+full run takes about 20 to 25 minutes here in software rendering.
 
 Headless Chromium draws WebGL in software, so the frame times it prints are
 only a guard against regressions; they say nothing about real phones.

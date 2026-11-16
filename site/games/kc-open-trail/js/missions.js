@@ -245,41 +245,40 @@ const MISSIONS = [
       c.poll(0.1, () => { if (!hot && dist(cartAt(orders[i][0]), game.kc.pos) < 3.2) carry(); });
       pick();
     },
-    after(game) { if (!game.economy.getFlag('cartRunner')) { game.economy.setFlag('cartRunner', true); game.toast('Lucía chalks it up: first payment made toward a treat cart of your own.', { icon: 'star', kind: 'gold', ms: 5000 }); } } }
+    after(game) { if (!game.economy.getFlag('cartRunner')) { game.economy.setFlag('cartRunner', true); const eco = game.modules.economy, free = !!(eco && eco.level && eco.buyLevel && eco.level('biz:cart') < 1 && eco.buyLevel('biz:cart', { free: true }));
+      game.toast(free ? 'Lucía hands over the keys: the Biscuit Cart at the food cart pod is yours. Empty its till when you pass by.' : 'Lucía chalks it up: you already run the Biscuit Cart, so she adds a round of thanks.', { icon: 'star', kind: 'gold', ms: 6000 }); } } }
 ];
 
 /* the shuttle boat between North Marina and Sand Island (free for good once Island Shuttle is done) */
 const FERRY = { marina: { x: -103, z: -349, yaw: Math.PI / 2, name: 'North Marina' }, island: { x: -57, z: -338, yaw: -Math.PI / 2, name: 'Sand Island' } };
 
-/* ================= daily sniff-outs and weekly trail tasks =================
-   Made on the device from the date; nothing is sent anywhere. There is no streak, so missing a day or a week loses nothing. */
-const VISITS = [['plaza', 'Courthouse Plaza'], ['cvpark', 'Columbia View Park'], ['marina', 'North Marina'], ['nobhill', 'Nob Hill Nature Park'], ['mccormick', 'McCormick Park'], ['scappoose', 'Scappoose'], ['farm', 'Wapato Patch Farm'], ['cathedral', 'Cathedral Park'], ['carts', 'the Food Cart Pod'], ['square', 'Pioneer Courthouse Square'], ['waterfront', 'Waterfront Park'], ['greycliffs', 'Grey Cliffs Park']];
-const pl = (n, one, many) => (n === 1 ? one : many.replace('#', n));
+/* ================= weekly trail tasks (and the daily sniff-outs, shown here) =================
+   The three daily sniff-outs and their 2 gems belong to js/economy.js (spec 3.4): this module only shows them, so they are
+   never paid twice and missions stay bones-only. The weekly trail tasks are made here, on the device, from the date; nothing
+   is sent anywhere. There is no streak, so missing a day or a week loses nothing. */
 const TASKS = {
-  bones: { ev: 'boneCollected', d: [12, 20], w: [80, 120], text: n => `Sniff up ${n} loose bones` },
-  dig: { ev: 'pickup', ok: e => e.kind === 'dig', d: [1, 2], w: [6, 8], text: n => pl(n, 'Dig up a buried surprise', 'Dig up # buried surprises') },
-  talk: { ev: 'talk', d: [2, 3], w: [10, 14], text: n => `Say hello to ${n} people` },
-  dog: { ev: 'dogPlay', d: [1, 1], w: [4, 5], text: n => pl(n, 'Play with a town dog', 'Play with town dogs # times') },
-  swim: { ev: 'swimStart', d: [1, 1], w: [4, 6], text: n => pl(n, 'Go for a swim', 'Go for # swims') },
-  ride: { ev: 'vehicleEnter', d: [1, 2], w: [6, 8], text: n => pl(n, 'Take a ride on a board, a canoe, a van or the tram', 'Take # rides (board, canoe, van or tram)') },
-  photo: { ev: 'photoTaken', d: [1, 1], w: [4, 5], text: n => pl(n, 'Take a photo', 'Take # photos') },
-  fetch: { ev: 'fetch', d: [2, 3], w: [8, 10], text: n => `Fetch the ball ${n} times` },
-  bell: { ev: 'fogBell', d: [1, 1], text: () => 'Ring the Old Fog Bell' },
-  job: { ev: 'missionComplete', d: [1, 1], w: [5, 7], text: n => pl(n, 'Finish a mission or a job', 'Finish # missions or jobs') },
-  visit: { ev: 'enterZone', ok: (e, t) => e.district && e.id === t.arg, d: [1, 1], pick: r => VISITS[Math.floor(r() * VISITS.length)][0], text: (n, t) => 'Visit ' + (VISITS.find(v => v[0] === t.arg) || ['', 'somewhere new'])[1] },
+  bones: { ev: 'boneCollected', w: [80, 120], text: n => `Sniff up ${n} loose bones` },
+  dig: { ev: 'pickup', ok: e => e.kind === 'dig', w: [6, 8], text: n => `Dig up ${n} buried surprises` },
+  talk: { ev: 'talk', w: [10, 14], text: n => `Say hello to ${n} people` },
+  dog: { ev: 'dogPlay', w: [4, 5], text: n => `Play with town dogs ${n} times` },
+  swim: { ev: 'swimStart', w: [4, 6], text: n => `Go for ${n} swims` },
+  ride: { ev: 'vehicleEnter', w: [6, 8], text: n => `Take ${n} rides (board, canoe, van or tram)` },
+  photo: { ev: 'photoTaken', w: [4, 5], text: n => `Take ${n} photos` },
+  fetch: { ev: 'fetch', w: [8, 10], text: n => `Fetch the ball ${n} times` },
+  job: { ev: 'missionComplete', w: [5, 7], text: n => `Finish ${n} missions or jobs` },
   explore: { ev: 'enterZone', ok: (e, t) => { if (!e.district || (t.seen || (t.seen = [])).includes(e.id)) return false; t.seen.push(e.id); return true; }, w: [8, 12], text: n => `Pass through ${n} different districts` }
 };
-const DAILY_PAY = { bones: 10, gems: 2 }, WEEKLY_PAY = { bones: 50, bonus: 50 };
+const WEEKLY_PAY = { bones: 50, bonus: 50 };
 function seeded(str) { let h = 1779033703 ^ str.length; for (let i = 0; i < str.length; i++) { h = Math.imul(h ^ str.charCodeAt(i), 3432918353); h = (h << 13) | (h >>> 19); } let a = h >>> 0; return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 const two = n => String(n).padStart(2, '0');
-const dayKey = d => `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}`;
 const weekKey = d => { const t = new Date(d.getFullYear(), d.getMonth(), d.getDate()); t.setDate(t.getDate() + 3 - ((t.getDay() + 6) % 7)); const y = t.getFullYear(), w1 = new Date(y, 0, 4); return `${y}-W${two(1 + Math.round(((t - w1) / 864e5 - 3 + ((w1.getDay() + 6) % 7)) / 7))}`; };
-function makeTasks(key, span) { const r = seeded('kc-trail-' + key), pool = Object.keys(TASKS).filter(k => TASKS[k][span]), out = []; while (out.length < 3 && pool.length) { const type = pool.splice(Math.floor(r() * pool.length), 1)[0], T = TASKS[type], [lo, hi] = T[span]; out.push({ type, n: lo + Math.floor(r() * (hi - lo + 1)), have: 0, done: false, arg: T.pick ? T.pick(r) : null }); } return { key, tasks: out, paid: false }; }
+function makeTasks(key) { const r = seeded('kc-trail-' + key), pool = Object.keys(TASKS), out = []; while (out.length < 3 && pool.length) { const type = pool.splice(Math.floor(r() * pool.length), 1)[0], [lo, hi] = TASKS[type].w; out.push({ type, n: lo + Math.floor(r() * (hi - lo + 1)), have: 0, done: false }); } return { key, tasks: out, paid: false }; }
 
 export function init(game) {
   const { bus, kc, world, scene } = game, ui = game.ui, place = game.place;
   if (typeof document !== 'undefined' && !document.querySelector('link[data-kc-missions]')) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'css/missions.css'; l.setAttribute('data-kc-missions', '1'); document.head.appendChild(l); }
-  const data = game.moduleData('missions', { done: {}, best: {}, paidDay: {}, bones: 0, runs: 0, daily: null, weekly: null, way: null, ferry: false });
+  const data = game.moduleData('missions', { done: {}, best: {}, paidDay: {}, bones: 0, runs: 0, weekly: null, way: null, ferry: false });
+  delete data.daily; /* older saves: the daily sniff-outs moved to the economy module */
   for (const k of ['done', 'best', 'paidDay']) if (!data[k] || typeof data[k] !== 'object') data[k] = {};
   const defs = [...MISSIONS, ...ACTIVITIES.map(a => ({ ...a, fest: true }))], byId = new Map(defs.map(d => [d.id, d])), givers = new Map();
   let active = null, now = () => new Date();
@@ -398,15 +397,17 @@ export function init(game) {
   for (const [from, to] of [['marina', 'island'], ['island', 'marina']]) place.marker({ id: 'ferry:' + from, x: FERRY[from].x, z: FERRY[from].z, label: 'Shuttle boat', icon: 'flag', color: BLUE, prompt: 'Ride the shuttle to ' + FERRY[to].name, r: 3, prio: 4, enabled: () => ferryOk(to) && !kc.ride, onInteract: () => ferry(to) });
 
   /* ---------- trail tasks ---------- */
-  function ensureTasks() { const d = now(), dk = dayKey(d), wk = weekKey(d); let fresh = false; if (!data.daily || data.daily.key !== dk || !Array.isArray(data.daily.tasks)) { data.daily = makeTasks(dk, 'd'); fresh = true; } if (!data.weekly || data.weekly.key !== wk || !Array.isArray(data.weekly.tasks)) { data.weekly = makeTasks(wk, 'w'); fresh = true; } return fresh; }
+  function ensureTasks() { const wk = weekKey(now()); if (data.weekly && data.weekly.key === wk && Array.isArray(data.weekly.tasks)) return false; data.weekly = makeTasks(wk); return true; }
   const taskText = t => { const T = TASKS[t.type]; return T ? T.text(t.n, t) : 'A trail task'; };
+  /* the daily sniff-outs live in the economy module: { date, goals: [{ text, need, have, done }], done, paid, gems } or null */
+  const sniffOuts = () => { const e = game.modules.economy; try { const d = e && typeof e.daily === 'function' ? e.daily() : null; return d && Array.isArray(d.goals) ? d : null; } catch (err) { return null; } };
   function bump(type, e) {
-    for (const [set, span] of [[data.daily, 'd'], [data.weekly, 'w']]) { if (!set) continue;
-      for (const t of set.tasks) { const T = TASKS[t.type]; if (!T || T.ev !== type || t.done || (T.ok && !T.ok(e, t))) continue; t.have = Math.min(t.n, t.have + 1); if (t.have < t.n) continue; t.done = true;
-        const got = game.economy.grant({ bones: Math.round((span === 'd' ? DAILY_PAY.bones : WEEKLY_PAY.bones) * scale()) }, span === 'd' ? 'daily' : 'weekly');
-        game.toast(`${span === 'd' ? 'Sniff-out' : 'Trail task'} done: ${taskText(t)}  +${got.bones} bones`, { icon: 'paw', kind: 'good', ms: 3600 }); game.audio.sfx('reward'); bus.emit('taskDone', { span: span === 'd' ? 'daily' : 'weekly', type: t.type, bones: got.bones }); }
-      if (!set.paid && set.tasks.length && set.tasks.every(t => t.done)) { set.paid = true; const got = game.economy.grant(span === 'd' ? { gems: DAILY_PAY.gems } : { bones: Math.round(WEEKLY_PAY.bonus * scale()) }, span === 'd' ? 'daily:all' : 'weekly:all');
-        game.toast(span === 'd' ? `All three sniff-outs done today!  +${got.gems} gems` : `All three trail tasks done this week!  +${got.bones} bones`, { icon: span === 'd' ? 'gem' : 'bone', kind: 'gold', ms: 4200 }); bus.emit('tasksAllDone', { span: span === 'd' ? 'daily' : 'weekly', ...got }); } }
+    const set = data.weekly; if (!set) return;
+    for (const t of set.tasks) { const T = TASKS[t.type]; if (!T || T.ev !== type || t.done || (T.ok && !T.ok(e, t))) continue; t.have = Math.min(t.n, t.have + 1); if (t.have < t.n) continue; t.done = true;
+      const got = game.economy.grant({ bones: Math.round(WEEKLY_PAY.bones * scale()) }, 'weekly');
+      game.toast(`Trail task done: ${taskText(t)}  +${got.bones} bones`, { icon: 'paw', kind: 'good', ms: 3600 }); game.audio.sfx('reward'); bus.emit('taskDone', { span: 'weekly', type: t.type, bones: got.bones }); }
+    if (!set.paid && set.tasks.length && set.tasks.every(t => t.done)) { set.paid = true; const got = game.economy.grant({ bones: Math.round(WEEKLY_PAY.bonus * scale()) }, 'weekly:all');
+      game.toast(`All three trail tasks done this week!  +${got.bones} bones`, { icon: 'bone', kind: 'gold', ms: 4200 }); bus.emit('tasksAllDone', { span: 'weekly', ...got }); }
   }
   ensureTasks(); let taskT = 0; bus.on('second', () => { if (++taskT >= 30) { taskT = 0; ensureTasks(); } });
   for (const type of new Set(Object.values(TASKS).map(t => t.ev))) bus.on(type, e => bump(type, e || {}));
@@ -430,20 +431,21 @@ export function init(game) {
   }
   function paneTasks(p) {
     ensureTasks();
-    const block = (set, head, sub, each, all) => { p.appendChild(ui.heading(head, sub)); const box = el('div', { class: 'ms-tasks' });
-      for (const t of set.tasks) { const r = el('div', { class: 'ms-task' + (t.done ? ' done' : '') }); const b = el('b'); b.textContent = taskText(t); r.appendChild(b); r.appendChild(ui.progress(t.have, t.n, t.done ? 'Done' : `${t.have} of ${t.n}`)); r.appendChild(el('span', { class: 'ms-taskpay' }, each)); box.appendChild(r); }
-      p.appendChild(box); p.appendChild(ui.note(set.paid ? 'All three done. ' + all[1] : all[0], set.paid ? 'good' : '')); };
-    block(data.daily, "Today's sniff-outs", 'Three little things to do, new each day', ui.price({ bones: Math.round(DAILY_PAY.bones * scale()) }), [`Do all three for ${DAILY_PAY.gems} gems. New ones come tomorrow either way.`, `${DAILY_PAY.gems} gems are in the pouch. Three new ones tomorrow.`]);
-    block(data.weekly, "This week's trail tasks", 'Three bigger ones, new each Monday', ui.price({ bones: Math.round(WEEKLY_PAY.bones * scale()) }), [`Do all three for ${Math.round(WEEKLY_PAY.bonus * scale())} bones more. Skip a week whenever you like.`, 'The bonus bones are in the pouch. Three new ones on Monday.']);
+    const block = (rows, head, sub, each, note, good) => { p.appendChild(ui.heading(head, sub)); const box = el('div', { class: 'ms-tasks' });
+      for (const t of rows) { const r = el('div', { class: 'ms-task' + (t.done ? ' done' : '') }); const b = el('b'); b.textContent = t.text; r.appendChild(b); r.appendChild(ui.progress(t.have, t.n, t.done ? 'Done' : `${t.have} of ${t.n}`)); if (each) r.appendChild(el('span', { class: 'ms-taskpay' }, each)); box.appendChild(r); }
+      p.appendChild(box); p.appendChild(ui.note(note, good ? 'good' : '')); };
+    const so = sniffOuts(), w = data.weekly;
+    if (so) block(so.goals.map(g => ({ text: g.text, have: g.have, n: g.need, done: g.done })), "Today's sniff-outs", 'Three little things to do, new each day', '', so.paid ? `All three done: ${so.gems} gems are in the pouch. Three new ones tomorrow.` : `Do all three for ${so.gems} gems. New ones come tomorrow either way.`, so.paid);
+    block(w.tasks.map(t => ({ text: taskText(t), have: t.have, n: t.n, done: t.done })), "This week's trail tasks", 'Three bigger ones, new each Monday', ui.price({ bones: Math.round(WEEKLY_PAY.bones * scale()) }), w.paid ? 'All three done. The bonus bones are in the pouch. Three new ones on Monday.' : `Do all three for ${Math.round(WEEKLY_PAY.bonus * scale())} bones more. Skip a week whenever you like.`, w.paid);
     p.appendChild(ui.note('Trail tasks never pile up and there is no streak to keep. Miss a day or a week and nothing is lost.'));
   }
   let handle = null; const redraw = () => { if (handle && ui.current && ui.current.id === 'missions') handle.refresh(); };
   function open(which) {
-    if (which) tab = which;
-    handle = game.openModal({ id: 'missions', title: 'Missions', wide: true, wallet: true, className: 'ms-journal', render(body) {
+    const board = which === 'board'; if (board) tab = 'missions'; else if (which) tab = which;
+    handle = game.openModal({ id: 'missions', title: board ? 'Planning board' : 'Missions', wide: true, wallet: true, className: 'ms-journal', render(body) {
       const st = stats(), tabs = [{ id: 'missions', title: 'Missions', icon: 'flag', badge: () => (st.total - st.done) || '', render: p => paneMissions(p, false) }];
       if (festOn()) tabs.push({ id: 'festival', title: 'Festival', icon: 'star', badge: () => defs.filter(d => d.fest && !data.done[d.id]).length || '', render: p => paneMissions(p, true) });
-      tabs.push({ id: 'tasks', title: 'Trail tasks', icon: 'paw', badge: () => [...data.daily.tasks, ...data.weekly.tasks].filter(t => !t.done).length || '', render: paneTasks });
+      tabs.push({ id: 'tasks', title: 'Trail tasks', icon: 'paw', badge: () => { const so = sniffOuts(); return (data.weekly.tasks.filter(t => !t.done).length + (so ? so.goals.filter(g => !g.done).length : 0)) || ''; }, render: paneTasks });
       ui.tabs(body, tabs, { current: tabs.some(t => t.id === tab) ? tab : 'missions', onChange: id => { tab = id; } });
     } });
     return handle;
@@ -466,8 +468,9 @@ export function init(game) {
     /* debug only (window.__ot.completeMission): finish the mission in progress as a win */
     complete() { if (!active) return false; active.win(); return true; },
     fail(text) { if (!active) return false; active.fail(text); return true; },
-    tasks: () => { ensureTasks(); return { daily: { ...data.daily, tasks: data.daily.tasks.map(t => ({ ...t, text: taskText(t) })) }, weekly: { ...data.weekly, tasks: data.weekly.tasks.map(t => ({ ...t, text: taskText(t) })) } }; },
-    /* tests: pretend it is another day */
+    /* daily: the economy module's sniff-outs (or null); weekly: { key, paid, tasks: [{ type, n, have, done, text }] } */
+    tasks: () => { ensureTasks(); return { daily: sniffOuts(), weekly: { ...data.weekly, tasks: data.weekly.tasks.map(t => ({ ...t, text: taskText(t) })) } }; },
+    /* tests: pretend it is another week */
     _setClock(fn) { now = fn || (() => new Date()); ensureTasks(); },
     FERRY, data
   };

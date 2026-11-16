@@ -1,0 +1,40 @@
+/* KC: Open Trail store and Trail Journal (js/store.js). Loaded by the module's init. Touch targets are 44 px or more. */
+.st-ask { margin:18px 4px; padding:18px 14px; text-align:center; font-size:17px; font-weight:800; background:rgba(0,0,0,.25); border:1px solid var(--line); border-radius:16px; }
+.st-sub { margin:4px 0 10px; font-size:14px; line-height:1.4; color:#dcebe2; }
+.st-open { width:100%; min-height:52px; margin:4px 0 10px; }
+.st-limit { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:8px 0; padding:8px 12px; background:rgba(0,0,0,.25); border:1px solid var(--line); border-radius:14px; font-size:13px; line-height:1.35; color:#dcebe2; }
+.st-limit span { flex:1 1 200px; min-width:0; } .st-limit .btn { flex:none; min-height:44px; padding:8px 14px; font-size:15px; }
+.modal.store .item .side .btn { min-width:104px; white-space:nowrap; } .modal.store .item .pc b { font-size:16px; }
+.modal.store .note { margin:8px 0; }
+/* this module's own screens keep 44 px controls on a short (landscape phone) screen too */
+.modal.store #modalClose { width:44px; height:44px; } .modal.store #modalActions .btn { min-height:44px; }
+.st-top { display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:4px; } .st-top b { font-size:19px; line-height:1.2; } .st-price { flex:none; font-size:24px; font-weight:900; color:var(--accent); }
+.st-list { margin:4px 0 10px; padding-left:20px; font-size:14px; line-height:1.45; } .st-list li { margin:1px 0; }
+.st-key { margin:10px 0; padding:10px 12px; text-align:center; border:2px dashed var(--accent); border-radius:14px; } .st-key small { display:block; font-size:12px; letter-spacing:1px; text-transform:uppercase; color:#dcebe2; }
+.st-key b { font-size:28px; letter-spacing:3px; font-family:ui-monospace,Menlo,Consolas,monospace; -webkit-user-select:text; user-select:text; }
+.st-input { display:block; width:100%; max-width:300px; margin:8px auto; min-height:52px; padding:8px 12px; font-size:24px; letter-spacing:3px; text-align:center; text-transform:uppercase; font-family:ui-monospace,Menlo,Consolas,monospace;
+  color:#fff; background:rgba(0,0,0,.35); border:2px solid var(--line); border-radius:14px; -webkit-user-select:text; user-select:text; } .st-input:focus { outline:none; border-color:var(--accent); }
+.st-msg { min-height:20px; margin:4px 0; text-align:center; font-size:14px; color:var(--warn); }
+.st-caps { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin:10px 0; } .st-caps .btn { min-height:52px; padding:8px 4px; }
+.st-journal { list-style:none; margin:6px 0; padding:0; font-size:14px; } .st-journal li { display:flex; gap:10px; align-items:baseline; padding:8px 4px; border-bottom:1px solid var(--line); }
+.st-journal time { flex:none; width:96px; color:#dcebe2; font-size:13px; } .st-journal span { flex:1; min-width:0; } .st-journal b { flex:none; }
+.st-fine { margin:6px 0; font-size:13px; line-height:1.45; color:#dcebe2; }
+
+/* the Trail Journal: step, goal, free column and (when a grown-up has the shop on, or the pass is owned) the pass column */
+.tj { margin:10px 0; display:grid; gap:6px; }
+.tj-row { display:grid; grid-template-columns:30px minmax(0,1fr) 112px; gap:8px; align-items:center; min-height:52px; padding:6px 10px; background:rgba(255,255,255,.07); border:1px solid var(--line); border-radius:14px; }
+.tj.two .tj-row { grid-template-columns:30px minmax(0,1.2fr) 108px minmax(0,1fr); }
+.tj-row.done { border-color:var(--good); }
+.tj-head { min-height:0; padding:2px 10px; background:none; border:0; font-size:11px; font-weight:800; letter-spacing:1px; text-transform:uppercase; color:var(--accent); }
+.tj-n { font-style:normal; font-weight:900; font-size:15px; width:28px; height:28px; border-radius:50%; display:grid; place-items:center; background:rgba(0,0,0,.3); } .tj-row.done .tj-n { background:var(--good); color:#12261e; }
+.tj-goal { min-width:0; display:flex; flex-direction:column; } .tj-goal b { font-size:14px; line-height:1.2; } .tj-goal small { font-size:12px; color:#dcebe2; }
+.tj-free, .tj-pass { min-width:0; display:flex; flex-wrap:wrap; align-items:center; gap:2px 6px; font-size:13px; } .tj-pass small { font-size:11px; color:#dcebe2; }
+.tj-it { display:inline-flex; align-items:center; gap:4px; min-width:0; color:var(--accent); } .tj-it b { color:#fff; font-size:13px; line-height:1.2; font-weight:700; }
+.tj-free em, .tj-pass em { font-style:normal; font-size:11px; font-weight:800; letter-spacing:.5px; text-transform:uppercase; color:var(--good); }
+.tj-pass.off { opacity:.6; }
+.tj-lab { display:none; font-style:normal; font-size:11px; font-weight:800; letter-spacing:1px; text-transform:uppercase; color:var(--accent); }
+@media (max-width:480px) {
+  .tj-row { grid-template-columns:28px minmax(0,1fr) 96px; padding:6px 8px; }
+  .tj.two .tj-row { grid-template-columns:28px minmax(0,1fr) 84px; } .tj.two .tj-row .tj-pass { grid-column:2 / -1; padding-top:4px; border-top:1px dashed var(--line); } .tj.two .tj-head span:last-child { display:none; } .tj-lab { display:inline; }
+  .st-caps { grid-template-columns:repeat(2,1fr); } .st-journal time { width:84px; }
+}

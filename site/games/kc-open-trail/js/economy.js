@@ -16,6 +16,14 @@
 import { DOG_SPOTS, SIGNPOSTS } from './data.js';
 
 export const ECON_SCALE = 1.0;
+/* Seconds before a picked-up loose bone comes back (the core's default is 100 to 140). Set at integration after a bot measured income
+   against spec 3.1 (about 150 loose bones an hour early on): a player who only takes bones on her path earned about 170 an hour,
+   one who steps up to 8 m aside about 450, and one who does nothing but chase bones about 1,480, more than a repeatable job pays.
+   A bone now takes most of a game day (12 minutes) to return; a first pass through any place is unchanged. Measured again with
+   this value: about 170 (path only), 220 (8 m aside) and 1,070 (nothing but bones, about what repeatable jobs pay). If playtest
+   shows bone-chasing still beats jobs, thin the bones in data.js or raise this further. This is not ECON_SCALE: prices and
+   mission pay are untouched. */
+export const BONE_RESPAWN = [600, 780];
 export const BONES_PER_GEM = 50;          /* any gem price can be paid in bones at this rate; never the other way round */
 export const GEM_PACK = { gems: 80, usd: 0.99 };   /* the smallest pack: the rate behind every "about $X" label */
 export const UNDO_MS = 10 * 60 * 1000;    /* a gem purchase can be undone for ten minutes */
@@ -124,6 +132,7 @@ const DAILY_POOL = [['bones', 20, 'Sniff up 20 loose bones'], ['digs', 3, 'Dig 3
 export const DAILY_GEMS = 2;
 
 export function init(game) {
+  if (game.rewards) game.rewards.boneRespawn = BONE_RESPAWN.slice();
   const { state, bus, wallet } = game, eco = game.economy;
   const byId = new Map(LADDERS.map(l => [l.id, l])), items = new Map(ITEMS.map(i => [i.id, i]));
   const price = n => Math.max(0, Math.round((Number(n) || 0) * ECON_SCALE));

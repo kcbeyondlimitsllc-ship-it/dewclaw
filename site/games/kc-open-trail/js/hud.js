@@ -20,9 +20,11 @@ export function createHud(game) {
     const box = $('toasts'); while (box.children.length >= 3) box.firstChild.remove();
     const t = el('div', { class: 'toast ' + (o.kind || '') }, (o.icon ? icon(o.icon, 20) : '') + '<span></span>'); t.lastChild.textContent = text; box.appendChild(t);
     setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 380); }, o.ms || 2800);
-    bus.emit('toast', { text }); return t;
+    bus.emit('toast', { text }); ui._clearBanner(); return t;
   };
-  ui.banner = (title, sub) => { const b = $('banner'); b.innerHTML = (sub ? `<small>${sub}</small>` : '') + '<span></span>'; b.lastChild.textContent = title; b.classList.add('on'); clearTimeout(ui._bt); ui._bt = setTimeout(() => b.classList.remove('on'), 2600); };
+  /* a toast and the district / mission banner must not sit on top of each other: the banner steps down below the toasts */
+  ui._clearBanner = () => { const b = $('banner'); if (!b.classList.contains('on')) return; b.style.top = ''; const tr = $('toasts').getBoundingClientRect(), br = b.getBoundingClientRect(); if (tr.height && br.height && br.top < tr.bottom + 6 && br.bottom > tr.top - 6) b.style.top = Math.round(tr.bottom + 10) + 'px'; };
+  ui.banner = (title, sub) => { const b = $('banner'); b.innerHTML = (sub ? `<small>${sub}</small>` : '') + '<span></span>'; b.lastChild.textContent = title; b.classList.add('on'); ui._clearBanner(); clearTimeout(ui._bt); ui._bt = setTimeout(() => b.classList.remove('on'), 2600); };
   ui.fade = (mid, ms = 320) => { ui.fading = true; const f = $('fade'); f.classList.add('on'); setTimeout(() => { try { mid && mid(); } finally { setTimeout(() => { f.classList.remove('on'); ui.fading = false; }, 120); } }, ms); };
 
   /* ---------- modal shell ---------- */
@@ -52,7 +54,7 @@ export function createHud(game) {
     const i = ui.stack.indexOf(m); if (i < 0) return; ui.stack.splice(i, 1);
     try { m.onClose && m.onClose(); } catch (e) { console.error(e); }
     bus.emit('modalClose', { id: m.id });
-    if (ui.stack.length) show(ui.stack[ui.stack.length - 1]); else { modal.hidden = true; ui.modalOpen = false; ui.current = null; $('game').focus({ preventScroll: true }); }
+    if (ui.stack.length) show(ui.stack[ui.stack.length - 1]); else { modal.hidden = true; ui.modalOpen = false; ui.current = null; $('modalBody').textContent = ''; $('modalActions').textContent = ''; $('game').focus({ preventScroll: true }); }
   };
   ui.closeAll = () => { while (ui.stack.length) ui.closeModal(); };
   ui.isPaused = () => ui.stack.some(m => m.pause !== false);

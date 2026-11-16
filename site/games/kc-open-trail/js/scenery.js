@@ -228,7 +228,7 @@ export function buildScenery(game, world) {
     g.box(0, 0.5, 0, 1.9, 0.12, 0.6, C.woodL); g.box(0, 0.9, -0.28, 1.9, 0.5, 0.1, C.woodL); for (const s of [-0.8, 0.8]) g.box(s, 0.25, 0, 0.12, 0.5, 0.55, C.metal); g.notf();
     if (ctx.solid) ctx.col.push(world.addCircle(x, z, 0.75, y + 0.56));
   };
-  P.hydrant = (ctx, x, z) => { const { g } = ctx.pick(x, z), y = hAt(x, z); g.tf(x, y, z); g.cyl(0, 0, 0, 0.2, 0.18, 0.7, 7, C.red); g.ball(0, 0.75, 0, 0.2, 0.16, 0.2, C.red, 6, 4); g.box(0, 0.5, 0, 0.6, 0.14, 0.14, C.red); g.notf(); if (ctx.solid) ctx.col.push(world.addCircle(x, z, 0.26, y + 0.85)); };
+  P.hydrant = (ctx, x, z, col = C.red) => { const { g } = ctx.pick(x, z), y = hAt(x, z); g.tf(x, y, z); g.cyl(0, 0, 0, 0.2, 0.18, 0.7, 7, col); g.ball(0, 0.75, 0, 0.2, 0.16, 0.2, col, 6, 4); g.box(0, 0.5, 0, 0.6, 0.14, 0.14, col); g.notf(); if (ctx.solid) ctx.col.push(world.addCircle(x, z, 0.26, y + 0.85)); };
   P.bin = (ctx, x, z, col = C.green) => { const { g } = ctx.pick(x, z), y = hAt(x, z); g.tf(x, y, z); g.cyl(0, 0, 0, 0.32, 0.36, 0.9, 8, col, C.dark); g.notf(); if (ctx.solid) ctx.col.push(world.addCircle(x, z, 0.38, y + 0.9)); };
   P.planter = (ctx, x, z, w = 2, d = 0.8) => {
     const { g } = ctx.pick(x, z), y = hAt(x, z); g.tf(x, y, z); g.box(0, 0.3, 0, w, 0.6, d, C.woodD); g.box(0, 0.62, 0, w - 0.15, 0.08, d - 0.15, 0x5a3f2a);
@@ -734,7 +734,7 @@ export function buildScenery(game, world) {
       if (kind === 'building' || kind === 'stall') fn(c, { ...opts, x, z }); else if (kind === 'signpost') fn(c, x, z, opts.text || '', opts); else if (kind === 'fence' || kind === 'hedge') fn(c, x, z, opts.x1, opts.z1, opts);
       else if (kind === 'deck') fn(c, x, z, opts.x1, opts.z1, opts.top ?? 1, opts); else if (kind === 'tent' || kind === 'umbrella' || kind === 'bin' || kind === 'mailbox' || kind === 'flag' || kind === 'marker') fn(c, x, z, opts.col, opts.ry ?? opts.h);
       else if (kind === 'bench' || kind === 'log') fn(c, x, z, opts.ry || 0, opts.len); else if (kind === 'pumpkin' || kind === 'boulder' || kind === 'crate') fn(c, x, z, opts.s || 1, !!opts.deco); else if (kind === 'haybale') fn(c, x, z, opts.ry || 0, opts.stack || 1);
-      else if (kind === 'cart') fn(c, x, z, opts.name || 'Cart', opts.col || 0xf0b860, opts.ry || 0); else if (kind === 'noticeboard') fn(c, x, z, opts.ry || 0, opts.title || 'NOTICES'); else if (kind === 'stage') fn(c, x, z, opts.ry || 0, opts.col); else if (kind === 'fountain') fn(c, x, z, opts.r); else fn(c, x, z, opts);
+      else if (kind === 'cart') fn(c, x, z, opts.name || 'Cart', opts.col || 0xf0b860, opts.ry || 0); else if (kind === 'noticeboard') fn(c, x, z, opts.ry || 0, opts.title || 'NOTICES'); else if (kind === 'stage') fn(c, x, z, opts.ry || 0, opts.col); else if (kind === 'fountain') fn(c, x, z, opts.r); else if (kind === 'planter') fn(c, x, z, opts.w, opts.d); else if (kind === 'boat') fn(c, x, z, opts.ry || 0, opts.col); else if (kind === 'hydrant') fn(c, x, z, opts.col); else fn(c, x, z, opts);
       const group = new THREE.Group(); const m = new THREE.Mesh(g.build(), material); m.receiveShadow = true; group.add(m);
       if (gl.tris) { const m2 = new THREE.Mesh(gl.build(), glowMat); m2.renderOrder = 3; group.add(m2); }
       scene.add(group);

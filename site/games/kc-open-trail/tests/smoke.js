@@ -13,7 +13,7 @@ const { chromium } = require('playwright');
 const ROOT = path.resolve(__dirname, '..'), PORT = +(process.env.PORT || 8947), BASE = `http://localhost:${PORT}/`;
 const OUT = path.resolve(process.argv[2] || path.join(require('os').tmpdir(), 'kc-open-trail-shots'));
 fs.mkdirSync(OUT, { recursive: true });
-const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.webmanifest': 'application/manifest+json', '.json': 'application/json', '.txt': 'text/plain' };
+const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.jpg': 'image/jpeg', '.webmanifest': 'application/manifest+json', '.json': 'application/json', '.txt': 'text/plain' };
 const server = http.createServer((req, res) => {
   let p = decodeURIComponent(req.url.split('?')[0]); if (p.endsWith('/')) p += 'index.html';
   const f = path.join(ROOT, p); if (!f.startsWith(ROOT)) { res.writeHead(403); return res.end(); }
@@ -24,8 +24,12 @@ const ok = (name, cond, extra = '') => { if (!cond) failed++; console.log((cond 
 const st = page => page.evaluate(() => __ot.state());
 const shot = (page, name) => page.screenshot({ path: path.join(OUT, name + '.png') });
 
+/* the seam checks test the core's contract with the feature modules, so they run with the seven module files replaced by empty ones */
+const MODULES = ['economy', 'upgrades', 'shop', 'missions', 'store', 'merch', 'guide'], STUB = 'export function init() { return {}; }\n';
 async function open(browser, opts = {}, query = '?debug=1&nosw=1') {
-  const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 }, serviceWorkers: 'block', acceptDownloads: true, ...opts });
+  const { stub, ...rest } = opts;
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 }, serviceWorkers: 'block', acceptDownloads: true, ...rest });
+  if (stub) await ctx.route(u => MODULES.some(m => u.pathname.endsWith(`/js/${m}.js`)), r => r.fulfill({ status: 200, contentType: 'text/javascript', body: STUB }));
   const page = await ctx.newPage(), errors = [], requests = [];
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
   page.on('pageerror', e => errors.push('pageerror: ' + e.message));
@@ -67,7 +71,7 @@ async function seamChecks(page, name, touch, vp) {
   /* modules + event names */
   const mods = await page.evaluate(() => ({ names: __ot.modules(), fns: ['setModifier', 'getModifier', 'setCosmetic', 'setSkin', 'timedRun', 'fastTravel', 'moduleData', 'openModal', 'toast', 'banner', 'addMarker', 'addInteractable', 'addZone', 'spawnProp', 'setObjective', 'addCarriable'].filter(k => typeof __ot.game[k] !== 'function'),
     objs: ['cosmetics', 'place', 'travel', 'followers', 'photo', 'grownUp', 'economy', 'shop', 'rewards'].filter(k => !__ot.game[k]), ui: ['tabs', 'item', 'grid', 'price', 'progress', 'note', 'heading', 'gate', 'confirmSpend', 'openExternal', 'addSetting', 'setTimer', 'confirm', 'addMenuItem', 'addHudButton'].filter(k => typeof __ot.game.ui[k] !== 'function') }));
-  ok(T + 'main.js boots all six modules (economy, upgrades, shop, missions, store, merch) and every documented hook exists', ['economy', 'upgrades', 'shop', 'missions', 'store', 'merch'].every(m => mods.names.includes(m)) && !mods.fns.length && !mods.objs.length && !mods.ui.length, [...mods.fns, ...mods.objs, ...mods.ui].join(',') || mods.names.join(','));
+  ok(T + 'main.js boots all seven modules (economy, upgrades, shop, missions, store, merch, guide) and every documented hook exists', MODULES.every(m => mods.names.includes(m)) && !mods.fns.length && !mods.objs.length && !mods.ui.length, [...mods.fns, ...mods.objs, ...mods.ui].join(',') || mods.names.join(','));
 
   const ev = await page.evaluate(async () => { const g = __ot.game, seen = new Set(), off = g.on('*', (d, t) => seen.add(t)); __ot.exit();
     const b = g.collect.bones.find(q => !(q.t > 0)); __ot.teleport(b.x, b.z, 0); __ot.step(12);                                   /* bone */
@@ -269,10 +273,117 @@ async function seamChecksAfterReload(page, name, touch) {
   ok(T + 'the saved photo carries the frame and stickers, photoTaken says which, and leaving photo mode puts the view back', ph1.border.every(v => v > 235) && ph1.band.every(v => v > 235) && ph1.sticker[0] < 40 && ph1.sticker[1] > 215 && ph1.sticker[2] > 215 && ph1.taken && ph1.taken.frame === 'polaroid' && ph1.taken.filter === 'sepia' && ph1.taken.stickers.length === 3 && ph1.size[0] > 300 && ph1.custom[0] > 240 && ph1.custom[1] < 20 && ph1.cleared.join() === '2,0' && ph1.lockedOut === null && ph1.after.css === '' && ph1.after.layer && !ph1.after.hud && Math.abs(ph1.after.fov - ph1.baseFov) < 8 && !ph1.after.sit && !ph1.after.photo && ph1.after.beacons, `border ${ph1.border}, sticker ${ph1.sticker}, custom ${ph1.custom}`);
 }
 
-async function runViewport(browser, name, vp, touch, quality, tourIdx) {
-  console.log(`\n=== ${name} (${vp.width}x${vp.height}${touch ? ', touch' : ''}, quality ${quality}) ===`);
-  const { ctx, page, errors, requests } = await open(browser, touch ? { viewport: vp, hasTouch: true, isMobile: true, deviceScaleFactor: 2 } : { viewport: vp }, `?debug=1&nosw=1&q=${quality}`);
-  const R = report.viewports[name] = { districts: [] };
+
+/* ---------- the integrated game: all seven modules live (economy, upgrades, shop, missions, store, merch, guide) ---------- */
+const TABS = ['upgrades', 'wardrobe', 'rides', 'den', 'businesses', 'funds', 'journal', 'merch', 'store'];
+async function liveChecks(page, name, touch, vp) {
+  const T = name + ': live: ';
+  await page.evaluate(() => { window.__ext = []; document.addEventListener('click', e => { const a = e.target && e.target.closest && e.target.closest('a[target="_blank"]'); if (a) { e.preventDefault(); window.__ext.push({ href: a.href, rel: a.rel }); } }, true); __ot.game.ui.closeAll(); __ot.setTime(11); });
+  const mods = await page.evaluate(() => { const m = __ot.game.modules, need = { economy: ['buyLevel', 'level', 'nextCost', 'buyItem', 'daily'], upgrades: ['collect', 'till', 'rate', 'placeDecor'], shop: ['open'], missions: ['start', 'list', 'complete', 'showWay', 'open'], store: ['buy', 'open', 'restore', 'gate'], merch: ['buyTwin', 'openReal', 'openProduct', 'openClaim'], guide: ['step'] };
+    return { names: __ot.modules(), missing: Object.entries(need).flatMap(([k, fns]) => fns.filter(f => !m[k] || typeof m[k][f] !== 'function').map(f => k + '.' + f)), tabs: [...__ot.game.shop.tabs].sort((a, b) => (a.order ?? 50) - (b.order ?? 50)).map(t => t.id), css: ['eco-css', 'merch-css'].filter(id => !document.getElementById(id)).concat([...document.querySelectorAll('link[rel="stylesheet"]')].filter(l => !l.sheet).map(l => l.getAttribute('href'))) }; });
+  ok(T + 'all seven modules booted with their public API, and their stylesheets loaded', mods.missing.length === 0 && mods.css.length === 0 && mods.names.length === 7, mods.missing.concat(mods.css).join(' ') || mods.names.join(','));
+  ok(T + 'the Shop has nine tabs in order: upgrades, wardrobe, rides, den, businesses, town, journal, KC Gear, store', mods.tabs.join() === TABS.join(), mods.tabs.join());
+
+  /* a new player is led: first job -> its bones land in the real wallet -> the shop -> the first upgrade */
+  const lead = await page.evaluate(() => { const g = __ot.game, M = g.modules.missions, G = g.modules.guide, bell = M.list().find(m => m.id === 'bell'), b0 = g.state.wallet.bones; let grants = 0; const off = g.on('grant', e => { if (/^mission:bell/.test(e.source)) grants += e.bones; });
+    __ot.teleport(bell.x, bell.z + 1.8, Math.PI); __ot.step(10); const prompt = __ot.state().prompt; const started = M.start('bell', { force: true }); __ot.step(5); const active = M.active() && M.active().id; const won = M.complete(); __ot.step(20); off();
+    const at = g.place.door('pets'), mk = g.place.get('guide:shop'); return { pays: bell.pays, d: g.state.wallet.bones - b0, grants, prompt, started, active, won, done: M.isDone('bell'), step: G.step(), mk: mk ? Math.hypot(mk.x - at.x, mk.z - at.z) : -1, hud: +document.getElementById('wBones').textContent, bones: g.state.wallet.bones }; });
+  ok(T + 'the first job is offered at its giver, and finishing it pays its bones into the real wallet (HUD follows)', /Odile/.test(lead.prompt || '') && lead.started && lead.active === 'bell' && lead.won && lead.done && lead.d >= lead.pays && lead.grants === lead.pays && lead.pays === 50 && lead.hud === lead.bones, JSON.stringify(lead));
+  ok(T + 'after the first job the guide marks Tailwind Pet Supply on the map and compass', lead.step === 2 && lead.mk >= 0 && lead.mk < 0.5, `step ${lead.step}`);
+  const buy = await page.evaluate(() => { const g = __ot.game, E = g.modules.economy, at = g.place.door('pets'); g.ui.closeAll(); __ot.give({ bones: Math.max(0, E.nextCost('sniffer') - g.state.wallet.bones) }); __ot.teleport(at.x, at.z, at.yaw); __ot.step(12); const prompt = __ot.state().prompt, b0 = g.state.wallet.bones, m0 = g.getModifier('magnet'); __ot.press('interact'); __ot.step(3);
+    return { prompt, b0, m0, cost: E.nextCost('sniffer'), modal: __ot.state().modal, tab: g.shop.current }; });
+  await page.waitForSelector('#modal:not([hidden]) [data-tab="upgrades"]'); await wait(page, 200); await shot(page, `${name}-70-shop-upgrades`);
+  const fit = await page.evaluate(() => { const rc = e => e.getBoundingClientRect(), card = rc(document.querySelector('#modal .card')), tabs = [...document.querySelectorAll('#modal [role="tab"]')], body = document.getElementById('modalBody'), close = rc(document.getElementById('modalClose')), btns = [...body.querySelectorAll('button')].filter(b => b.offsetParent !== null && b.getAttribute('role') !== 'tab');
+    return { card: card.left >= -1 && card.top >= -1 && card.right <= innerWidth + 1 && card.bottom <= innerHeight + 1, tabs: tabs.length, tabMin: Math.min(...tabs.map(t => rc(t).height)), close: Math.min(close.width, close.height), side: body.scrollWidth - body.clientWidth, btnMin: btns.length ? Math.min(...btns.map(b => rc(b).height)) : 0, btns: btns.length, text: body.textContent.slice(0, 2000) }; });
+  ok(T + 'the pet supply door opens the Shop on Upgrades: fits the screen, nine 44 px tabs, 44 px buttons and close, no sideways scroll', /pet supply/i.test(buy.prompt || '') && buy.modal === 'shop' && buy.tab === 'upgrades' && fit.card && fit.tabs === 9 && fit.tabMin >= 44 && fit.close >= 44 && fit.side <= 1 && fit.btns > 5 && fit.btnMin >= 44 && /Super Sniffer/.test(fit.text), `${buy.prompt}; tabs ${fit.tabs} x ${fit.tabMin}px, close ${fit.close}px, buttons ${fit.btns} min ${fit.btnMin}px, side ${fit.side}`);
+  /* buy Super Sniffer through the screen: its button, then the confirm */
+  const sel = await page.evaluate(() => { const items = [...document.querySelectorAll('#modalBody .item')], it = items.find(i => /Super Sniffer/.test(i.textContent)), b = it && it.querySelector('button:not([disabled])'); if (!b) return null; b.setAttribute('data-smoke', 'sniffer'); b.scrollIntoView({ block: 'center' }); return b.textContent; });
+  if (sel) { await tapSel(page, touch, '[data-smoke="sniffer"]'); await page.waitForFunction(() => __ot.state().modal !== 'shop', null, { timeout: 4000 }).catch(() => {}); await wait(page, 150); await shot(page, `${name}-71-confirm-upgrade`); await tapSel(page, touch, '#modalActions .go'); await wait(page, 300); }
+  const got = await page.evaluate(() => { const g = __ot.game, E = g.modules.economy; const r = { lv: E.level('sniffer'), magnet: g.getModifier('magnet'), bones: g.state.wallet.bones, step: g.modules.guide.step(), mk: !!g.place.get('guide:shop'), saved: g.state.upgrades.sniffer }; g.ui.closeAll(); return r; });
+  ok(T + 'the first upgrade is bought by tapping: bones leave the wallet, KC changes (pickup reach x1.25), the guide steps aside', !!sel && got.lv === 1 && got.saved === 1 && Math.abs(got.magnet / buy.m0 - 1.25) < 0.01 && got.bones === buy.b0 - buy.cost && got.step === 3 && !got.mk, JSON.stringify(got));
+
+  /* the Shop is also one tap from the pause menu, and every tab draws and fits */
+  await page.evaluate(() => { __ot.teleport(-168, -166, Math.PI / 2); __ot.step(5); });
+  if (touch) await page.tap('#btnPause'); else await page.keyboard.press('Escape');
+  await page.waitForSelector('#modal:not([hidden])');
+  const menu = await page.evaluate(() => { const bs = [...document.querySelectorAll('#modalBody button')], f = t => bs.find(b => b.textContent.trim() === t), s = f('Shop'), m = f('Missions'); if (s) s.setAttribute('data-smoke', 'menu-shop'); return { shop: s ? s.getBoundingClientRect().height : 0, missions: m ? m.getBoundingClientRect().height : 0 }; });
+  if (menu.shop) await tapSel(page, touch, '[data-smoke="menu-shop"]'); await page.waitForFunction(() => __ot.state().modal === 'shop', null, { timeout: 4000 }).catch(() => {});
+  const tabs = {}; for (const id of TABS) {
+    await page.evaluate(id => __ot.game.shop.open(id), id); await wait(page, id === 'merch' ? 500 : 180);
+    tabs[id] = await page.evaluate(() => { const rc = e => e.getBoundingClientRect(), body = document.getElementById('modalBody'), card = rc(document.querySelector('#modal .card')), btns = [...body.querySelectorAll('button')].filter(b => b.offsetParent !== null && b.getAttribute('role') !== 'tab'), on = document.querySelector('#modal [role="tab"].on');
+      return { cur: __ot.game.shop.current, len: body.textContent.length, side: body.scrollWidth - body.clientWidth, card: card.left >= -1 && card.right <= innerWidth + 1 && card.top >= -1 && card.bottom <= innerHeight + 1, min: btns.length ? Math.round(Math.min(...btns.map(b => rc(b).height))) : 44, wide: btns.filter(b => rc(b).right > innerWidth + 1).length, onIn: on ? rc(on).left >= -1 && rc(on).right <= innerWidth + 1 : false, money: /\$\d/.test(body.textContent) }; });
+    if (['store', 'merch', 'journal', 'den', 'businesses', 'funds', 'wardrobe', 'rides'].includes(id)) await shot(page, `${name}-72-shop-${id}`);
+  }
+  const badTabs = Object.entries(tabs).filter(([id, t]) => t.cur !== id || t.len < 40 || t.side > 1 || !t.card || t.min < 44 || t.wide || !t.onIn).map(([id, t]) => id + JSON.stringify(t));
+  ok(T + 'pause menu has Shop and Missions; all nine tabs draw, fit, keep 44 px buttons, scroll only up and down, and the chosen tab is in view', menu.shop >= 42 && menu.missions >= 42 && badTabs.length === 0, badTabs.join(' ') || `Shop button ${menu.shop}px`);
+  ok(T + 'with real-money spending off the Store tab shows no price and asks for a grown-up; the KC Gear tab shows bones only', !tabs.store.money && !tabs.merch.money && await page.evaluate(() => { __ot.game.shop.open('store'); return /grown-up/i.test(document.getElementById('modalBody').textContent) && !__ot.game.grownUp.spending; }));
+  await page.evaluate(() => __ot.game.ui.closeAll());
+
+  /* a mission in progress: objective and timer chips on the HUD, clear of the buttons */
+  const mis = await page.evaluate(() => { const g = __ot.game, M = g.modules.missions, d = M.list().find(m => m.id === 'paper'); __ot.teleport(d.x, d.z + 1.8, Math.PI); __ot.setCam(Math.PI, 0.3, 9); __ot.step(8); const ok = M.start('paper', { force: true }); __ot.step(40);
+    const rc = q => { const e = document.querySelector(q); if (!e || e.hidden) return null; const b = e.getBoundingClientRect(); if (!b.width || !b.height) return null; return { q, x: b.left, y: b.top, r: b.right, b: b.bottom }; }, chips = [rc('#objective'), rc('#runTimer')], others = ['#minimapBtn', '#wallet', '#hudBtns', '#stick', ...[...document.querySelectorAll('#pad button')].map((_, i) => `#pad button:nth-child(${i + 1})`)].map(rc).filter(Boolean);
+    const hits = []; for (const c of chips) if (c) for (const o of others) if (c.x < o.r - 1 && o.x < c.r - 1 && c.y < o.b - 1 && o.y < c.b - 1) hits.push(c.q + ' over ' + o.q); const a = M.active();
+    return { ok, a: a && a.id, step: a && a.step, obj: !!chips[0], timer: !!chips[1], inside: chips.every(c => c && c.x >= 0 && c.r <= innerWidth && c.b <= innerHeight), hits, blocked: g.travel.blocked }; });
+  await wait(page, 300); await shot(page, `${name}-73-mission-in-progress`);
+  const mis2 = await page.evaluate(() => { const g = __ot.game, M = g.modules.missions, b0 = g.state.wallet.bones; const left = M.leave(true); __ot.step(10); return { left, active: M.active(), obj: !!g.api.objective, run: !!g.run, d: g.state.wallet.bones - b0, blocked: g.travel.blocked, placed: [...g.seams.placed.keys()].filter(k => k.startsWith('ms:')).length }; });
+  ok(T + 'a mission in progress shows its objective and clock on the HUD without covering a control; setting it aside costs nothing and leaves nothing', mis.ok && mis.a === 'paper' && mis.obj && mis.timer && mis.inside && mis.hits.length === 0 && !!mis.blocked && mis2.left && !mis2.active && !mis2.run && mis2.d === 0 && !mis2.blocked && mis2.placed === 0, mis.hits.join('; ') || JSON.stringify([mis, mis2]));
+
+  /* KC's Den and a business stand in the world and work */
+  const den = await page.evaluate(() => { const g = __ot.game, E = g.modules.economy, U = g.modules.upgrades; __ot.give({ bones: 3000 }); const b0 = g.state.wallet.bones, c1 = E.nextCost('den'); const free = E.buyLevel('den'); const c2 = E.nextCost('den'), paid = E.buyLevel('den'), d = b0 - g.state.wallet.bones; __ot.teleport(U.home.x, U.home.z + 0.8, Math.PI); __ot.setCam(Math.PI, 0.32, 11); __ot.step(14);
+    return { free, paid, c1, c2, lv: E.level('den'), d, owed: E.owed('den'), stage: g.place.get('eco:den') && g.place.get('eco:den').level, prompt: __ot.state().prompt, slots: U.denSlots(), near: Math.hypot(U.home.x + 168, U.home.z + 166) }; });
+  await wait(page, 300); await shot(page, `${name}-74-kcs-den`);
+  ok(T + "KC's Den stands a short walk from the spawn: the Pup Tent is free, the Doghouse costs its price, the door prompt opens it", den.free && den.paid && den.c1 === 0 && den.lv === 2 && den.stage === 2 && den.d + den.owed === den.c2 && /den/i.test(den.prompt || '') && den.slots >= 8 && den.near < 60, JSON.stringify(den));
+  const biz = await page.evaluate(() => { const g = __ot.game, E = g.modules.economy, U = g.modules.upgrades, s = U.sites['biz:cart']; const flagBefore = g.economy.getFlag('cartRunner'); g.modules.missions.start('carts', { force: true }); const won = g.modules.missions.complete(); __ot.step(5); const lv = E.level('biz:cart'); g.ui.closeAll();
+    for (let i = 0; i < 91; i++) __ot.emit('second', { t: 0 }); const till = U.till('biz:cart'), rate = U.rate('biz:cart'); __ot.teleport(s.x, s.z + 4.5, Math.PI); __ot.setCam(Math.PI, 0.3, 9); __ot.step(14); const prompt = __ot.state().prompt, b0 = g.state.wallet.bones; __ot.press('interact'); __ot.step(4);
+    return { flagBefore, won, lv, till, rate, prompt, got: g.state.wallet.bones - b0, after: U.till('biz:cart'), stage: g.place.get('eco:biz:cart') && g.place.get('eco:biz:cart').level, lantern: !!g.place.get('eco:lantern'), town: !!g.place.get('eco:town'), others: ['biz:canoes', 'biz:pumpkins'].every(id => g.place.get('eco:' + id)) }; });
+  await wait(page, 300); await shot(page, `${name}-75-business-biscuit-cart`); await page.evaluate(() => __ot.game.ui.closeAll());
+  ok(T + 'the last story mission hands over the Biscuit Cart; it earns only while playing (2 bones a minute) and its till pays the real wallet at the cart', !biz.flagBefore && biz.won && biz.lv === 1 && biz.rate === 2 && biz.till > 2.99 && biz.till < 3.5 && biz.got === 3 && biz.after < 1 && biz.stage >= 1 && /till|cart|collect/i.test(biz.prompt || ''), JSON.stringify(biz));
+  ok(T + 'the other businesses, the Lantern Fund and the Town Fund are placed in the world', biz.others && biz.lantern && biz.town);
+
+  /* the store's grants and the merch twins are real economy items KC can wear or put out */
+  const real = await page.evaluate(() => { const g = __ot.game, S = g.modules.store, Mc = g.modules.merch, E = g.modules.economy, C = g.cosmetics, bad = [];
+    const usable = id => !!C.get(id) || !!E.item(id) || /^(pass:trail|frame:supporter|treat:(3|10)|den:gold-trim)$/.test(id);   /* the last four are handled by store.js (pass, photo frame, treat bundles) and upgrades.js (the den's gold trim) */
+    for (const c of S.catalog) { if (c.grant.bones) bad.push(c.sku + ':bones'); for (const it of c.grant.items || []) { const id = typeof it === 'string' ? it : it.id; if (!usable(id)) bad.push(c.sku + ':' + id); } }
+    for (const p of S.passItems) if (!C.get(p.id)) bad.push('pass:' + p.id); for (const t of Mc.twins) if (!usable(t.id)) bad.push('twin:' + t.id);
+    /* one set, granted the way the store grants it, is wearable at once */
+    const set = S.catalog.find(c => c.type === 'permanent' && (c.grant.items || []).some(i => C.get(typeof i === 'string' ? i : i.id))), ids = (set.grant.items || []).map(i => (typeof i === 'string' ? i : i.id)), b0 = g.state.wallet.bones, g0 = g.state.wallet.gems; g.economy.grant(set.grant, 'store:' + set.sku);
+    const worn = ids.filter(id => C.get(id)).map(id => C.equip(id)); for (const id of ids) { const d = C.get(id); if (d) C.unequip(d.slot); }
+    return { bad, sku: set.sku, worn, owns: ids.every(id => g.economy.owns(id)), bones: g.state.wallet.bones - b0, gems: g.state.wallet.gems - g0, want: set.grant.gems || 0, n: S.catalog.length, sellable: S.catalog.filter(c => S.sellable(c.sku)).length, twins: Mc.twins.length, trim: (() => { const had = g.modules.upgrades.goldTrim(); g.economy.grant({ items: ['den:gold-trim'] }, 'store:ot_supporter'); return [had, g.modules.upgrades.goldTrim()]; })(), treats: (() => { const n0 = g.economy.count('treat:party'); return n0; })() }; });
+  ok(T + 'every store grant, Trail Journal reward and merch twin is a real item the economy or the wardrobe knows; a granted set is wearable at once and carries no bones', real.bad.length === 0 && real.n === 16 && real.twins === 14 && real.owns && real.worn.length > 0 && real.worn.every(Boolean) && real.bones === 0 && real.gems === real.want && real.trim.join() === 'false,true', real.bad.join(' ') || `${real.sku}: ${real.worn.length} worn`);
+  ok(T + 'nothing can be bought for money as shipped: the store config is placeholders, so no SKU is sellable', real.sellable === 0, `${real.sellable} sellable`);
+  /* a twin, bought with bones on the KC Gear tab, is on her head */
+  const tw = await page.evaluate(() => { const g = __ot.game, Mc = g.modules.merch, t = Mc.twins.find(t => t.slot === 'hat'), E = g.modules.economy; g.ui.closeAll(); __ot.give({ bones: 2000 }); window.__tw = null; const b0 = g.state.wallet.bones, price = E.price(t.bones); Mc.buyTwin(t.id).then(v => { window.__twBones = g.state.wallet.bones; window.__tw = v; }); return { id: t.id, price, b0, name: t.name }; });
+  await page.waitForSelector('#modalActions .go'); await wait(page, 150); await tapSel(page, touch, '#modalActions .go'); await page.waitForFunction(() => window.__tw !== null, null, { timeout: 4000 }).catch(() => {});
+  const tw2 = await page.evaluate(id => { const g = __ot.game; g.ui.closeAll(); __ot.teleport(-172, -160, 0); __ot.setCam(Math.PI, 0.16, 3.4); __ot.step(20); return { res: window.__tw, bones: window.__twBones, eq: g.cosmetics.equipped('hat'), meshes: g.kc.parts.hatAnchor.children.length, owns: g.economy.owns(id) }; }, tw.id);
+  await wait(page, 300); await shot(page, `${name}-76-kc-wearing-a-twin`);
+  ok(T + 'a merch twin bought with bones costs exactly its price and KC is wearing it', tw2.res === true && tw2.bones === tw.b0 - tw.price && tw2.eq === tw.id && tw2.meshes === 1 && tw2.owns, JSON.stringify([tw, tw2]));
+
+  /* grown-up side: nothing real is shown or linked until the switch is on and the gate is passed; then a card, then the leaving screen */
+  const g0 = await page.evaluate(async () => { const g = __ot.game, Mc = g.modules.merch; await Mc.ready; const id = Mc.products().find(p => !p.retired && p.featured) || Mc.products().find(p => !p.retired); window.__pid = id.id; const refused = await Mc.openProduct(id.id); g.ui.closeAll(); window.__sw = null; g.grownUp.setSpending(true).then(v => { window.__sw = v; }); return { refused, n: Mc.products().length, url: Mc.url(id.id), id: id.id }; });
+  await passGate(page, touch); await page.waitForFunction(() => window.__sw !== null, null, { timeout: 4000 }).catch(() => {});
+  await page.evaluate(() => { window.__real = null; __ot.game.modules.merch.openReal().then(v => { window.__real = v; }); }); await passGate(page, touch); await page.waitForFunction(() => __ot.state().modal === 'merch-real', null, { timeout: 5000 }).catch(() => {});
+  await page.waitForFunction(() => { const i = [...document.querySelectorAll('#modalBody img')]; return i.length > 3 && i.slice(0, 4).every(x => x.complete && x.naturalWidth > 0); }, null, { timeout: 8000 }).catch(() => {}); await wait(page, 200); await shot(page, `${name}-77-real-product-cards`);
+  const cards = await page.evaluate(() => { const body = document.getElementById('modalBody'), imgs = [...body.querySelectorAll('img')], rc = e => e.getBoundingClientRect(), btns = [...body.querySelectorAll('button')].filter(b => b.offsetParent !== null); return { modal: __ot.state().modal, imgs: imgs.length, own: imgs.every(i => new URL(i.src).origin === location.origin && /\/img\/merch\/\d+\.jpg$/.test(i.src)), links: body.querySelectorAll('a').length, price: /from \$\d+\.\d\d, checked on/.test(body.textContent), terms: /printed to order/i.test(body.textContent), side: body.scrollWidth - body.clientWidth, min: Math.min(...btns.map(b => rc(b).height)), urgent: /\b(hurry|only \d+ left|ends in|last chance)\b/i.test(body.textContent) }; });
+  await page.evaluate(() => { window.__lv = null; __ot.game.modules.merch.openProduct(window.__pid).then(v => { window.__lv = v; }); }); await page.waitForFunction(() => __ot.state().modal === 'merch-leaving', null, { timeout: 5000 }).catch(() => {}); await wait(page, 250); await shot(page, `${name}-78-leaving-the-game`);
+  const lv = await page.evaluate(() => { const rc = e => e.getBoundingClientRect(), acts = [...document.querySelectorAll('#modalActions .btn')], card = rc(document.querySelector('#modal .card')); return { modal: __ot.state().modal, title: document.getElementById('modalTitle').textContent, text: document.getElementById('modalBody').textContent, acts: acts.map(a => a.textContent.trim()), min: Math.min(...acts.map(a => rc(a).height)), fit: card.left >= -1 && card.right <= innerWidth + 1 && card.bottom <= innerHeight + 1 && acts.every(a => rc(a).bottom <= innerHeight + 1 && rc(a).right <= innerWidth + 1), opened: window.__ext.length }; });
+  await page.evaluate(() => { const b = [...document.querySelectorAll('#modalActions .btn')].find(b => /Open the product page/.test(b.textContent)); b.setAttribute('data-smoke', 'go-product'); }); await tapSel(page, touch, '[data-smoke="go-product"]'); await page.waitForFunction(() => window.__lv !== null, null, { timeout: 4000 }).catch(() => {});
+  const out = await page.evaluate(async () => { const g = __ot.game, r = { res: window.__lv, links: window.__ext.slice() }; g.ui.closeAll(); await g.grownUp.setSpending(false); r.off = !g.grownUp.spending; return r; });
+  ok(T + 'real products are refused while spending is off; behind the switch and the gate each card shows the game\'s own picture, "from $X, checked on <date>" and the print-to-order terms, with no link and no urgency', g0.refused === false && g0.n === 54 && cards.modal === 'merch-real' && cards.imgs >= 40 && cards.own && cards.links === 0 && cards.price && cards.terms && !cards.urgent && cards.side <= 1 && cards.min >= 44, JSON.stringify(cards));
+  ok(T + 'the leaving screen names the separate shop, fits with 44 px buttons, opens nothing by itself, and the button opens exactly the product page with rel="noopener noreferrer"', lv.modal === 'merch-leaving' && /leaving the game/i.test(lv.title) && /separate website/.test(lv.text) && lv.acts.includes('Stay in the game') && lv.min >= 44 && lv.fit && lv.opened === 0 && out.res === true && out.links.length === 1 && out.links[0].href === g0.url && g0.url === 'https://kcbeyondlimits.com/product/' + g0.id && /noopener/.test(out.links[0].rel) && /noreferrer/.test(out.links[0].rel) && out.off, lv.acts.join(' | '));
+}
+/* after the save / reload step: what the modules bought, earned and wore is still there */
+async function liveAfterReload(page, name) {
+  const r = await page.evaluate(() => { const g = __ot.game, E = g.modules.economy, U = g.modules.upgrades, t = g.modules.merch.twins.find(t => t.slot === 'hat'); return { sniffer: E.level('sniffer'), magnet: g.getModifier('magnet'), den: E.level('den'), stage: g.place.get('eco:den').level, cart: E.level('biz:cart'), bell: g.modules.missions.isDone('bell'), carts: g.modules.missions.isDone('carts'), hat: g.cosmetics.equipped('hat') === t.id, mesh: g.kc.parts.hatAnchor.children.length, guide: g.modules.guide.step(), spending: g.grownUp.spending, sw: g.grownUp.showSwitch }; });
+  ok(`${name}: live: after a reload the upgrade, the den, the business, the finished missions and the twin on her head are all back; spending is still off`, r.sniffer === 1 && r.magnet >= 1.25 && r.den === 2 && r.stage === 2 && r.cart === 1 && r.bell && r.carts && r.hat && r.mesh === 1 && r.guide === 3 && r.spending === false && r.sw === true, JSON.stringify(r));
+}
+
+const VIEWPORTS = process.env.VIEWPORTS ? process.env.VIEWPORTS.split(',') : null;
+async function runViewport(browser, name, vp, touch, quality, tourIdx, stub = false) {
+  if (VIEWPORTS && !VIEWPORTS.includes(name)) return;
+  const vpName = name; if (stub) name += ' (core seams)';
+  console.log(`\n=== ${name} (${vp.width}x${vp.height}${touch ? ', touch' : ''}, quality ${quality}${stub ? ', modules stubbed' : ', all modules live'}) ===`);
+  const { ctx, page, errors, requests } = await open(browser, { ...(touch ? { viewport: vp, hasTouch: true, isMobile: true, deviceScaleFactor: 2 } : { viewport: vp }), stub }, `?debug=1&nosw=1&q=${quality}`);
+  const R = stub ? { districts: [] } : (report.viewports[name] = { districts: [] });
   ok(`${name}: loads with debug hooks, title screen up`, await page.isVisible('#title') && !(await st(page)).started);
   ok(`${name}: audio is off until the first tap`, await page.evaluate(() => !__ot.game.audio.ready));
   await shot(page, `${name}-00-title`);
@@ -285,7 +396,9 @@ async function runViewport(browser, name, vp, touch, quality, tourIdx) {
   if (touch) { const co = await page.evaluate(() => { const rc = q => { const e = document.querySelector(q), b = e.getBoundingClientRect(); return { q, x: b.left, y: b.top, r: b.right, b: b.bottom, on: getComputedStyle(e).display !== 'none' && b.width > 0 }; }, panels = [rc('#coach .cl'), rc('#coach .cr')], others = ['#minimapBtn', '#zone', '#clock', '#banner span', '#compass', '#wallet', '#hudBtns', '#stick', '#bc', ...[...document.querySelectorAll('#pad button')].map((_, i) => `#pad button:nth-child(${i + 1})`)].map(rc);
       const hits = []; for (const p of panels) for (const o of others) if (p.x < o.r - 1 && o.x < p.r - 1 && p.y < o.b - 1 && o.y < p.b - 1) hits.push(p.q + ' over ' + o.q); return { shown: panels.every(p => p.on), hits, inside: panels.every(p => p.x >= 0 && p.r <= innerWidth && p.b <= innerHeight) }; });
     ok(`${name}: first-run coach panels are shown and cover nothing (place name, clock, Discovered banner, stick, buttons)`, co.shown && co.inside && co.hits.length === 0, co.hits.join('; ')); }
-  if (process.env.SEAMS_ONLY) { await seamChecks(page, name, touch, vp); await page.evaluate(() => { const d = __ot.game.moduleData('smoke', { n: 0, list: [] }); d.n = 7; d.list.push('a', 'b'); __ot.save(); }); await page.reload(); await page.waitForFunction(() => window.__ot && __ot.ready, null, { timeout: 120000 }); await seamChecksAfterReload(page, name, touch);
+  if (!stub) { await page.waitForFunction(() => __ot.game.modules.guide && __ot.game.modules.guide.step() === 1, null, { timeout: 8000 }).catch(() => {}); const g1 = await page.evaluate(() => { const o = __ot.game.api.objective, e = document.getElementById('objective'), b = e.getBoundingClientRect(), bell = __ot.game.modules.missions.list().find(m => m.id === 'bell'); return { step: __ot.game.modules.guide.step(), label: o && o.label, at: o ? Math.hypot(o.x - bell.x, o.z - bell.z) : -1, chip: !e.hidden && b.left >= 0 && b.right <= innerWidth, toasts: [...document.querySelectorAll('#toasts .toast')].map(t => t.textContent).join(' | ') }; });
+    ok(`${name}: a new player is pointed at the first job: the compass, map and HUD chip lead to Clockkeeper Odile on the plaza`, g1.step === 1 && /Odile/.test(g1.label || '') && g1.at < 1 && g1.chip, JSON.stringify(g1)); await shot(page, `${name}-01-first-steps`); }
+  if (stub) { name = vpName + '-seams'; await seamChecks(page, name, touch, vp); await page.evaluate(() => { const d = __ot.game.moduleData('smoke', { n: 0, list: [] }); d.n = 7; d.list.push('a', 'b'); __ot.save(); }); await page.reload(); await page.waitForFunction(() => window.__ot && __ot.ready, null, { timeout: 120000 }); await seamChecksAfterReload(page, name, touch);
     const ext = requests.filter(u => !u.startsWith(BASE) && !u.startsWith('data:') && !u.startsWith('blob:')); ok(`${name}: no console errors or page errors`, errors.length === 0, errors.slice(0, 3).join(' | ')); ok(`${name}: nothing was requested from outside the game folder`, ext.length === 0, ext.slice(0, 3).join(' ')); await ctx.close(); return; }
 
   /* HUD fits and the thumb controls do not overlap */
@@ -389,7 +502,7 @@ async function runViewport(browser, name, vp, touch, quality, tourIdx) {
     const hud = { bones: +document.getElementById('wBones').textContent, gems: +document.getElementById('wGems').textContent }; let rendered = false; const un = g.shop.registerTab({ id: 'smoke', title: 'Smoke', badge: 3, render: body => { body.textContent = 'tab body'; rendered = true; } }); g.shop.open('smoke'); const shopOpen = !!document.querySelector('#modal:not([hidden]) [data-tab="smoke"]'); g.closeModal('shop'); un();
     e.setFlag('smoke-flag', 7); return { got, d: g.state.wallet.bones - b0, hud, wallet: { ...g.state.wallet }, owns: e.owns('test-bandana'), notOwns: e.owns('nope'), flag: e.getFlag('smoke-flag'), catalog: Array.isArray(e.catalog), rendered, shopOpen, tabsLeft: g.shop.tabs.length }; });
   ok(`${name}: economy seam: grant() pays the wallet and the HUD readouts follow`, seam.d === 25 && seam.hud.bones === seam.wallet.bones && seam.hud.gems === seam.wallet.gems && seam.owns && !seam.notOwns && seam.flag === 7 && seam.catalog, JSON.stringify(seam.hud));
-  ok(`${name}: shop seam: registerTab() shows up in the Shop screen and renders`, seam.rendered && seam.shopOpen && seam.tabsLeft === 0);
+  ok(`${name}: shop seam: registerTab() shows up in the Shop screen beside the modules' own tabs and renders`, seam.rendered && seam.shopOpen && seam.tabsLeft === TABS.length, `${seam.tabsLeft} tabs left`);
   const fest = await page.evaluate(() => { const g = __ot.game, m = g.scene.getObjectByName('festival'); const before = m.visible; __ot.setTime(20.6); __ot.teleport(-196, -250, Math.PI / 2); __ot.setCam(Math.PI / 2, 0.36, 12); g.economy.setFlag('festival', true); __ot.step(100); return { before, on: m.visible, fog: g.scene.fog.far, night: __ot.state().night, tris: g.world.scenery.festivalTris }; });
   await page.waitForTimeout(150); await shot(page, `${name}-40-festival-night`);
   const fest2 = await page.evaluate(() => { const g = __ot.game; __ot.setTime(12); __ot.step(10); return g.scene.fog.far; });
@@ -397,7 +510,7 @@ async function runViewport(browser, name, vp, touch, quality, tourIdx) {
   const festOff = await page.evaluate(() => { const g = __ot.game; g.economy.setFlag('festival', false); __ot.step(100); return { on: g.scene.getObjectByName('festival').visible, fog: g.scene.fog.far }; });
   ok(`${name}: festival flag switches the dressing layer and fog on and off, and night falls`, !fest.before && fest.on && fest.night > 0.9 && fest.tris > 2000 && !festOff.on && festOff.fog > fest2 * 1.3, `fog ${fest2.toFixed(0)} vs ${festOff.fog.toFixed(0)}, night ${fest.night.toFixed(2)}, ${fest.tris} festival triangles`);
 
-  await seamChecks(page, name, touch, vp);
+  await liveChecks(page, name, touch, vp);
 
   /* pause, settings, mute, map */
   await page.evaluate(() => { __ot.teleport(-168, -166, Math.PI / 2); __ot.setCam(Math.PI / 2, 0.3, 9); __ot.step(5); });
@@ -432,7 +545,7 @@ async function runViewport(browser, name, vp, touch, quality, tourIdx) {
   ok(`${name}: save survives a reload (wallet, place, owned item, flag)`, saved.raw && back.s.wallet.bones >= saved.wallet.bones && Math.hypot(back.s.pos.x + 272, back.s.pos.z - 50) < 3 && back.btn === 'Continue' && back.owned && back.flag === 7, `${back.s.wallet.bones} bones at ${back.s.pos.x.toFixed(0)},${back.s.pos.z.toFixed(0)}`);
   ok(`${name}: a ride left away from home is still there after a reload`, Math.hypot(saved.van[0] + 181, saved.van[1] + 177) > 4 && Math.hypot(back.van[0] - saved.van[0], back.van[1] - saved.van[1]) < 0.5, `van at ${back.van[0].toFixed(0)},${back.van[1].toFixed(0)}`);
 
-  await seamChecksAfterReload(page, name, touch);
+  await liveAfterReload(page, name);
 
   const ext = requests.filter(u => !u.startsWith(BASE) && !u.startsWith('data:') && !u.startsWith('blob:'));
   ok(`${name}: no console errors or page errors`, errors.length === 0, errors.slice(0, 3).join(' | '));
@@ -446,10 +559,11 @@ async function runViewport(browser, name, vp, touch, quality, tourIdx) {
   try {
     /* ---------- static checks ---------- */
     const read = f => fs.readFileSync(path.join(ROOT, f), 'utf8'), sw = read('sw.js'), listed = [...sw.matchAll(/"\.\/([^"]*)"/g)].map(m => m[1]).filter(Boolean);
-    const real = ['index.html', 'style.css', 'manifest.webmanifest', ...fs.readdirSync(path.join(ROOT, 'js')).map(f => 'js/' + f), ...fs.readdirSync(path.join(ROOT, 'icons')).map(f => 'icons/' + f), 'vendor/three/three.module.min.js'];
+    const real = ['index.html', 'style.css', 'manifest.webmanifest', 'merch.json', ...fs.readdirSync(path.join(ROOT, 'css')).map(f => 'css/' + f), ...fs.readdirSync(path.join(ROOT, 'js')).map(f => 'js/' + f), ...fs.readdirSync(path.join(ROOT, 'icons')).map(f => 'icons/' + f), 'vendor/three/three.module.min.js'];
     ok('service worker cache name is kc-open-trail-vN', /const VERSION = "kc-open-trail-v\d+"/.test(sw));
     ok('service worker file list matches the real files', real.every(f => listed.includes(f)) && listed.every(f => fs.existsSync(path.join(ROOT, f))), real.filter(f => !listed.includes(f)).concat(listed.filter(f => !fs.existsSync(path.join(ROOT, f)))).join(' '));
-    const shipped = ['index.html', 'style.css', 'manifest.webmanifest', 'sw.js', 'README.md', 'ARCHITECTURE.md', ...fs.readdirSync(path.join(ROOT, 'js')).map(f => 'js/' + f), ...fs.readdirSync(path.join(ROOT, 'tools')).map(f => 'tools/' + f)].map(f => [f, read(f)]);
+    ok('real-product thumbnails are not precached (they load only when a grown-up opens the list), and every product in merch.json has its own local picture', !/img\/merch/.test(sw.replace(/\/\*[\s\S]*?\*\//g, '')) && JSON.parse(read('merch.json')).products.every(p => /^img\/merch\/\d+\.jpg$/.test(p.img) && fs.existsSync(path.join(ROOT, p.img))));
+    const shipped = ['index.html', 'style.css', 'manifest.webmanifest', 'sw.js', 'README.md', 'ARCHITECTURE.md', 'merch.json', ...fs.readdirSync(path.join(ROOT, 'css')).map(f => 'css/' + f), ...fs.readdirSync(path.join(ROOT, 'js')).map(f => 'js/' + f), ...fs.readdirSync(path.join(ROOT, 'tools')).map(f => 'tools/' + f)].map(f => [f, read(f)]);
     /* the do-not-copy list from sections 2 and 3 of the setting brief, plus the prototype town name. Phrases are matched in any case;
        the film's character first names only as capitalised whole words, so colour names such as "sage" stay usable. This file is not scanned (it holds the list). */
     const banned = [/cedar\s*hollow/i, /halloween\s*town/i, /spirit of hallow/i, /pumpkin plaza/i, /jack the pumpkin/i, /boo bash/i, /portlandia/i, /keep portland weird/i, /cromwell/i, /kalabar/i,
@@ -461,14 +575,16 @@ async function runViewport(browser, name, vp, touch, quality, tourIdx) {
     /* only the store and the merch claim may talk to the Dewclaw worker, and only after a grown-up has passed the gate and pressed a button */
     const NET_OK = ['js/store.js', 'js/merch.js'], netHits = shipped.filter(([f, t]) => f.startsWith('js/') && !NET_OK.includes(f) && /\bfetch\s*\(|XMLHttpRequest|WebSocket|sendBeacon|EventSource/.test(t)).map(([f]) => f);
     ok('no network calls in the core game code (fetch / XHR / WebSocket / beacon); only store.js and merch.js may call the worker', netHits.length === 0, netHits.join(' '));
-    ok('main.js imports and boots economy, upgrades, shop, missions, store and merch, and each exports init', ['economy', 'upgrades', 'shop', 'missions', 'store', 'merch'].every(m => new RegExp(`import \\* as ${m} from './${m}\\.js'`).test(read('js/main.js')) && /export function init\s*\(/.test(read(`js/${m}.js`))));
+    ok('main.js imports and boots economy, upgrades, shop, missions, store, merch and guide, and each exports init', MODULES.every(m => new RegExp(`import \\* as ${m} from './${m}\\.js'`).test(read('js/main.js')) && /export function init\s*\(/.test(read(`js/${m}.js`))));
     ok('ARCHITECTURE.md documents the module seams and the file-ownership rule', /## Module seams/.test(read('ARCHITECTURE.md')) && /never edit/i.test(read('ARCHITECTURE.md')) && ['game.place', 'game.cosmetics', 'game.timedRun', 'game.travel', 'game.followers', 'game.photo', 'game.grownUp', 'setTuning', 'registerTab', 'keepOnReset'].every(k => read('ARCHITECTURE.md').includes(k)));
 
     /* ---------- the three viewports ---------- */
-    await runViewport(browser, 'phone-portrait', { width: 390, height: 844 }, true, 'medium', [0, 1, 2, 8, 10, 15, 16]);
-    await runViewport(browser, 'phone-landscape', { width: 844, height: 390 }, true, 'medium', [1, 3, 5, 7, 11, 13, 18]);
-    await runViewport(browser, 'desktop', { width: 1280, height: 720 }, false, 'high', TOUR.map((_, i) => i));
-    ok('every district on the tour was reached in some viewport', report.districts.size === TOUR.length, `${report.districts.size}/${TOUR.length}`);
+    const VPS = [['phone-portrait', { width: 390, height: 844 }, true, 'medium', [0, 1, 2, 8, 10, 15, 16]], ['phone-landscape', { width: 844, height: 390 }, true, 'medium', [1, 3, 5, 7, 11, 13, 18]], ['desktop', { width: 1280, height: 720 }, false, 'high', TOUR.map((_, i) => i)]];
+    /* pass 1: the core's seams, with the feature modules replaced by empty ones */
+    if (!process.env.LIVE_ONLY) for (const v of VPS) await runViewport(browser, ...v, true);
+    /* pass 2: the whole game, every module live */
+    if (!process.env.SEAMS_ONLY) { for (const v of VPS) await runViewport(browser, ...v, false);
+      if (!VIEWPORTS) ok('every district on the tour was reached in some viewport', report.districts.size === TOUR.length, `${report.districts.size}/${TOUR.length}`); }
 
     /* ---------- a damaged save must not break the game ---------- */
     { const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 }, serviceWorkers: 'block' }); const page = await ctx.newPage(), errs = []; page.on('pageerror', e => errs.push(e.message)); page.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
@@ -487,6 +603,16 @@ async function runViewport(browser, name, vp, touch, quality, tourIdx) {
       ok('plays offline after the first visit (service worker shell)', !!swOk && off && (await st(page)).started && errors.length === 0, swOk ? `${swOk.names.join(',')}: ${swOk.n} files` : 'no cache'); await ctx.close(); }
   } catch (e) { failed++; console.log('FAIL  test run crashed: ' + (e && e.stack || e)); }
   await browser.close(); server.close();
+  /* ---------- the four module suites and the worker's own tests: each is a separate process with its own server and browser ---------- */
+  if (!process.env.SKIP_SUITES && !process.env.SEAMS_ONLY && !VIEWPORTS) {
+    const { spawnSync } = require('child_process'), suites = [['economy', 'tests/economy.test.js'], ['missions', 'tests/missions.test.js'], ['store', 'tests/store.test.js'], ['merch', 'tests/merch.test.js']];
+    const worker = path.resolve(ROOT, '../../../worker/test.js'); if (fs.existsSync(worker)) suites.push(['worker', worker]);
+    for (const [id, file] of suites) { console.log(`\n=== suite: ${id} ===`); const env = { ...process.env }; delete env.PORT;
+      const r = spawnSync(process.execPath, id === 'worker' ? [file] : [file, path.join(OUT, id)], { cwd: id === 'worker' ? path.dirname(file) : ROOT, env, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 30 * 60 * 1000 });
+      const out = (r.stdout || '') + (r.stderr || ''), lines = out.split('\n'), fails = lines.filter(l => /^(FAIL|not ok)\b/.test(l) || /^\s*✗/.test(l)), passes = lines.filter(l => /^(PASS|ok)\b/.test(l) || /^\s*✓/.test(l)).length;
+      for (const l of fails.slice(0, 30)) console.log('      ' + l.slice(0, 400)); const tail = lines.filter(l => l.trim()).slice(-2).join(' / ').slice(0, 300);
+      ok(`suite ${id}: ${path.basename(file)} exits 0`, r.status === 0, `${passes} passed, ${fails.length} failed; ${tail}`); }
+  }
   console.log('\n=== summary ===');
   for (const [n, r] of Object.entries(report.viewports)) console.log(`${n}: ${r.frame ? `${r.frame.avgMs} ms/frame (${r.frame.fps} fps), worst ${r.frame.maxMs} ms, JS ${r.frame.cpuMsPerFrame} ms/frame, ${r.frame.drawCalls} calls, ${r.frame.triangles} tris, ${r.frame.canvas}, ${r.frame.quality}, ${r.frame.gl}` : 'no frame data'}; districts: ${r.districts.join(', ')}`);
   console.log(`screenshots: ${OUT}`);

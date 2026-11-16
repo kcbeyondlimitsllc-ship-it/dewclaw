@@ -1,0 +1,48 @@
+/* KC: Open Trail merch: the KC Gear tab, the real-gear list, the leaving screen and the claim form (js/merch.js).
+   Phone first: every button is at least 44 px tall, cards stack at 390 px, nothing scrolls sideways. */
+.merch .mbig { width:100%; min-height:48px; margin-top:8px; white-space:normal; text-align:center; line-height:1.25; }
+.merch .mgrown { display:flex; flex-direction:column; }
+.merch .mgrown .note { margin:0; }
+
+.mthumb { flex:none; width:96px; height:96px; border-radius:12px; overflow:hidden; background:#fff; border:1px solid var(--line); display:grid; place-items:center; }
+.mthumb img { width:100%; height:100%; object-fit:contain; display:block; }
+.mthumb.none { background:rgba(0,0,0,.25); color:var(--accent); }
+
+.merch .mreals { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:8px; }
+.merch .mreal { display:grid; grid-template-columns:96px 1fr; gap:8px 10px; align-items:start; background:rgba(255,255,255,.07); border:1px solid var(--line); border-radius:16px; padding:10px; min-width:0; }
+.merch .mreal .mid, .merch .mgo .mid { min-width:0; display:flex; flex-direction:column; gap:3px; }
+.merch .mreal .mid b, .merch .mgo .mid b { font-size:15px; line-height:1.2; overflow-wrap:anywhere; }
+.merch .mreal .mid span, .merch .mgo .mid span { font-size:13px; line-height:1.3; color:#dcebe2; }
+.merch .mreal .mid .mprice { font-size:14px; font-weight:700; color:#fff; }
+.merch .mreal .mid .mtwin { color:var(--accent); }
+.merch .mreal .btn { grid-column:1 / -1; width:100%; min-height:46px; padding:8px 14px; font-size:15px; }
+.merch .msmall { font-size:12.5px; color:#c6d8ce; line-height:1.35; }
+
+.merch .mlead { font-size:17px; font-weight:800; line-height:1.3; margin:0 0 10px; }
+.merch .mgo { display:flex; gap:10px; align-items:center; margin:0 0 10px; }
+.merch .mgo .mthumb { width:72px; height:72px; }
+.merch .murl { overflow-wrap:anywhere; margin:0 0 8px; }
+.merch .mlist { margin:0; padding-left:20px; font-size:14px; line-height:1.4; color:#dcebe2; }
+.merch .mlist li { margin:3px 0; }
+
+.merch .mform { display:flex; flex-direction:column; gap:6px; margin:12px 0 6px; }
+.merch .mform label { font-size:14px; font-weight:700; }
+.merch .mform input, .merch .mform select { width:100%; min-height:48px; box-sizing:border-box; font:inherit; font-size:16px; padding:10px 12px; border-radius:12px; border:1px solid var(--line); background:#fff; color:#12261e; -webkit-user-select:text; user-select:text; }
+.merch .mform input:focus-visible, .merch .mform select:focus-visible { outline:3px solid var(--accent); outline-offset:1px; }
+.merch .mmsg { min-height:18px; margin:2px 0 0; font-size:14px; color:var(--warn); font-weight:700; }
+.merch .mmsg:empty { min-height:0; }
+
+@media (max-width:420px) {
+  .merch .mreals { grid-template-columns:1fr; }
+  .merch .mreal { grid-template-columns:84px 1fr; }
+  .merch .mreal .mthumb { width:84px; height:84px; }
+}
+
+/* a short landscape phone: the core shrinks the footer buttons and the close button to 40 px there; these screens keep 44 */
+@media (max-height:460px) {
+  .modal.merch #modalClose { width:44px; height:44px; }
+  .modal.merch #modalActions .btn { min-height:44px; }
+}
+
+/* a shelf heading scrolled to from a world shelf must clear the pinned tab strip */
+.merch .sech[data-shelf] { scroll-margin-top:64px; }

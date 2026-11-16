@@ -3,9 +3,11 @@
 Plain ES modules, no build step. three.js r170 is vendored in `vendor/three/`.
 Everything visible is built in code (low-poly geometry + canvas textures) and
 all sound is WebAudio synthesis. The only network traffic is same-origin game
-files. The one exception is the Dewclaw worker, which `store.js` and `merch.js` (and no other file)
-may call after a grown-up has passed the gate and pressed a button: buy, claim a twin, restore.
-Nothing else may leave the origin, and the game never loads anything from another site.
+files (including `merch.json`, read once at boot, and the product thumbnails in `img/merch/`, read only when a grown-up opens the
+real-gear list). The one exception is the Dewclaw worker, which `store.js` (and no other file) calls after a grown-up has passed the gate
+and pressed a button: buy, restore. `merch.js` is allowed the same for a future claim endpoint but today calls nothing outside the folder.
+Nothing else may leave the origin, and the game never loads anything from another site. As shipped the worker address in
+`js/store-config.js` is a placeholder, so the game makes no outside request at all.
 
 ## Boot order (`js/main.js`)
 
@@ -13,28 +15,29 @@ Nothing else may leave the origin, and the game never loads anything from anothe
 `camera` -> `api` (registry, wallet, economy and shop seams) -> `hud` (`game.ui`, with `uikit` and `photo`) -> `kc` -> `npc`
 (people, dogs, wildlife, followers, standers) -> `vehicles` -> `collect` -> `seams` (`game.cosmetics`, `game.place`,
 `game.timedRun`, `game.travel`, `game.followers`) ->
-**`economy.init(game)`, `upgrades.init(game)`, `shop.init(game)`, `missions.init(game)`, `store.init(game)`, `merch.init(game)`**
+**`economy.init(game)`, `upgrades.init(game)`, `shop.init(game)`, `missions.init(game)`, `store.init(game)`, `merch.init(game)`, `guide.init(game)`**
 -> `game.cosmetics.restore()` -> event `modulesReady`.
 
 ## Module seams
 
-This section is the contract between the core and the six feature modules.
+This section is the contract between the core and the seven feature modules. What the modules themselves offer is in
+"The feature modules as built" further down.
 
 ### File ownership
 
 | Files | Owner | Rule |
 | --- | --- | --- |
-| `js/economy.js`, `js/upgrades.js`, `js/shop.js`, `js/missions.js`, `js/store.js`, `js/merch.js` | one module each | Each **exports `init(game)`**; `main.js` already imports all six and calls `init` once, in that order, after everything in the boot order above exists. Whatever `init` returns is kept at `game.modules.<name>` (return your public API there). A module that throws in `init` is logged and skipped; the game still boots. |
-| every other file in `js/`, `index.html`, `style.css`, `sw.js` | core | **Modules never edit core files.** If a module needs something the core does not offer, it works with the hooks below or asks for a new one; it does not patch `hud.js`, `kc.js`, `vehicles.js`, `data.js` and so on. |
-| new files | the module that needs them | A module may add files (`js/shop-data.js`, `merch.json`, thumbnails). Every new file under `js/`, and anything else the game needs offline, must be added to `SHELL` in `sw.js` **by whoever integrates the modules** (`sw.js` is a core file): list the files you added in your hand-over note. The smoke test fails if `js/` and `SHELL` disagree. |
+| `js/economy.js`, `js/upgrades.js`, `js/shop.js`, `js/missions.js` (+ `js/activities.js`), `js/store.js` (+ `js/store-config.js`), `js/merch.js`, `js/guide.js`, `css/*.css`, `merch.json`, `img/merch/`, `tools/sync-merch.js` | one module each | Each **exports `init(game)`**; `main.js` imports all seven and calls `init` once, in that order, after everything in the boot order above exists. Whatever `init` returns is kept at `game.modules.<name>` (return your public API there). A module that throws in `init` is logged and skipped; the game still boots. |
+| every other file in `js/`, `index.html`, `style.css`, `sw.js` | core | **Modules never edit core files** (the integration pass did: it fixed `spawnProp` for `planter` / `boat` / `hydrant`, the 44 px close button in landscape, the tab strip and the banner). If a module needs something the core does not offer, it works with the hooks below or asks for a new one; it does not patch `hud.js`, `kc.js`, `vehicles.js`, `data.js` and so on. |
+| new files | the module that needs them | A module may add files (`js/shop-data.js`, `merch.json`, thumbnails). Every new file under `js/`, and anything else the game needs offline, must be added to `SHELL` in `sw.js` **by whoever integrates the modules** (`sw.js` is a core file): list the files you added in your hand-over note. The smoke test fails if `js/`, `css/`, `merch.json` and `SHELL` disagree. The thumbnails in `img/merch/` are deliberately not in `SHELL` (spec 5.5): the service worker keeps each one the first time it is shown. |
 
 Other rules a module must keep:
 
-- Modules talk to each other only through `game.economy`, `game.shop`, the event bus and `game.modules.<name>` (which may not exist yet when your `init` runs: modules boot in the order economy, upgrades, shop, missions, store, merch. Look another module up lazily, or wait for the `modulesReady` event).
+- Modules talk to each other only through `game.economy`, `game.shop`, the event bus and `game.modules.<name>` (which may not exist yet when your `init` runs: modules boot in the order economy, upgrades, shop, missions, store, merch, guide. Look another module up lazily, or wait for the `modulesReady` event).
 - Import helpers from core files if you like (`./util.js`: `THREE`, `Geo`, `icon`, `el`, `clamp`, `rng` ...; `./data.js`: `BUILDINGS`, `STALLS`, `CARTS`, `SIGNPOSTS`, `DOG_SPOTS`, `PHOTO_SPOTS`, `ZONES` ...). Importing is not editing.
-- No network. Only `store.js` and `merch.js` may call `fetch`, only to the Dewclaw worker, and only after a grown-up has passed the gate and pressed a button (buy, claim a twin, restore). The smoke test fails on `fetch` / XHR / WebSocket / beacon anywhere else and on any request that leaves the origin.
+- No network. Only `store.js` and `merch.js` may call `fetch`: `store.js` only to the Dewclaw worker and only after a grown-up has passed the gate and pressed a button (buy, restore); `merch.js` only for the same-origin `merch.json`. The smoke test fails on `fetch` / XHR / WebSocket / beacon anywhere else and on any request that leaves the origin.
 - Money never buys bones or stats. Real-money spending is off until `game.grownUp.spending` is true. Every purchase and every link that leaves the game goes through `game.ui.gate()` / `game.ui.openExternal()`.
-- Touch targets 44 px or more; check your screens at 390 x 844 and 844 x 390. Use the shared pieces in `game.ui` and the classes in `style.css` so the six screens look like one game.
+- Touch targets 44 px or more; check your screens at 390 x 844 and 844 x 390. Use the shared pieces in `game.ui` and the classes in `style.css` so the screens look like one game.
 - No names, characters or designs from the do-not-copy list in `SETTING-BRIEF.md` (the smoke test scans shipped files for them).
 
 ### Index of hooks
@@ -256,7 +259,7 @@ den.setLevel(2) ; den.level ; den.remove()        // emits `stageChanged` { id, 
 game.place.staged({ id: 'fund', x, z, additive: true, level: -1, stages: [...] })   // additive: every stage up to the level stays (bench, then fountain, then lanterns) ; -1 = nothing yet
 ```
 
-`kind` is any `game.spawnProp` kind: `bench`, `lamp`, `signpost` {text}, `stall` {name, col, ry}, `shelf` {name, col, items: [colours], ry}, `tent` {col, ry},
+`planter` takes `{ w, d }`, `boat` `{ ry, col }` and `hydrant` `{ col }`. `kind` is any `game.spawnProp` kind: `bench`, `lamp`, `signpost` {text}, `stall` {name, col, ry}, `shelf` {name, col, items: [colours], ry}, `tent` {col, ry},
 `crate`, `log`, `table`, `fence` {x1, z1}, `hedge`, `deck`, `flag`, `planter`, `bin`, `boulder`, `haybale`, `pumpkin` {s, deco}, `campfire`, `cart` {name, col, ry},
 `noticeboard` {title, ry}, `stage` {ry, col}, `fountain` {r}, `agility`, `boat`, `railcar`, `hydrant`, `mailbox`, `umbrella`, `marker`, `building` {w, d, h, col, roof, f, sign, kind}
 (inside `staged` parts write a building's kind as `style`). Shops have no interiors: a "shop" is a prompt at its door (`counter`) or a `shelf` / `stand` outside it.
@@ -302,7 +305,7 @@ Other world controls a den or a mission may want: `game.world.setTime(hours)` (a
 const h = game.openModal({ id, title, html | node | render(body, handle), actions: [{ label, primary, danger, onClick, keepOpen }],
                            onClose, wide, wallet: true, className, dismissable, pause })   // -> { id, body, close(), refresh(), setTitle() }
 game.closeModal(id?)             // screens stack: closing one shows the one underneath ; game.ui.closeAll()
-game.toast('text', { icon, kind: 'good' | 'warn' | 'gold', ms }) ; game.banner('Mission complete', 'Paper round')
+game.toast('text', { icon, kind: 'good' | 'warn' | 'gold', ms }) ; game.banner('Mission complete', 'Paper round')   // the banner steps down below the toasts if the two would overlap
 await game.ui.confirm(title, text, yesLabel, noLabel)            // -> boolean
 game.ui.addMenuItem({ id, label, icon, order, onSelect })        // an entry in the pause menu (Missions, Den ...)
 game.ui.addHudButton({ id, icon, label, title, onClick })        // a button next to map / photo / pause: use sparingly, the phone HUD is full
@@ -321,8 +324,8 @@ game.shop.open('wardrobe')   // opens the Shop on that tab (from a world prompt)
 game.shop.refresh()          // redraw after a purchase (keeps tab and scroll place) ; game.shop.current ; game.shop.tabs
 ```
 
-`order` sorts the tabs (lower = further left; suggested: upgrades 10, wardrobe 20, rides 30, den 40, buddies 50, businesses 60, funds 70,
-journal 80, real gear 90, grown-ups / store 100). Registering a tab with an existing id replaces it. A "Shop" entry appears in the pause menu once a tab exists.
+`order` sorts the tabs (lower = further left; as built: upgrades 10, wardrobe 20, rides 30, den 40 (with buddies), businesses 60, funds 70,
+journal 80, KC Gear 90, store 100). The strip jumps to the open tab without animation, so the chosen tab is always in view on a phone. Registering a tab with an existing id replaces it. A "Shop" entry appears in the pause menu once a tab exists.
 Emits `shopTab` { id } on register and `shopTabOpen` { id } when a tab is shown.
 
 Shared pieces, so the tabs look alike:
@@ -378,7 +381,7 @@ game.save.keepOnReset('store')                                     // this modul
 game.on('beforeSave', state => { /* last chance to write into your module data */ })
 ```
 
-One namespace per module, named after the module (`economy`, `upgrades`, `shop`, `missions`, `store`, `merch`); JSON only. Shared maps the
+One namespace per module, named after the module (`economy`, `upgrades`, `shop`, `missions`, `store`, `merch`, `guide`; the store also keeps `storeTrail`, the Trail Journal's free column, which resets with the save); JSON only. Shared maps the
 core saves for everyone: `state.owned` (through `grant` / `use`), `state.equipped` (through `game.cosmetics`), `state.flags` (through `setFlag`),
 `state.upgrades` (free for the upgrades module: id -> level). "Start over" clears everything except `state.settings` and the namespaces passed to
 `keepOnReset`; a store that sold a permanent item should re-grant it in `init` from its own kept record.
@@ -395,6 +398,102 @@ when the missions module provides them), `emit(type, data)`, `events` (recent
 bus events), `follow(opts)` / `unfollow(id)` / `followers()`, `tune(kind, patch, source)` / `tuning(kind)`,
 `mod(id, mods, opts)`, `travel(x, z, yaw, opts)`, `modules()` and `game`. `state()` also reports `run`, `followers`,
 `equipped` and `spending`.
+
+## The feature modules as built
+
+Seven modules boot after the core, in this order: `economy`, `upgrades`, `shop`, `missions`, `store`, `merch`, `guide`.
+Each file's header comment is the full reference; this is the map.
+
+| Module | Files | What it owns | Saved in |
+| --- | --- | --- | --- |
+| `economy` | `js/economy.js`, `css/economy.css` | The price table: 30 ladders (46 tracks), every bones and gem item, `ECON_SCALE`, free gems (one per new district, three daily sniff-outs worth 2 gems), the 10-minute Undo on gem purchases. Extends `game.economy`. | `state.upgrades` (id -> level), `modules.economy { owed, met, daily, undo }` |
+| `upgrades` | `js/upgrades.js` | What the ladders do in the world: modifiers, ride tuning, KC's Den (six stages, pay-later bar, nap, bowl, decor with full refund, gold trim), Trail Buddies and the Whistle, the three businesses and their tills, the Lantern Fund, the Town Fund, Trail Markers. | `modules.upgrades { tills, decor, paid, bowl, called, wall, planning }` |
+| `shop` | `js/shop.js` | Six Shop tabs (`upgrades`, `wardrobe`, `rides`, `den`, `businesses`, `funds`) and the ten door / stall prompts `eco:shop:*`. | `modules.shop { outfits }` |
+| `missions` | `js/missions.js`, `js/activities.js`, `css/missions.css` | 16 story missions, 8 Fog Bell Festival activities (only while the `festival` flag is on), the journal (pause menu: Missions), three weekly trail tasks, the Sand Island ferry. Bones only. | `modules.missions { done, best, paidDay, bones, runs, weekly, way, ferry }` |
+| `store` | `js/store.js`, `js/store-config.js`, `css/store.css` | The real-money catalogue (16 SKUs), the device limit, the purchase journal, restore by Trail Key, and the Trail Journal (30 steps: free column and pass column). Tabs `journal` and `store`. | `modules.store` (kept through "Start over"), `modules.storeTrail` (resets with the save) |
+| `merch` | `js/merch.js`, `css/merch.css`, `merch.json`, `img/merch/*.jpg`, `tools/sync-merch.js` | The KC shelves in the world, the 14 bones twins, the 54 real products behind the gate, the leaving screen, the honour-basis claim. Tab `merch` ("KC Gear"). | `modules.merch { claimed }` (kept through "Start over") |
+| `guide` | `js/guide.js` | First steps for a new player: points at the first job, then at Tailwind Pet Supply for the first upgrade, then steps aside. Pays and charges nothing. | `modules.guide { step, told }` |
+
+### How they fit together
+
+- **One wallet.** Every payout and every charge goes through `game.economy.grant` / `spend` (`js/api.js`). Mission pay uses sources
+  `mission:<id>`, `activity:<id>`, `weekly`; tills `till:<id>`; the store `store:<sku>`, `store:restore`, `store:kept`, `journal`, `journal:pass`;
+  merch `merch:<shelf>`, `merch:claim`, `merch:claimed`. The store refuses any grant that carries bones.
+- **One item table.** Every id the worker's `OT_GRANTS` can grant is defined by `economy.js` (wearables and den props), except four that
+  other modules handle: `pass:trail` and `frame:supporter` (`store.js`), the treat bundles `treat:3` / `treat:10` (granted by `store.js` as
+  `{ id: 'treat:party', n }`), and `den:gold-trim` (`upgrades.js` draws a gold arch at the den while it is owned). Merch twins are defined by
+  `merch.js` with `game.cosmetics.define` (`decor:river-bed` and `decor:camp-mug` by `economy.js`). The smoke test fails if a grant, a
+  Trail Journal reward or a twin names an id nobody defines.
+- **Daily sniff-outs have one owner:** `economy.js` makes and pays them; the missions journal only shows `economy.daily()`.
+- **The Trail Journal's free column has one owner:** `store.js` (auto-paid as steps are reached, bones and 30 gems in all).
+- **The last story mission (Cart Runner) hands over the Biscuit Cart:** `missions.js` calls `economy.buyLevel('biz:cart', { free: true })` the
+  first time it is won. Before that the cart can simply be bought for its 800 bones.
+- **The den's planning board** (River Cottage) calls `missions.open('board')`, the mission list under another title.
+- **Loose bones come back slowly:** `economy.js` sets `game.rewards.boneRespawn` to `BONE_RESPAWN` (600 to 780 s; the core's own default
+  is 100 to 140) so that sweeping one street over and over does not out-earn the jobs. The comment beside the constant has the measurements.
+- **Prices scale together:** `economy.ECON_SCALE` (1.0) multiplies every bones price (`economy.price(n)`); `missions.js` and `merch.js` use it too.
+- **Tills earn only while the game is played** (the `second` event). Nothing accrues while the game is closed; the spec asks for exactly that.
+- **Shop tabs, left to right:** upgrades 10, wardrobe 20, rides 30, den 40, businesses 60, funds ("Town") 70, journal 80, merch ("KC Gear") 90, store 100.
+- **Prefixes of placed ids:** `eco:` (den, businesses, funds, shop doors), `msg:` / `ms:` / `fest:` / `ferry:` (missions), `merch:` (shelves), `guide:` (the one first-steps marker).
+
+### `game.economy`, extended by `economy.js` (also `game.modules.economy`)
+
+```js
+E.ECON_SCALE ; E.BONES_PER_GEM (50) ; E.price(bones)                    // scaled whole bones
+E.level(id) ; E.maxLevel(id) ; E.ladder(id) ; E.ladders(group?) ; E.nextCost(id)   // null at the top
+E.check(id)                         // { ok, cost, reason: 'unknown' | 'max' | 'owed' | 'locked' | 'bones', text, short }
+E.buyLevel(id, { paid, free })      // charges the bones itself; paid: confirmSpend already charged; free: a reward. Emits `upgrade` { id, level, cost, ladder, how }
+E.setLevel(id, n, { force })        // never charges (rewards, tests)
+E.owed(id) ; E.pay(id, n)           // the den's pay-later bar. Emits `upgradePaid`
+E.item(id) ; E.items(filter) ; E.itemPrice(id) ; E.checkItem(id, 'bones' | 'gems') ; E.buyItem(id, currency, { paid })   // emits `itemBought`
+E.undoable(id) ; E.undo(id) ; E.usd(gems) ; E.daily() ; E.totals()
+```
+
+Ladder ids: `legs lungs paws sniffer paddle nose mitts ball saddlebags pouch camera wheels trucks popdeck cedar keel drybox engine tyres rack
+den denstore buddy:<dog> whistle biz:cart biz:canoes biz:pumpkins lantern marker:<sign> town`.
+
+### `game.modules.upgrades`
+
+`sites`, `home`, `biz`, `rate(id)` (bones a minute), `cap(id)`, `till(id)`, `collect(id)`, `collectAll()`, `maxIncome()` (19.25), `nap(hour)`,
+`bowl()`, `denSlots()`, `placeDecor(id)` / `removeDecor(id)`, `dogs`, `hearts(dog)`, `callBuddy(dog)` / `sendHome(dog)`, `useTreat(id)`,
+`goldTrim()`. Events: `till`, `decor`, `nap`, `buddy`, `buddyGreet`, `treatUsed`, `planningBoard`, `photoWall`.
+
+### `game.modules.missions`
+
+`list()`, `get(id)`, `start(id, { force })`, `retry(id)`, `leave()`, `active()`, `isDone(id)`, `count(id)`, `stats()`, `open(tab)` with tab
+`missions | festival | tasks | board`, `showWay(id)`, `ferry(to)`, `tasks()`, `complete()` / `fail()` (debug). Events: `missionStart`,
+`missionComplete` { id, name, first, bones, festival, count }, `missionFail`, `missionLeave`, `ferry`, `taskDone`, `tasksAllDone`.
+A running mission sets `game.travel.blocked`. First-time pay totals 1,800 bones (the tutorial 50); a replay pays its job rate in full once
+per game day and 40% for extra runs that day. Mission ids: `bell paper patrol shuttle castle lunch sniff creek echo mill train haul corn flags walk carts`.
+
+### `game.modules.store`
+
+`catalog` (16 SKUs), `sku(id)`, `price(id)`, `contents(id)`, `sellable(id)`, `owns(id)`, `open()`, `buy(sku)`, `restore()`, `limitScreen()`,
+`setLimit(cents)`, `gate(reason)`, `limit`, `spent30()`, `room()`, `journal()`, `key`, `steps`, `passItems`, `trail`. Events: `storeOpen`,
+`storeCheckout`, `storePurchase`, `storeRefused`, `storeRestore`, `storeCap`, `journalStep`. Flags: `store:starter`, `store:pass`, `store:supporter`.
+
+- As shipped `js/store-config.js` holds placeholders, so every item says "Coming soon", nothing can be bought and the game makes no request.
+  The owner's steps are in `marketing/kc-open-trail/MONETIZATION.md`.
+- While `game.grownUp.spending` is false the Store tab shows only "Ask a grown-up to turn on the shop." The gate is asked to open the store,
+  again on every Buy, and before restore and the limit screen.
+- Mock mode (a pretend payment page, for tests) exists only with both `?debug=1` and `?mock=1`.
+- The worker side is `worker/dewclaw-worker.js` (`OT_GRANTS`, `OT_PRICES`, `/stripe/checkout`, `/stripe/claim`, `/ot/restore`, `/ot/prices`);
+  `worker/test.js` holds the game's `CATALOG` and the worker's table together.
+
+### `game.modules.merch`
+
+`twins`, `shelves`, `products()`, `product(id)`, `url(id)` (always `https://kcbeyondlimits.com/product/<digits>`, built in code), `priceLine(p)`,
+`open(shelf)`, `buyTwin(id)`, `openReal(shelf)`, `openProduct(id)`, `openClaim(twin)`, `claimed()`, `winterOpen(date)`, `syncWinter()`.
+Modal ids `merch-real`, `merch-leaving`, `merch-claim`. Events: `merchClaim`, `external`.
+
+- The children's side is bones only: no dollar price, no product picture, no link. The real products need the spending switch and the gate.
+- `merch.js` has one `fetch`: the same-origin `merch.json` at boot. The claim is local and on trust (the worker has no `/ot/merch-claim` yet).
+- Run `node tools/sync-merch.js --live --accept` before every release and around every shop sale; `--check` verifies the file and the pictures.
+
+### `game.modules.guide`
+
+`step()` (0 new, 1 pointed at the first job, 2 pointing at the shop, 3 finished), `restart()`. Emits `guide` { step }. It uses
+`missions.showWay('bell')`, one marker `guide:shop` at the pet supply door and three toasts; any purchase ends it.
 
 ## The `game` object
 
@@ -415,7 +514,7 @@ bus events), `follow(opts)` / `unfollow(id)` / `followers()`, `tune(kind, patch,
 | `game.ui` | HUD + modal shell (below) |
 | `game.audio` | `sfx(name)`: pickup, gold, reward, bark, jump, splash, dig, honk, whistle, bell, pet, ui, door, eat, shutter; `applyVolume()` (honours `settings.muted`) |
 | `game.fx` | `burst(kind, x, y, z, n)` particles: dust, splash, dirt, heart, spark, leaf, water |
-| `game.modules` | results of the six `init` calls: `economy`, `upgrades`, `shop`, `missions`, `store`, `merch` |
+| `game.modules` | results of the seven `init` calls: `economy`, `upgrades`, `shop`, `missions`, `store`, `merch`, `guide` |
 
 ### Saved state (`js/save.js`, localStorage key `kc-open-trail-save-v2`)
 
@@ -507,7 +606,8 @@ cosmetics, ride tuning and the screens in `game.ui`. Two details that live only 
 | `gate`, `spending`, `external` | `{ ok, reason }`; `{ on }`; `{ host }` a leaving link was opened |
 | `photoStyle`, `pose` | `game.photo.state()` after a frame / filter / sticker change; `{ name }` |
 | `shopTab`, `shopTabOpen` | `{ id }` a tab was registered / shown |
-| `modulesReady` | `{ names }` once, after all six `init` calls |
+| `modulesReady` | `{ names }` once, after all seven `init` calls |
+| module events | `upgrade`, `upgradePaid`, `itemBought`, `itemUndone`, `buddyMet`, `till`, `decor`, `nap`, `buddy`, `treatUsed` (economy / upgrades); `missionStart`, `missionComplete`, `missionFail`, `missionLeave`, `ferry`, `taskDone`, `tasksAllDone` (missions); `storeOpen`, `storeCheckout`, `storePurchase`, `storeRefused`, `storeRestore`, `storeCap`, `journalStep` (store); `merchClaim` (merch); `guide` (guide). See "The feature modules as built". |
 | `objective`, `modalOpen`, `modalClose`, `toast`, `quality`, `cosmeticChanged`, `skinChanged`, `beforeSave`, `saved` | housekeeping |
 
 ## World data (`js/data.js`)
