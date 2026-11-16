@@ -22,7 +22,7 @@ export function riverX(z) {
 /* kind: road (asphalt), gravel, trail (dirt footpath) */
 export const ROADS = [
   { id: 'main', name: 'Main Street', kind: 'road', w: 9, pts: [[-104, 40], [-40, 40], [40, 40], [100, 40], [136, 40], [170, 52], [196, 100], [205, 150]] },
-  { id: 'fern', name: 'Fern Lane', kind: 'road', w: 8, pts: [[-104, 40], [-98, -6], [-88, -20], [84, -20], [96, -6], [100, 40]], sharp: true },
+  { id: 'fern', name: 'Fern Lane', kind: 'road', w: 8, pts: [[-104, 40], [-98, -6], [-88, -20], [84, -20], [96, -6], [100, 40]] },
   { id: 'cedar', name: 'Cedar Avenue', kind: 'road', w: 8, pts: [[-10, -78], [-10, -20], [-10, 40], [-10, 150], [-40, 190], [-100, 214], [-132, 214]] },
   { id: 'camp', name: 'Pinecone Road', kind: 'gravel', w: 7, pts: [[-104, 40], [-140, 34], [-176, 12], [-198, 6]] },
   { id: 'forest', name: 'Whispering Loop', kind: 'trail', w: 3.6, pts: [[-198, 6], [-236, -40], [-246, -100], [-200, -138], [-150, -112], [-124, -50], [-140, 34]] },
@@ -104,8 +104,8 @@ export const RIDEABLES = [
 
 /* Traffic routes follow road centre lines, offset to the right-hand lane. loop = closed circuit. */
 export const TRAFFIC = [
-  { id: 'car-a', style: 'hatch', col: 0xd9534f, loop: true, pts: [[-104, 40], [100, 40], [96, -6], [84, -20], [-88, -20], [-98, -6]] },
-  { id: 'car-b', style: 'hatch', col: 0x4f8fd6, loop: true, pts: [[-104, 40], [-98, -6], [-88, -20], [84, -20], [96, -6], [100, 40]], t0: 0.5 },
+  { id: 'car-a', style: 'hatch', col: 0xd9534f, loop: true, pts: [[-104, 40], [-40, 40], [40, 40], [100, 40], [96, -6], [84, -20], [-88, -20], [-98, -6]] },
+  { id: 'car-b', style: 'hatch', col: 0x4f8fd6, loop: true, pts: [[-104, 40], [-98, -6], [-88, -20], [84, -20], [96, -6], [100, 40], [40, 40], [-40, 40]], t0: 0.5 },
   { id: 'car-c', style: 'pickup', col: 0x5f9f6f, road: 'main', from: 3 },
   { id: 'car-d', style: 'pickup', col: 0xe0a040, road: 'cedar', from: 2 },
   { id: 'mail', style: 'van', col: 0xf4f4ef, road: 'cedar', from: 0, to: 3, t0: 0.4 }

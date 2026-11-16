@@ -35,6 +35,8 @@ function boot() {
   try { renderer = new THREE.WebGLRenderer({ canvas, antialias: (window.devicePixelRatio || 1) < 2.5, powerPreference: 'high-performance' }); }
   catch (e) { playBtn.textContent = 'This device cannot run 3D (WebGL) games'; return; }
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  /* if the GPU drops the context (common on phones after a long background), reload cleanly; the save is already on disk */
+  canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); }); canvas.addEventListener('webglcontextrestored', () => location.reload());
   const scene = new THREE.Scene();
   const bus = createBus();
   const game = { VERSION, THREE, renderer, scene, bus, on: bus.on, off: bus.off, emit: bus.emit, debug: DEBUG, time: 0, paused: false, modules: {} };
@@ -103,7 +105,7 @@ function boot() {
     if (document.hidden || raw <= 0) return;
     const dt = Math.min(0.1, raw); game.paused = !ui.started || ui.isPaused() || ui.photo;
     if (!ui.started) { input.poll(dt); input.endFrame(); cam.yaw += dt * 0.07; cam.update(dt, { camX: 0, camY: 0, zoom: 0 }); kc.update(dt, { moveX: 0, moveY: 0, pressed: {}, sprint: false }); npcs.update(dt); vehicles.update(dt, { moveX: 0, moveY: 0, pressed: {} }); collect.update(dt); world.update(dt, cam.three.position, kc.pos); game.fx.update(dt); render(); return; }
-    if (ui.photo) { input.poll(dt); if (input.pressed.pause || input.pressed.photo) ui.photoMode(false); if (input.pressed.interact || input.pressed.jump) ui.snap(); input.enabled = true; cam.update(dt, input); world.update(0, cam.three.position, kc.pos); game.fx.update(0); input.endFrame(); render(); return; }
+    if (ui.photo) { input.poll(dt); if (input.pressed.pause || input.pressed.photo) ui.photoMode(false); if (input.pressed.interact || input.pressed.jump) ui.snap(); input.enabled = true; cam.update(dt, input); world.update(0, cam.three.position, kc.pos); input.endFrame(); render(); return; }
     if (game.paused) { input.poll(dt); if (input.pressed.pause && ui.current && ui.current.dismissable !== false) ui.closeModal(); input.endFrame(); pausedDraw -= dt; if (pausedDraw <= 0) { pausedDraw = 0.5; render(); } return; }
     input.enabled = !ui.modalOpen;
     const steps = Math.min(3, Math.ceil(dt / 0.034)); for (let i = 0; i < steps; i++) sim(dt / steps);

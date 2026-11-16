@@ -168,7 +168,7 @@ export function createHud(game) {
       for (const [name, lx, lz] of DISTRICT_LABELS) { const x = mx(lx), y = mz(lz); if (x < 40 || y < 22 || x > S - 40 || y > S - 14) continue; mctx.strokeText(name, x, y); mctx.fillText(name, x, y); }
       /* icons: rides (van = box, canoe = hull, board = bar), photo spots (ring), ranger station (flag) */
       const glyph = (wx, wz, kind, col) => { const x = mx(wx), y = mz(wz); if (x < 10 || y < 10 || x > S - 10 || y > S - 10) return; mctx.fillStyle = col; mctx.strokeStyle = '#12261e'; mctx.lineWidth = 2.5; mctx.beginPath();
-        if (kind === 'van') mctx.roundRect(x - 8, y - 6, 16, 12, 3); else if (kind === 'canoe') mctx.ellipse(x, y, 10, 4.5, -0.5, 0, 7); else if (kind === 'skateboard') mctx.roundRect(x - 9, y - 3, 18, 6, 3); else if (kind === 'flag') { mctx.moveTo(x - 5, y + 8); mctx.lineTo(x - 5, y - 9); mctx.lineTo(x + 8, y - 4); mctx.lineTo(x - 5, y + 1); } else mctx.arc(x, y, 6, 0, 7);
+        if (kind === 'van') mctx.rect(x - 8, y - 6, 16, 12); else if (kind === 'canoe') mctx.ellipse(x, y, 10, 4.5, -0.5, 0, 7); else if (kind === 'skateboard') mctx.rect(x - 9, y - 3, 18, 6); else if (kind === 'flag') { mctx.moveTo(x - 5, y + 8); mctx.lineTo(x - 5, y - 9); mctx.lineTo(x + 8, y - 4); mctx.lineTo(x - 5, y + 1); } else mctx.arc(x, y, 6, 0, 7);
         mctx.closePath(); mctx.fill(); mctx.stroke(); if (kind === 'photo') { mctx.beginPath(); mctx.arc(x, y, 2.4, 0, 7); mctx.fillStyle = '#12261e'; mctx.fill(); } };
       for (const r of game.vehicles.rides) if (r !== kc.ride) glyph(r.x, r.z, r.kind, r.kind === 'van' ? '#4fb0a8' : r.kind === 'canoe' ? '#e0685f' : '#f08a2a');
       for (const ps of PHOTO_SPOTS) glyph(ps.x, ps.z, 'photo', state.collected.photos.includes(ps.id) ? '#9aa39d' : '#ffd23c');

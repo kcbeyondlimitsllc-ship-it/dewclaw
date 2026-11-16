@@ -128,7 +128,7 @@ body.touch #bc { bottom:calc(10px + var(--sb)); }
 }
 @media (max-width:400px) and (orientation:portrait) { #compass { width:112px; } #tc { width:116px; } #toasts { position:fixed; top:calc(146px + var(--st)); left:50%; transform:translateX(-50%); } #banner { top:30%; } }
 @media (max-height:460px) {
-  #pad { bottom:calc(14px + var(--sb)); transform:scale(.9); transform-origin:bottom right; } body.lefty #pad { transform-origin:bottom left; }
+  #pad { bottom:calc(16px + var(--sb)); }
   #bc { width:min(34vw,260px); }
   .titlecard { padding:12px 16px 10px; } .logo { flex-direction:row; gap:12px; justify-content:center; } .logo .kc { font-size:44px; } .logo .ot { margin-top:0; font-size:20px; } .tag { margin:6px 0 8px; } .fine { margin-top:6px; }
   #modalBody { padding:10px 16px; } .modal header { padding:8px 10px 6px 16px; }

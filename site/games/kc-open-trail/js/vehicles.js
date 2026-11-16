@@ -65,7 +65,7 @@ export function createVehicles(game) {
   function lanePath(center, closed) {
     const off = 2.1, out = [];
     const offset = (pts) => pts.map((p, i) => { const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)]; let dx = b[0] - a[0], dz = b[1] - a[1]; const l = Math.hypot(dx, dz) || 1; return [p[0] + (-dz / l) * off, p[1] + (dx / l) * off]; });
-    if (closed) { const sm = smoothPath([...center, center[0], center[1]], 3); sm.length -= Math.round(sm.length / (center.length + 1) * 0.6); const o = offset(sm); return o; }
+    if (closed) { /* smooth through the join, then drop the duplicated first span so the loop closes cleanly */ const sm = smoothPath([...center, center[0], center[1]], 3); sm.length -= Math.max(1, Math.ceil(Math.hypot(center[1][0] - center[0][0], center[1][1] - center[0][1]) / 3)) + 1; return offset([...sm, sm[0]]).slice(0, -1); }
     const sm = smoothPath(center, 3); out.push(...offset(sm)); out.push(...offset(sm.slice().reverse())); return out;
   }
   for (const t of TRAFFIC) {

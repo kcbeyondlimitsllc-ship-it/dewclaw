@@ -60,7 +60,14 @@ export function createNPCs(game) {
       else {
         const tgt = ped.pts[ped.idx], tx = tgt[0], tz = tgt[1], ex = tx - ped.x, ez = tz - ped.z, d = Math.hypot(ex, ez);
         if (d < 0.6) { ped.idx += ped.dir; if (ped.idx >= ped.pts.length || ped.idx < 0) { if (ped.loop) ped.idx = ped.idx < 0 ? ped.pts.length - 2 : 1; else { ped.dir *= -1; ped.idx += ped.dir * 2; } } }
-        else { const step = ped.speed * dt; ped.x += (ex / d) * step; ped.z += (ez / d) * step; ped.yaw = lerpAngle(ped.yaw, Math.atan2(ex, ez), damp(6, dt)); moving = true; }
+        else {
+          /* look before stepping out: wait for any moving car (or ridden van / board) about to pass */
+          let wait = false; const ax = ped.x + (ex / d) * 1.6, az = ped.z + (ez / d) * 1.6;
+          for (const c of game.vehicles.cars) if (c.speed > 0.8 && (c.x - ax) ** 2 + (c.z - az) ** 2 < 12) { wait = true; break; }
+          const rd = kc.ride; if (rd && !rd.cfg.water && Math.abs(rd.speed) > 1.5 && (rd.x - ax) ** 2 + (rd.z - az) ** 2 < 10) wait = true;
+          if (!wait) { const step = ped.speed * dt; ped.x += (ex / d) * step; ped.z += (ez / d) * step; moving = true; }
+          ped.yaw = lerpAngle(ped.yaw, Math.atan2(ex, ez), damp(6, dt));
+        }
       }
     } else if (ped.state === 'aside') {
       ped.timer -= dt; const nx = ped.x + ped.ax * 2.4 * dt, nz = ped.z + ped.az * 2.4 * dt;

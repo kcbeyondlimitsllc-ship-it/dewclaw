@@ -36,7 +36,10 @@ export function polyDist(px, pz, pts) {
   return best;
 }
 /* Catmull-Rom resample of a polyline so roads and trails curve */
-export function smoothPath(pts, step = 4) {
+export function smoothPath(pts0, step = 4) {
+  /* add control points along long straights first, so the spline only rounds the corners */
+  const pts = [pts0[0]];
+  for (let i = 1; i < pts0.length; i++) { const a = pts0[i - 1], b = pts0[i], n = Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 22); for (let k = 1; k <= n; k++) pts.push([a[0] + ((b[0] - a[0]) * k) / n, a[1] + ((b[1] - a[1]) * k) / n]); }
   if (pts.length < 3) { const out = []; const [a, b] = pts; const n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / step)); for (let i = 0; i <= n; i++) out.push([lerp(a[0], b[0], i / n), lerp(a[1], b[1], i / n)]); return out; }
   const out = [];
   for (let i = 0; i < pts.length - 1; i++) {
