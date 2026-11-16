@@ -16,7 +16,12 @@ export function buildScenery(game, world) {
   const BLOB = [896 / AT, 1 - 168 / AT, 1, 1 - 40 / AT];
   let shelfX = 2, shelfY = 40; const ROWH = 60;
   const atlasTex = new THREE.CanvasTexture(atlasCv); atlasTex.colorSpace = THREE.SRGBColorSpace; atlasTex.anisotropy = 4;
+  const signCache = new Map();
   function makeSign(text, o = {}) {
+    const ck = text + '|' + (o.bg || '') + '|' + (o.fg || '') + '|' + (o.size || ''); if (signCache.has(ck)) return signCache.get(ck);
+    const r = makeSign0(text, o); signCache.set(ck, r); return r;
+  }
+  function makeSign0(text, o = {}) {
     const font = `800 ${o.size || 34}px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`;
     ax.font = font; const w = Math.min(860, Math.ceil(ax.measureText(text).width) + 36);
     const limit = shelfY < 172 ? 890 : AT - 2;
@@ -283,7 +288,7 @@ export function buildScenery(game, world) {
     pool(ctx, bx0 + 3, 40, 6); pool(ctx, bx1 - 3, 40, 6);
     P.signpost(ctx, bx0 - 2, 46.8, 'Cedar Bridge', { ry: -Math.PI / 2 });
   }
-  { const fx0 = riverX(-60) - 15, fx1 = riverX(-60) + 15, top = 3.25; P.deck(ctx, fx0, -61.7, fx1, -58.3, top, { rail: true }); P.rail(ctx, fx0, -61.6, fx1, -61.6, top, 1.0); P.rail(ctx, fx0, -58.4, fx1, -58.4, top, 1.0); }
+  { const fx0 = riverX(-60) - 20, fx1 = riverX(-60) + 20, top = 3.25; P.deck(ctx, fx0, -61.7, fx1, -58.3, top, { rail: true }); P.rail(ctx, fx0, -61.6, fx1, -61.6, top, 1.0); P.rail(ctx, fx0, -58.4, fx1, -58.4, top, 1.0); }
   { const dz = 70, dx0 = riverX(dz) + 2.5, dx1 = riverX(dz) + 13.6; P.deck(ctx, dx0, dz - 1.4, dx1, dz + 1.4, 1.0); world.dockCanoe = { x: dx0 + 1.6, z: dz + 3.2 };
     P.signpost(ctx, dx1 + 3, dz + 3, 'Canoes: hop in!', { ry: -Math.PI / 2, bg: '#3f6f8f' }); P.crate(ctx, dx1 + 2.5, dz - 3); P.crate(ctx, dx1 + 3.6, dz - 3.4, 0.7, 0x7fa6c0); P.lamp(ctx, dx1 + 1.2, dz - 2.4, { h: 3.2 });
     { const { g } = ctx.pick(152, 92), y = hAt(152, 93); for (let i = 0; i < 2; i++) { g.tf(151 + i * 0.2, y + 0.5 + i * 0.7, 93.5, 0, 0.1, 0); g.box(0, 0, 0, 0.9, 0.4, 4.6, [C.red, 0x3f9f7f][i]); } g.notf(); for (const s of [-1.8, 1.8]) g.box(151.1, y + 0.6, 93.5 + s, 1.4, 1.2, 0.12, C.woodD); ctx.col.push(world.addBox(150.4, 91.2, 151.8, 95.8)); } }

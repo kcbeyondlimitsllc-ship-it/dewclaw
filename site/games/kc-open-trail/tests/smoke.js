@@ -52,6 +52,8 @@ const until = async (page, fn, arg, ms = 15000) => { try { await page.waitForFun
     a = await st(page); await page.mouse.move(640, 300); await page.mouse.down(); await page.mouse.move(820, 330, { steps: 6 }); await page.mouse.up(); await sleep(400);
     let b = await st(page);
     ok('camera orbits with a mouse drag', Math.abs(b.cam.yaw - a.cam.yaw) > 0.3, `yaw ${a.cam.yaw.toFixed(2)} -> ${b.cam.yaw.toFixed(2)}`);
+    { const c = await page.evaluate(() => { const r = []; for (const [x, z, yaw] of [[140, -206, 0.6], [92, -58, 1.57], [-48, -150, 2], [-150, -100, 0.5]]) { __ot.teleport(x, z, yaw); __ot.setCam(yaw, 0.3, 6.5); __ot.step(45); const s = __ot.state(); r.push(+Math.hypot(s.cam.x - s.pos.x, s.cam.y - s.pos.y - 1, s.cam.z - s.pos.z).toFixed(1)); } return r; });
+      ok('camera keeps its distance on slopes and by the footbridge (rises instead of zooming in)', c.every(d => d > 3.5), 'distances ' + c.join(', ')); }
     ok('camera stays above the ground', b.cam.y > await page.evaluate(() => __ot.game.world.heightAt(__ot.state().cam.x, __ot.state().cam.z)));
     /* camera does not end up inside a building when KC stands against a shop front */
     const inside = await page.evaluate(() => { __ot.teleport(12, 31.2, Math.PI); __ot.setCam(0, 0.3, 9); __ot.step(40); const s = __ot.state(); return __ot.game.world.blockedAt(s.cam.x, s.cam.z, s.cam.y - 0.3, 0.05) || s.cam.z < 30; });
@@ -95,6 +97,8 @@ const until = async (page, fn, arg, ms = 15000) => { try { await page.waitForFun
     ok('KC swims in deep water instead of sinking', a.swimming && a.y > -1 && a.y < 0, 'y=' + a.y.toFixed(2));
     a = await page.evaluate(() => { __ot.teleport(118, 40, 0); __ot.step(10); return __ot.state().pos.y; });
     ok('KC stands on the bridge deck', a > 3 && a < 3.6, 'y=' + a.toFixed(2));
+    a = await page.evaluate(() => { const out = {}; for (const [name, x0, z, x1] of [['bridge', 92, 40, 144], ['footbridge', 80, -60, 132]]) { __ot.teleport(x0, z, Math.PI / 2); __ot.setCam(Math.PI / 2, 0.3, 6); __ot.hold('KeyW', true); let swam = false; for (let i = 0; i < 400 && __ot.state().pos.x < x1; i++) { __ot.step(1, 1 / 30); if (__ot.state().swimming) swam = true; } __ot.hold('KeyW', false); out[name] = __ot.state().pos.x >= x1 && !swam; } return out; });
+    ok('KC can walk across the road bridge and the footbridge without getting wet', a.bridge && a.footbridge, JSON.stringify(a));
     a = await page.evaluate(() => { let minOver = 9; const pts = [[20, 47], [-60, 30], [-200, -100], [-24, -214], [-140, 214], [210, 160], [100, -100], [240, -70], [0, 170], [-250, 100]]; for (const [x, z] of pts) { __ot.teleport(x, z, 1); __ot.hold('KeyW', true); __ot.hold('ShiftLeft', true); for (let i = 0; i < 60; i++) { __ot.step(3, 1 / 30); if (i % 20 === 5) __ot.press('jump'); const s = __ot.state(); minOver = Math.min(minOver, s.pos.y - Math.min(s.ground, -0.5)); } __ot.hold('KeyW', false); __ot.hold('ShiftLeft', false); } return minOver; });
     ok('never falls through the world while running around ten districts', a > -0.2, 'min height over ground ' + a.toFixed(2));
     a = await page.evaluate(() => { __ot.teleport(20, 47, 0); __ot.step(5); const b0 = __ot.give({ bones: 50 }).bones; __ot.mischief(2); const R = __ot.game.npcs.ranger; __ot.teleport(R.x + 1, R.z, 0); __ot.step(20); const s = __ot.state(); return { b0, b1: s.wallet.bones, m: s.mischief, caught: __ot.events.some(e => e.type === 'caught') }; });
@@ -122,7 +126,7 @@ const until = async (page, fn, arg, ms = 15000) => { try { await page.waitForFun
     const before = await st(page);
     await page.reload(); await page.waitForFunction(() => window.__ot && window.__ot.ready, null, { timeout: 90000 }); await page.click('#playBtn');
     b = await st(page);
-    ok('save survives a reload (wallet, position, module data)', b.wallet.bones === before.wallet.bones && b.wallet.gems === before.wallet.gems && Math.hypot(b.pos.x + 140, b.pos.z - 214) < 3 && await page.evaluate(() => __ot.game.state.modules.smoke.x === 42), `${b.wallet.bones} bones, ${b.wallet.gems} gems`);
+    ok('save survives a reload (wallet, position, module data)', b.wallet.bones >= before.wallet.bones && b.wallet.bones <= before.wallet.bones + 3 /* she may be standing on a bone */ && b.wallet.gems === before.wallet.gems && Math.hypot(b.pos.x + 140, b.pos.z - 214) < 3 && await page.evaluate(() => __ot.game.state.modules.smoke.x === 42), `${b.wallet.bones} bones, ${b.wallet.gems} gems`);
     for (const junk of ['{not json', '[]', '{"v":1,"wallet":"lots","pos":{"x":"NaN"},"settings":{"quality":7},"stats":null,"collected":{"balls":{}}}', 'null']) {
       /* stop the game re-saving on unload, then plant the damaged save */
       await page.evaluate(j => { __ot.game.save.save = () => false; localStorage.setItem('kc-open-trail-save-v1', j); }, junk);

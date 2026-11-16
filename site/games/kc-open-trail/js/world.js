@@ -155,7 +155,7 @@ export function createWorld(game) {
   world.camBlocked = (x, z, y) => {
     let b = false;
     world.queryColliders(x, z, 0.4, c => {
-      if (b || c.top <= y || c.bottom >= y + 0.3) return;
+      if (b || c.top <= y || c.bottom >= y + 0.3 || c.top - c.bottom < 2.5) return;   /* decks and low props never block the view */
       if (c.box) { if (c.maxx - c.minx < 1 || c.maxz - c.minz < 1) return; if (x > c.minx - 0.35 && x < c.maxx + 0.35 && z > c.minz - 0.35 && z < c.maxz + 0.35) b = true; }
       else if (c.r >= 1.3 && (x - c.x) ** 2 + (z - c.z) ** 2 < (c.r + 0.2) ** 2) b = true;
     });

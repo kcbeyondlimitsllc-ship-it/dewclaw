@@ -5,19 +5,24 @@ import { WATER_Y } from './data.js';
 
 export function createCamera(game) {
   const cam3 = new THREE.PerspectiveCamera(60, 1, 0.2, 900);
-  const cam = { three: cam3, yaw: Math.PI / 2, pitch: 0.34, dist: 6.5, cur: 6.5, mode: 'follow', manualT: 9, target: new THREE.Vector3(), shake: 0, fovKick: 0 };
+  const cam = { three: cam3, yaw: Math.PI / 2, pitch: 0.34, dist: 6.5, cur: 6.5, mode: 'follow', manualT: 9, target: new THREE.Vector3(), shake: 0, lift: 0 };
   const dir = new THREE.Vector3(), p = new THREE.Vector3(), look = new THREE.Vector3();
   let tgtInit = false;
   cam.resize = (w, h) => { cam3.aspect = w / h; cam.baseFov = w < h ? 74 : 60; cam3.fov = cam.baseFov; cam3.updateProjectionMatrix(); };
+  /* solid things (buildings, big trunks) shorten the boom; hills only lift it, so the view rises over a slope instead of zooming into KC */
+  let liftNeed = 0;
   function freeDist(tx, ty, tz, want) {
     const { world } = game, steps = Math.max(6, Math.ceil(want / 0.6)); let ok = want;
     for (let i = 1; i <= steps; i++) {
       const d = (want * i) / steps, x = tx + dir.x * d, y = ty + dir.y * d, z = tz + dir.z * d;
-      if (y < world.heightAt(x, z) + 0.45 || y < WATER_Y + 0.3 || world.camBlocked(x, z, y - 0.3)) { ok = Math.max(0.55, (want * (i - 1)) / steps - 0.3); break; }
+      if (world.camBlocked(x, z, y - 0.3)) { ok = Math.max(0.55, (want * (i - 1)) / steps - 0.3); break; }
     }
+    liftNeed = 0; const n = Math.max(4, Math.ceil(ok / 0.7));
+    for (let i = 1; i <= n; i++) { const f = i / n, x = tx + dir.x * ok * f, z = tz + dir.z * ok * f, need = Math.max(world.heightAt(x, z) + 0.5, WATER_Y + 0.3) - (ty + dir.y * ok * f); if (need > 0) liftNeed = Math.max(liftNeed, need / Math.max(f, 0.35)); }
+    if (liftNeed > ok * 1.3) { ok = Math.max(1.2, ok * (ok * 1.3) / liftNeed); liftNeed = Math.min(liftNeed, ok * 1.3); }
     return ok;
   }
-  cam.snap = () => { tgtInit = false; cam.cur = cam.dist; };
+  cam.snap = () => { tgtInit = false; cam.cur = cam.dist; cam.lift = 0; };
   cam.update = (dt, input) => {
     const { kc, state } = game, s = state.settings, ride = kc.ride;
     const ix = input.camX * (s.invertX ? -1 : 1), iy = input.camY * (s.invertY ? -1 : 1);
@@ -39,7 +44,8 @@ export function createCamera(game) {
     const ok = freeDist(cam.target.x, cam.target.y, cam.target.z, want);
     cam.cur = ok < cam.cur ? lerp(cam.cur, ok, damp(26, dt)) : lerp(cam.cur, ok, damp(3.5, dt));
     if (cam.cur > ok + 0.6) cam.cur = ok + 0.6;
-    p.copy(cam.target).addScaledVector(dir, cam.cur);
+    cam.lift = liftNeed > cam.lift ? lerp(cam.lift, liftNeed, damp(14, dt)) : lerp(cam.lift, liftNeed, damp(3, dt));
+    p.copy(cam.target).addScaledVector(dir, cam.cur); p.y += cam.lift;
     const floor = Math.max(game.world.heightAt(p.x, p.z) + 0.4, WATER_Y + 0.28); if (p.y < floor) p.y = floor;
     if (cam.shake > 0) { cam.shake -= dt; p.x += (Math.random() - 0.5) * 0.12; p.y += (Math.random() - 0.5) * 0.12; }
     cam3.position.copy(p); look.copy(cam.target); look.y += 0.25; cam3.lookAt(look);
