@@ -1,0 +1,53 @@
+/* Economy screens (js/shop.js): ladder cards with level pips, the den's pay bar, tills, the wardrobe try-on peek.
+   Built on the shared classes in style.css (.item, .items, .btn, .note, .prog, .sech). Touch targets are 44 px or more. */
+.eco-lads { grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); }
+.eco-lad { align-items:flex-start; }
+.eco-lad .mid { gap:3px; }
+.eco-lad .side { align-self:center; }
+.eco-lad .side .btn { min-width:92px; max-width:128px; white-space:normal; line-height:1.15; }
+.eco-pips { display:flex; gap:4px; margin:2px 0 3px; }
+.eco-pips i { width:16px; height:8px; border-radius:4px; background:rgba(0,0,0,.45); border:1px solid var(--line); }
+.eco-pips i.on { background:var(--accent); border-color:var(--accent); }
+.eco-lad .eco-about { color:#dcebe2; }
+.eco-lad .eco-now { color:#b9cdc3; }
+.eco-lad .eco-next { color:#fff; font-weight:700; }
+.eco-lad .eco-done { color:var(--good); font-weight:800; }
+.eco-lad.short .why, .item .mid .why { color:var(--warn); font-weight:700; }
+.eco-lad.short .prices .pc { border-color:var(--warn); }
+.eco-lad.max { border-color:rgba(127,224,143,.5); }
+.eco-lad.max .eco-pips i.on { background:var(--good); border-color:var(--good); }
+.eco-buddy .eco-pips i { width:12px; height:12px; border-radius:50%; }
+.eco-buddy .eco-pips i.on { background:#ff8fa3; border-color:#ff8fa3; }
+.eco-row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:8px 0; }
+.eco-row .btn { min-height:44px; padding:8px 14px; font-size:15px; }
+.eco-row .prog { flex:1 1 220px; margin:0; }
+.eco-till { margin-top:4px; margin-bottom:12px; }
+.eco-sub { margin-top:10px; color:#dcebe2; letter-spacing:1px; }
+.eco-daily { margin:10px 0 4px; }
+.eco-daily ul { margin:6px 0 0; padding:0; list-style:none; display:flex; flex-wrap:wrap; gap:4px 14px; }
+.eco-daily li { font-size:13px; } .eco-daily li i { font-style:normal; color:#b9cdc3; margin-left:4px; }
+.eco-daily li.ok { color:var(--good); } .eco-daily li.ok::before { content:'\2713  '; }
+.eco-wall { display:block; width:min(240px,100%); border-radius:10px; border:4px solid #f4ead8; box-shadow:0 4px 14px rgba(0,0,0,.4); margin:4px 0 10px; }
+.eco-trophies { display:flex; flex-wrap:wrap; gap:6px 14px; font-size:14px; margin-bottom:8px; }
+.items .item .side .btn + .btn { margin-top:2px; }
+.note + .sech, .eco-row + .sech { margin-top:16px; }
+/* try-on: the shop fades away for a moment so KC can be seen wearing the thing; any tap brings it back */
+.modal.eco-peek { background:transparent; transition:background .2s; }
+.modal.eco-peek .card { opacity:.06; transition:opacity .2s; }
+/* a try-on is for looking at KC: the first-run coach panels step aside while the shop is faded */
+body:has(.modal.eco-peek) #coach div { opacity:0; }
+.modal .card { transition:opacity .2s; }
+@media (max-width:480px) {
+  .eco-lads { grid-template-columns:1fr; }
+  .eco-lad .side .btn { min-width:84px; max-width:104px; font-size:14px; padding:8px 8px; }
+  .eco-row .btn { flex:1 1 140px; }
+}
+@media (prefers-reduced-motion:reduce) { .modal.eco-peek, .modal.eco-peek .card, .modal .card { transition:none; } }
+/* a card with a "bones or gems" price: the price and the button take their own row, so the name keeps its width */
+.item:has(.prices .or) { flex-wrap:wrap; }
+.item:has(.prices .or) .side { flex:1 1 100%; flex-direction:row; justify-content:space-between; align-items:center; flex-wrap:wrap; }
+.sech[data-sec] { scroll-margin-top:64px; }
+/* Wardrobe: jump buttons to each rail (they wrap; nothing scrolls sideways) */
+.eco-jump { display:flex; flex-wrap:wrap; gap:8px; padding:2px 0 8px; margin:0 0 4px; }
+.eco-jump .btn { flex:0 1 auto; min-height:44px; padding:8px 14px; font-size:14px; white-space:nowrap; }
+.sech[data-sec] { scroll-margin-top:66px; }

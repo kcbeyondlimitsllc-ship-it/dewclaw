@@ -1,0 +1,1 @@
+three@0.170.0 (npm, build/three.module.min.js), MIT. Vendored locally; no CDN. To update: npm i three@<version>, copy build/three.module.min.js and LICENSE here, bump the cache name in ../../sw.js.

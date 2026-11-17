@@ -7,7 +7,8 @@
       "namespace": "android_app",
       "package_name": "com.kcbeyondlimits.dewclaw",
       "sha256_cert_fingerprints": [
-        "57:9D:CF:51:D1:6B:6D:AC:E7:04:8C:7E:DF:A6:16:FF:57:FA:FB:DF:EA:E8:E2:F5:94:DD:43:63:72:FD:1B:9A"
+        "57:9D:CF:51:D1:6B:6D:AC:E7:04:8C:7E:DF:A6:16:FF:57:FA:FB:DF:EA:E8:E2:F5:94:DD:43:63:72:FD:1B:9A",
+        "09:F8:09:8A:0A:1C:81:5A:83:69:1E:4B:A1:40:F1:7B:72:07:AB:79:6C:FE:6F:34:41:CE:D1:D9:68:5E:91:B1"
       ]
     }
   }

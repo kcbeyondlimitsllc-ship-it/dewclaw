@@ -1,2 +1,14 @@
 node_modules/
 .wrangler/
+# Android signing keys and build output never go in the repo
+*.keystore
+*.jks
+*.aab
+*.apk
+KEYSTORE-PASSWORDS.txt
+android/*/project/
+android/*/node_modules/
+kids/*/android/local.properties
+kids/*/android/.gradle/
+kids/*/android/build/
+kids/*/android/app/build/

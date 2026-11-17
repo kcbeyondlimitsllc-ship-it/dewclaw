@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#12261e">
+<title>KC: Open Trail</title>
+<meta name="description" content="Roam St. Helens, Oregon, and down Highway 30 to Portland as KC: a free-roam 3D dog adventure with rivers to swim, trails to sniff and rides to hop on.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="style.css">
+<!-- the feature modules' styles; each module also adds its own link if this page ever lacks it -->
+<link id="eco-css" rel="stylesheet" href="css/economy.css">
+<link data-kc-missions="1" rel="stylesheet" href="css/missions.css">
+<link data-kc-store="1" rel="stylesheet" href="css/store.css">
+<link id="merch-css" rel="stylesheet" href="css/merch.css">
+</head>
+<body>
+<canvas id="game" tabindex="0" aria-label="KC: Open Trail game view"></canvas>
+
+<div id="hud" hidden>
+  <div id="tl">
+    <button id="minimapBtn" type="button" aria-label="Open the map"><canvas id="minimap" width="264" height="264"></canvas><span id="northPin">N</span></button>
+    <div id="zone"></div>
+    <div id="clock"></div>
+  </div>
+  <div id="tc">
+    <canvas id="compass" width="440" height="52" aria-hidden="true"></canvas>
+    <div id="objective" hidden></div>
+    <div id="runTimer" hidden role="timer" aria-live="off"></div>
+    <div id="toasts" role="status" aria-live="polite"></div>
+  </div>
+  <div id="tr">
+    <div id="wallet" aria-label="Wallet">
+      <span class="w bones" title="Bones"><span data-ic="bone"></span><b id="wBones">0</b></span>
+      <span class="w gems" title="Gems"><span data-ic="gem"></span><b id="wGems">0</b></span>
+    </div>
+    <div id="hudBtns">
+      <button id="btnMute" type="button" aria-label="Sound is on. Mute" aria-pressed="false"><span data-ic="bark"></span></button>
+      <button id="btnMap" type="button" aria-label="Map"><span data-ic="map"></span></button>
+      <button id="btnPhoto" type="button" aria-label="Photo mode"><span data-ic="camera"></span></button>
+      <button id="btnPause" type="button" aria-label="Pause"><span data-ic="pause"></span></button>
+    </div>
+  </div>
+  <div id="banner" aria-hidden="true"></div>
+  <div id="bc">
+    <button id="prompt" type="button" hidden></button>
+    <div id="stamina" role="meter" aria-label="Stamina" aria-valuemin="0" aria-valuemax="100"><span data-ic="bolt"></span><div class="bar"><i></i></div></div>
+  </div>
+  <div id="touch" aria-hidden="true">
+    <div id="coach"><div class="cl">Drag here to move<small>the stick follows your thumb</small></div><div class="cr">Drag here to look<small>pinch to zoom</small></div></div>
+    <div id="stick"><i></i><em>Move</em></div>
+    <div id="pad">
+      <button data-btn="sit" class="sm" type="button"><span data-ic="sit"></span><em>Sit</em></button>
+      <button data-btn="dig" class="sm" type="button"><span data-ic="dig"></span><em>Dig</em></button>
+      <button data-btn="shake" class="sm" type="button"><span data-ic="shake"></span><em>Shake</em></button>
+      <button data-btn="bark" class="lg b-bark" type="button"><span data-ic="bark"></span><em>Bark</em></button>
+      <button data-btn="interact" class="lg b-paw" type="button"><span data-ic="paw"></span><em>Paw</em></button>
+      <button data-btn="sprint" class="lg b-zoom" type="button"><span data-ic="bolt"></span><em>Zoom</em></button>
+      <button data-btn="jump" class="lg b-jump" type="button"><span data-ic="jump"></span><em>Jump</em></button>
+    </div>
+  </div>
+</div>
+
+<div id="photoLayer" hidden aria-hidden="true"><canvas id="photoFrame"></canvas></div>
+<div id="photobar" hidden>
+  <div id="phototray" hidden></div>
+  <div id="phototools" hidden></div>
+  <div class="photorow">
+    <span class="hint">Drag to frame the shot</span>
+    <button id="photoSnap" type="button" class="btn go"><span data-ic="camera"></span> Snap</button>
+    <button id="photoExit" type="button" class="btn alt">Done</button>
+  </div>
+</div>
+
+<div id="fade"></div>
+
+<div id="title">
+  <div class="titlecard">
+    <div class="logo"><span class="kc">KC</span><span class="ot">Open Trail</span></div>
+    <p class="tag">St. Helens to Portland. Sniff everything.</p>
+    <button id="playBtn" type="button" class="btn go" disabled>Loading St. Helens...</button>
+    <div class="row">
+      <button id="titleSettings" type="button" class="btn alt">Settings</button>
+      <button id="titleHelp" type="button" class="btn alt">How to play</button>
+    </div>
+    <p class="fine">An original dog adventure from KC Beyond Limits, set in the real St. Helens, Oregon. Plays offline. No ads, no tracking.</p>
+  </div>
+</div>
+
+<div id="modal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="card">
+    <header><h2 id="modalTitle"></h2><span id="modalWallet" hidden aria-label="Your bones and gems"></span><button id="modalClose" type="button" aria-label="Close"><span data-ic="close"></span></button></header>
+    <div id="modalBody"></div>
+    <div id="modalMore" hidden><i>more below</i></div>
+    <footer id="modalActions"></footer>
+  </div>
+</div>
+
+<noscript><p style="color:#fff;padding:24px;font-family:sans-serif">KC: Open Trail needs JavaScript and WebGL to run.</p></noscript>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

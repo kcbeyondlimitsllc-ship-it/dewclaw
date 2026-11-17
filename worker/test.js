@@ -46,11 +46,11 @@ async function fetch(url, init = {}) {
     const path = u.slice("https://api.stripe.com/v1".length);
     const form = init.body ? Object.fromEntries(new URLSearchParams(init.body)) : {};
     const ok = b => new Response(JSON.stringify(b), { status: 200 });
-    if (path === "/checkout/sessions" && init.method === "POST") { stripe.lastForm = form; stripe.sessions["cs_test_" + (++stripe.n)] = { status: "complete", payment_status: form.mode === "subscription" ? "no_payment_required" : "paid", mode: form.mode, metadata: { sku: form["metadata[sku]"] }, customer: "cus_1", subscription: form.mode === "subscription" ? "sub_1" : null }; return ok({ id: "cs_test_" + stripe.n, url: "https://checkout.stripe.com/c/pay/cs_test_" + stripe.n }); }
+    if (path === "/checkout/sessions" && init.method === "POST") { stripe.lastForm = form; stripe.sessions["cs_test_" + (++stripe.n)] = { status: "complete", payment_status: form.mode === "subscription" ? "no_payment_required" : "paid", mode: form.mode, metadata: Object.fromEntries(Object.entries(form).filter(([k]) => /^metadata\[\w+\]$/.test(k)).map(([k, v]) => [k.slice(9, -1), v])), amount_subtotal: (otPrice(form["line_items[0][price]"]) || {}).unit_amount, currency: (otPrice(form["line_items[0][price]"]) || {}).currency, customer: "cus_1", subscription: form.mode === "subscription" ? "sub_1" : null }; return ok({ id: "cs_test_" + stripe.n, url: "https://checkout.stripe.com/c/pay/cs_test_" + stripe.n }); }
     if (path.startsWith("/checkout/sessions/")) { const id = decodeURIComponent(path.split("/")[3]); const ss = stripe.sessions[id]; return ss ? ok({ id, ...ss, ...stripe.override }) : new Response(JSON.stringify({ error: { message: "No such checkout.session" } }), { status: 404 }); }
     if (path.startsWith("/subscriptions/")) { stripe.subChecks++; return ok({ id: "sub_1", status: stripe.subStatus, items: { data: [{ current_period_end: Math.floor(stripe.periodEnd / 1000) }] } }); }
     if (path === "/billing_portal/sessions") { stripe.lastForm = form; return ok({ url: "https://billing.stripe.com/p/session/x" }); }
-    if (path.startsWith("/prices/")) { const id = path.split("/")[2]; const P = { price_m: { unit_amount: 299, currency: "usd", recurring: { interval: "month" } }, price_y: { unit_amount: 1199, currency: "usd", recurring: { interval: "year" } }, price_life: { unit_amount: 2999, currency: "usd" }, price_b500: { unit_amount: 99, currency: "usd" } }; return P[id] ? ok(P[id]) : new Response("{}", { status: 404 }); }
+    if (path.startsWith("/prices/")) { const id = path.split("/")[2]; const P = { price_m: { unit_amount: 299, currency: "usd", recurring: { interval: "month" } }, price_y: { unit_amount: 1199, currency: "usd", recurring: { interval: "year" } }, price_life: { unit_amount: 2999, currency: "usd" }, price_b500: { unit_amount: 99, currency: "usd" } }; stripe.priceReads++; return P[id] || otPrice(id) ? ok(P[id] || otPrice(id)) : new Response("{}", { status: 404 }); }
   }
   /* ---- PayPal */
   if (u.startsWith("https://api-m.sandbox.paypal.com") || u.startsWith("https://api-m.paypal.com")) {
@@ -81,7 +81,47 @@ async function fetch(url, init = {}) {
 const paypalFake = { calls: 0, n: 0, tokenCalls: 0, captures: 0, orders: {}, lastOrder: null, lastBase: "", lastBasic: "", badCreds: false };
 const ppEnv = (extra = {}) => ({ ...stripeEnv(), PAYPAL_CLIENT_ID: "cid", PAYPAL_SECRET: "sec", ...extra });
 const approve = id => { paypalFake.orders[id].status = "APPROVED"; };
-const stripe = { calls: 0, n: 0, sessions: {}, override: {}, subStatus: "trialing", periodEnd: Date.now() + 7 * 86400e3, subChecks: 0, lastForm: null, lastAuth: "" };
+/* KC: Open Trail. What the catalogue says each ot_ SKU costs (US cents) and grants: written out here from the spec
+   (MONETIZATION-EXPANSION-SPEC.md 4.2), not read from the worker, so a slip in either place fails a test. */
+const OT_F = ["hat:moss-beanie", "bandana:fern", "collar:cedar", "trail:firefly", "skin:skateboard:forest", "skin:canoe:forest", "skin:van:forest", "decor:mushroom-lamp"];
+const OT_G = ["hat:comet-cap", "bandana:starfield", "collar:nebula", "trail:stardust", "skin:skateboard:galaxy", "skin:canoe:galaxy", "skin:van:galaxy", "decor:moon-lamp"];
+const OT_R = ["hat:road-visor", "bandana:route-stripe", "collar:mile-marker", "trail:dust", "skin:skateboard:roadtrip", "skin:canoe:roadtrip", "skin:van:roadtrip", "decor:roadside-sign"];
+const OT_H = ["hat:pumpkin-patch", "bandana:candy-corn", "collar:cobweb", "trail:ember", "skin:skateboard:spooky", "skin:canoe:spooky", "skin:van:spooky", "decor:jack-lantern"];
+const OT_S = ["tag:supporter", "bandana:supporter", "den:gold-trim", "frame:supporter"];
+const OT = {
+  ot_gems_80:        { cents: 99,   gems: 80,   items: [], flags: {}, permanent: false },
+  ot_gems_500:       { cents: 499,  gems: 500,  items: [], flags: {}, permanent: false },
+  ot_gems_1200:      { cents: 999,  gems: 1200, items: [], flags: {}, permanent: false },
+  ot_gems_2600:      { cents: 1999, gems: 2600, items: [], flags: {}, permanent: false },
+  ot_gems_7000:      { cents: 4999, gems: 7000, items: [], flags: {}, permanent: false },
+  ot_starter:        { cents: 499,  gems: 400,  items: ["bandana:first-trail", "tag:first-trail", "trail:sunbeam", "skin:skateboard:first-trail"], flags: { "store:starter": true }, permanent: true },
+  ot_trail_pass:     { cents: 599,  gems: 0,    items: ["pass:trail"], flags: { "store:pass": true }, permanent: true },
+  ot_pack_forest:    { cents: 399,  gems: 0,    items: OT_F, flags: {}, permanent: true },
+  ot_pack_galaxy:    { cents: 399,  gems: 0,    items: OT_G, flags: {}, permanent: true },
+  ot_pack_roadtrip:  { cents: 399,  gems: 0,    items: OT_R, flags: {}, permanent: true },
+  ot_pack_halloween: { cents: 399,  gems: 0,    items: OT_H, flags: {}, permanent: true },
+  ot_treat_3:        { cents: 199,  gems: 0,    items: ["treat:3"], flags: {}, permanent: false },
+  ot_treat_10:       { cents: 499,  gems: 0,    items: ["treat:10"], flags: {}, permanent: false },
+  ot_supporter:      { cents: 999,  gems: 600,  items: OT_S, flags: { "store:supporter": true }, permanent: true },
+  ot_everything:     { cents: 2499, gems: 600,  items: ["pass:trail", ...OT_F, ...OT_G, ...OT_R, ...OT_H, ...OT_S], flags: { "store:pass": true, "store:supporter": true }, permanent: true },
+  ot_tip_3:          { cents: 300,  gems: 0,    items: ["tag:good-human"], flags: {}, permanent: false }
+};
+const OT_SKUS = Object.keys(OT);
+/* the fake Stripe's prices for the game: price_ot_<sku>; stripe.otPrices overrides one (a wrong amount, a subscription, another currency) */
+function otPrice(id) {
+  if (stripe.otPrices[id]) return stripe.otPrices[id];
+  const sku = String(id || "").replace(/^price_/, "");
+  return OT[sku] ? { unit_amount: OT[sku].cents, currency: "usd", active: true } : null;
+}
+const GAME = "https://play.example.test";
+const otEnv = (extra = {}) => ({ ...stripeEnv(), ALLOWED_ORIGIN: "https://dewclaw-app.netlify.app," + GAME, OT_RETURN_URL: GAME + "/games/kc-open-trail/",
+  STRIPE_PRICES: JSON.stringify({ ...JSON.parse(stripeEnv().STRIPE_PRICES), ...Object.fromEntries(OT_SKUS.map(k => [k, "price_" + k])) }), ...extra });
+const INSTALL = "inst_AAAAAAAAAAAAAAAAAAAAAAAA", INSTALL2 = "inst_BBBBBBBBBBBBBBBBBBBBBBBB";
+const greq = (path, body, method = "POST") => req(path, body, method, { origin: GAME });
+const otBuy = async (e, sku, install = INSTALL) => { const r = await handle(greq("/stripe/checkout", { sku, install }), e, deps); const j = await r.json(); return { r, j, id: j.url ? j.url.split("/").pop() : "" }; };
+const otClaimReq = async (e, session, install = INSTALL, extra = {}) => { const r = await handle(greq("/stripe/claim", { session, install, ...extra }), e, deps); return { r, j: await r.json() }; };
+const claimKeys = e => [...e.DEWCLAW.m.keys()].filter(k => k.startsWith("claim:"));
+const stripe = { otPrices: {}, priceReads: 0, calls: 0, n: 0, sessions: {}, override: {}, subStatus: "trialing", periodEnd: Date.now() + 7 * 86400e3, subChecks: 0, lastForm: null, lastAuth: "" };
 const stripeEnv = () => ({ ...env(), STRIPE_SECRET_KEY: "sk_test_123", APP_ORIGIN: "https://dewclaw-app.netlify.app/",
   STRIPE_PRICES: JSON.stringify({ dewclaw_plus_monthly: "price_m", dewclaw_plus_yearly: "price_y", dewclaw_plus_lifetime: "price_life", dewclaw_plus_gift_year: "price_gift", pp_bones_500: "price_b500", pp_kc_pack: "price_kc", pp_boost7: "price_boost", pp_revive: "price_revive" }) });
 const env = () => ({ DEWCLAW: fakeKV(), PLAY_PACKAGE: "com.kcbeyondlimits.dewclaw", GOOGLE_SA_EMAIL: "svc@test.iam.gserviceaccount.com", GOOGLE_SA_KEY: PEM,
@@ -511,6 +551,199 @@ await test("workers ai: the daily cap is lower than Claude's so the free allowan
   assert.equal((await handle(req("/ask", { ...askBody, token: "gp-token-ai-523456" }), e, deps)).status, 200);
   const r = await handle(req("/ask", { ...askBody, token: "gp-token-ai-623456" }), e, deps);
   assert.equal(r.status, 429);
+});
+
+/* ------------------------------------------------------------------ KC: Open Trail store */
+await test("open trail: every one of the 16 SKUs can be checked out and grants exactly what the catalogue says, with no bones", async () => {
+  assert.equal(OT_SKUS.length, 16);
+  for (const sku of OT_SKUS) {
+    const e = otEnv(), want = OT[sku];
+    const { r, j, id } = await otBuy(e, sku);
+    assert.equal(r.status, 200, sku + " checkout: " + JSON.stringify(j)); assert.match(j.url, /^https:\/\/checkout\.stripe\.com\//);
+    assert.equal(stripe.lastForm.mode, "payment"); assert.equal(stripe.lastForm["line_items[0][price]"], "price_" + sku); assert.equal(stripe.lastForm["line_items[0][quantity]"], "1");
+    assert.equal(stripe.lastForm.success_url, GAME + "/games/kc-open-trail/?cs={CHECKOUT_SESSION_ID}"); assert.equal(stripe.lastForm.cancel_url, GAME + "/games/kc-open-trail/?cancelled=1");
+    assert.equal(stripe.lastForm["metadata[sku]"], sku); assert.equal(stripe.lastForm["metadata[game]"], "kc-open-trail");
+    assert.ok(stripe.lastForm["metadata[install]"] && stripe.lastForm["metadata[install]"] !== INSTALL && !JSON.stringify(stripe.lastForm).includes(INSTALL), "only a hash of the install id goes to Stripe");
+    assert.equal(stripe.lastForm.allow_promotion_codes, undefined, "no promotion codes on game items");
+    const c = await otClaimReq(e, id);
+    assert.equal(c.r.status, 200, sku + " claim: " + JSON.stringify(c.j));
+    assert.equal(c.j.kind, "grant"); assert.equal(c.j.sku, sku); assert.equal(c.j.already, false);
+    assert.deepEqual(c.j.grant, { bones: 0, gems: want.gems, items: want.items, flags: want.flags }, sku + " grant");
+    assert.equal(c.j.grant.bones, 0); assert.equal(c.j.amount, want.cents); assert.equal(c.j.currency, "USD");
+    assert.equal(c.j.consumable, !want.permanent); assert.equal(c.j.install, undefined, "the install hash is not sent back");
+    if (want.permanent) assert.match(c.j.key, /^[A-Z2-9]{4}-[A-Z2-9]{4}$/, sku + " gives a Trail Key"); else assert.equal(c.j.key, undefined, sku + " gives no Trail Key");
+    assert.equal(c.r.headers.get("access-control-allow-origin"), GAME);
+  }
+});
+await test("open trail: the game's own copy of the catalogue (js/store.js) matches the worker for every SKU and price", async () => {
+  const { CATALOG } = await import("../site/games/kc-open-trail/js/store.js");
+  assert.deepEqual(CATALOG.map(c => c.sku).sort(), [...OT_SKUS].sort());
+  for (const c of CATALOG) {
+    const e = otEnv(), { id } = await otBuy(e, c.sku), { j } = await otClaimReq(e, id);
+    assert.deepEqual(j.grant, c.grant, c.sku + ": game and worker grant the same"); assert.equal(j.amount, c.cents, c.sku + ": same price");
+    assert.equal(j.consumable, c.type === "consumable"); assert.equal(!!j.once, c.type === "once");
+  }
+});
+await test("open trail: replaying a claim never grants twice", async () => {
+  for (const sku of ["ot_gems_7000", "ot_treat_10", "ot_pack_forest", "ot_everything"]) {
+    const e = otEnv(), { id } = await otBuy(e, sku);
+    const first = (await otClaimReq(e, id)).j; assert.equal(first.already, false);
+    const callsBefore = stripe.calls, kvBefore = e.DEWCLAW.m.size;
+    for (let i = 0; i < 3; i++) { const again = await otClaimReq(e, id); assert.equal(again.r.status, 200); assert.equal(again.j.already, true, sku + ": a repeat says already"); assert.deepEqual(again.j.grant, first.grant); assert.equal(again.j.key, first.key); }
+    assert.equal(stripe.calls, callsBefore, "a repeat doesn't go back to Stripe"); assert.equal(e.DEWCLAW.m.size, kvBefore, "a repeat writes nothing");
+    assert.equal(claimKeys(e).length, 1, "one claim record per checkout");
+    /* two claims racing in: one record, and at most one answer without `already` once the first has landed */
+    const e2 = otEnv(), b = await otBuy(e2, sku); await otClaimReq(e2, b.id);
+    const [x, y] = await Promise.all([otClaimReq(e2, b.id), otClaimReq(e2, b.id)]); assert.equal(x.j.already, true); assert.equal(y.j.already, true);
+  }
+});
+await test("open trail: an unknown SKU is refused at checkout and at claim", async () => {
+  const e = otEnv();
+  for (const sku of ["ot_gems_99999", "ot_bones_500", "ot_", "__proto__", "constructor", "toString", "", null, 7, { sku: "ot_gems_80" }]) {
+    const before = stripe.n, r = await handle(greq("/stripe/checkout", { sku, install: INSTALL }), e, deps);
+    assert.equal(r.status, 400, "checkout " + JSON.stringify(sku)); assert.equal(stripe.n, before, "no Stripe session was made");
+  }
+  /* a paid session whose metadata names a SKU the worker doesn't know (someone else's product, or a made-up one) grants nothing */
+  for (const sku of ["ot_gems_99999", "ot_bones_500", "__proto__", "hasOwnProperty"]) {
+    const { id } = await otBuy(e, "ot_gems_80"); stripe.sessions[id].metadata.sku = sku;
+    const c = await otClaimReq(e, id); assert.equal(c.r.status, 400, "claim " + sku); assert.equal(c.j.grant, undefined);
+  }
+  assert.equal(claimKeys(e).length, 0, "nothing was recorded");
+});
+await test("open trail: a Stripe price of the wrong amount, currency or kind is never sold", async () => {
+  for (const bad of [{ unit_amount: 99, currency: "usd" }, { unit_amount: 4999, currency: "eur" }, { unit_amount: 4999, currency: "usd", recurring: { interval: "month" } }, { unit_amount: 4999, currency: "usd", active: false }, { unit_amount: 0, currency: "usd" }]) {
+    const e = otEnv(); stripe.otPrices = { price_ot_gems_7000: bad };
+    const before = stripe.n, { r } = await otBuy(e, "ot_gems_7000");
+    assert.equal(r.status, 503, JSON.stringify(bad)); assert.equal(stripe.n, before, "no checkout was started");
+    stripe.otPrices = {};
+  }
+  /* a SKU with no price id at all is simply not on sale */
+  const e = otEnv({ STRIPE_PRICES: JSON.stringify({ ot_gems_80: "price_ot_gems_80" }) });
+  assert.equal((await otBuy(e, "ot_gems_500")).r.status, 400); assert.equal((await otBuy(e, "ot_gems_80")).r.status, 200);
+});
+await test("open trail: a payment whose amount, currency or SKU was tampered with grants nothing", async () => {
+  /* paid 99 cents, but the session now claims to be the 7,000-gem pack */
+  let e = otEnv(), b = await otBuy(e, "ot_gems_80"); stripe.sessions[b.id].metadata.sku = "ot_gems_7000";
+  let c = await otClaimReq(e, b.id); assert.equal(c.r.status, 409); assert.equal(c.j.grant, undefined); assert.equal(claimKeys(e).length, 0);
+  /* the right SKU with the wrong amount (a 100% promotion code, an edited price, a different quantity) */
+  for (const over of [{ amount_subtotal: 1 }, { amount_subtotal: 0 }, { amount_subtotal: 9998 }, { amount_subtotal: 4998 }, { amount_subtotal: "4999abc" }, { amount_subtotal: null }, { currency: "eur" }, { currency: "jpy" }]) {
+    e = otEnv(); b = await otBuy(e, "ot_gems_7000"); stripe.override = over;
+    c = await otClaimReq(e, b.id); assert.equal(c.r.status, 409, JSON.stringify(over)); assert.equal(c.j.grant, undefined); assert.equal(claimKeys(e).length, 0);
+    stripe.override = {};
+    /* the same session with the real figures still grants, once: a refused attempt burns nothing */
+    c = await otClaimReq(e, b.id); assert.equal(c.r.status, 200); assert.equal(c.j.grant.gems, 7000);
+  }
+  /* a subscription-mode or unpaid session is not a game purchase */
+  e = otEnv(); b = await otBuy(e, "ot_supporter");
+  stripe.override = { mode: "subscription" }; assert.equal((await otClaimReq(e, b.id)).r.status, 400);
+  stripe.override = { payment_status: "unpaid" }; assert.equal((await otClaimReq(e, b.id)).r.status, 402);
+  stripe.override = { payment_status: "no_payment_required" }; assert.equal((await otClaimReq(e, b.id)).r.status, 402);
+  stripe.override = { status: "open" }; assert.equal((await otClaimReq(e, b.id)).r.status, 402);
+  stripe.override = { status: "expired" }; assert.equal((await otClaimReq(e, b.id)).r.status, 402);
+  stripe.override = {}; assert.equal(claimKeys(e).length, 0);
+  /* whatever the game sends besides the session and its install id is ignored: the worker's table decides */
+  e = otEnv(); b = await otBuy(e, "ot_gems_80");
+  c = await otClaimReq(e, b.id, INSTALL, { sku: "ot_gems_7000", gems: 99999, bones: 5000, amount: 4999, grant: { gems: 99999, bones: 5000 }, items: ["up:forever"] });
+  assert.equal(c.r.status, 200); assert.deepEqual(c.j.grant, { bones: 0, gems: 80, items: [], flags: {} }); assert.equal(c.j.sku, "ot_gems_80");
+  /* and extra fields at checkout cannot change the price that is charged */
+  const r = await handle(greq("/stripe/checkout", { sku: "ot_gems_7000", install: INSTALL, price: "price_ot_gems_80", amount: 1, quantity: 100 }), otEnv(), deps);
+  assert.equal(r.status, 200); assert.equal(stripe.lastForm["line_items[0][price]"], "price_ot_gems_7000"); assert.equal(stripe.lastForm["line_items[0][quantity]"], "1");
+});
+await test("open trail: a session id that is made up, malformed or unknown to Stripe grants nothing", async () => {
+  const e = otEnv();
+  for (const session of ["cs_mock_abcdefgh", "cs_test_doesnotexist"]) assert.equal((await otClaimReq(e, session)).r.status, 402, session);
+  for (const session of ["", "../x", "cs_", "price_ot_gems_80", null, 12, "cs_test_1; drop"]) assert.equal((await otClaimReq(e, session)).r.status, 400, String(session));
+  assert.equal(claimKeys(e).length, 0);
+});
+await test("open trail: a purchase belongs to the device that started it; a copied return link grants nothing elsewhere", async () => {
+  const e = otEnv();
+  for (const bad of [undefined, "", "short", "has spaces in it!!!!", 12345678901234567890, "x".repeat(65)]) assert.equal((await handle(greq("/stripe/checkout", { sku: "ot_pack_galaxy", install: bad }), e, deps)).status, 400, "checkout needs an install id: " + bad);
+  const { id } = await otBuy(e, "ot_pack_galaxy", INSTALL);
+  /* before the real device has claimed */
+  for (const who of [INSTALL2, null, ""]) { const c = await otClaimReq(e, id, who); assert.equal(c.r.status, 403); assert.equal(c.j.grant, undefined); }
+  assert.equal(claimKeys(e).length, 0);
+  const mine = await otClaimReq(e, id, INSTALL); assert.equal(mine.r.status, 200); assert.equal(mine.j.already, false);
+  /* and after */
+  for (const who of [INSTALL2, null]) { const c = await otClaimReq(e, id, who); assert.equal(c.r.status, 403); assert.equal(c.j.grant, undefined); assert.equal(c.j.key, undefined, "the Trail Key isn't leaked either"); }
+  assert.equal((await otClaimReq(e, id, INSTALL)).j.already, true);
+});
+await test("open trail: the Trail Key restores permanent items on another device, never gems, treats or tips", async () => {
+  const e = otEnv();
+  const a = (await otClaimReq(e, (await otBuy(e, "ot_supporter")).id)).j; assert.match(a.key, /^[A-Z2-9]{4}-[A-Z2-9]{4}$/);
+  /* consumables in between change nothing */
+  for (const sku of ["ot_gems_500", "ot_treat_3", "ot_tip_3"]) assert.equal((await otClaimReq(e, (await otBuy(e, sku)).id, INSTALL, { key: a.key })).j.key, undefined);
+  /* a later permanent purchase that sends the key is added to the same key; one that doesn't gets a new key */
+  const b = (await otClaimReq(e, (await otBuy(e, "ot_pack_forest")).id, INSTALL, { key: a.key })).j; assert.equal(b.key, a.key);
+  const s = (await otClaimReq(e, (await otBuy(e, "ot_starter")).id, INSTALL, { key: a.key.toLowerCase().replace("-", " ") })).j; assert.equal(s.key, a.key); assert.equal(s.once, true);
+  const other = (await otClaimReq(e, (await otBuy(e, "ot_pack_galaxy")).id, INSTALL)).j; assert.notEqual(other.key, a.key);
+  const r = await handle(greq("/ot/restore", { key: a.key.toLowerCase() }), e, deps), j = await r.json();
+  assert.equal(r.status, 200); assert.equal(j.kind, "restore"); assert.equal(j.key, a.key); assert.deepEqual(j.skus, ["ot_supporter", "ot_pack_forest", "ot_starter"]);
+  assert.deepEqual(j.grants.map(g => g.sku), j.skus);
+  for (const g of j.grants) { assert.equal(g.grant.gems, 0, g.sku + ": gems are not restored"); assert.equal(g.grant.bones, 0); assert.deepEqual(g.grant.items, OT[g.sku].items); assert.deepEqual(g.grant.flags, OT[g.sku].flags); }
+  /* restoring twice is the same answer: items are owned or not, so there is nothing to double */
+  assert.deepEqual(await (await handle(greq("/ot/restore", { key: a.key }), e, deps)).json(), j);
+  assert.equal((await handle(greq("/ot/restore", { key: "ZZZZ-ZZZZ" }), e, deps)).status, 404);
+  assert.equal((await handle(greq("/ot/restore", { key: "nope" }), e, deps)).status, 400);
+  assert.equal((await handle(greq("/ot/restore", {}), e, deps)).status, 400);
+  /* a Dewclaw Plus restore code is not a Trail Key, and a Trail Key is not a Plus code */
+  assert.equal((await handle(req("/stripe/restore", { code: a.key }), e, deps)).status, 404);
+});
+await test("open trail: guessing Trail Keys is limited per address per day", async () => {
+  const e = otEnv(); let last = 0;
+  for (let i = 0; i < 21; i++) last = (await handle(req("/ot/restore", { key: "AAAA-AAA" + "23456789ABCDEFGHJKLMN"[i] }, "POST", { origin: GAME, "cf-connecting-ip": "203.0.113.9" }), e, deps)).status;
+  assert.equal(last, 429);
+  assert.equal((await handle(req("/ot/restore", { key: "AAAA-AAA2" }, "POST", { origin: GAME, "cf-connecting-ip": "203.0.113.10" }), e, deps)).status, 404, "another address is not blocked");
+  assert.ok(![...e.DEWCLAW.m.keys()].some(k => k.includes("203.0.113")), "the address itself is not stored");
+});
+await test("open trail: claiming one paid session several times at once grants once and makes one Trail Key", async () => {
+  const e = otEnv(); const { id } = await otBuy(e, "ot_supporter");
+  const all = await Promise.all([1, 2, 3, 4, 5].map(() => otClaimReq(e, id)));
+  assert.deepEqual(all.map(c => c.r.status), [200, 200, 200, 200, 200]);
+  assert.equal(all.filter(c => c.j.already === false).length, 1, "exactly one first claim");
+  assert.equal(new Set(all.map(c => c.j.key)).size, 1, "one key");
+  assert.equal([...e.DEWCLAW.m.keys()].filter(k => k.startsWith("otkey:")).length, 1, "one Trail Key record");
+  const g = await otBuy(e, "ot_gems_7000"), gems = await Promise.all([1, 2, 3].map(() => otClaimReq(e, g.id)));
+  assert.equal(gems.filter(c => c.j.already === false).length, 1);
+});
+await test("open trail: parallel Trail Key guesses are counted one by one", async () => {
+  const e = otEnv();
+  const st = (await Promise.all(Array.from({ length: 40 }, (_, i) => handle(req("/ot/restore", { key: "BBBB-BB" + "23456789"[i % 8] + "23456789"[(i >> 3) % 8] }, "POST", { origin: GAME, "cf-connecting-ip": "203.0.113.77" }), e, deps)))).map(r => r.status);
+  assert.equal(st.filter(s => s === 429).length, 20); assert.equal(st.filter(s => s === 404).length, 20);
+});
+await test("open trail: checkout pins US dollars and hands back the session id for the game to keep", async () => {
+  const e = otEnv(); const { j, id } = await otBuy(e, "ot_pack_forest");
+  assert.equal(j.session, id); assert.equal(stripe.lastForm["adaptive_pricing[enabled]"], "false"); assert.equal(stripe.lastForm.allow_promotion_codes, undefined);
+});
+await test("open trail: /ot/prices tells the owner which SKUs are set up; the Stripe key is never in an answer", async () => {
+  const e = otEnv({ STRIPE_PRICES: JSON.stringify({ ...Object.fromEntries(OT_SKUS.map(k => [k, "price_" + k])), ot_tip_3: undefined }) }); stripe.otPrices = { price_ot_gems_500: { unit_amount: 500, currency: "usd" } };
+  const r = await handle(greq("/ot/prices", null, "GET"), e, deps), j = await r.json(), text = JSON.stringify(j); stripe.otPrices = {};
+  assert.equal(r.status, 200); assert.equal(j.on, true); assert.equal(j.returnUrl, GAME + "/games/kc-open-trail/"); assert.equal(j.skus.length, 16);
+  const row = k => j.skus.find(x => x.sku === k);
+  assert.deepEqual(row("ot_gems_80"), { sku: "ot_gems_80", expected: 0.99, configured: true, amount: 0.99, ok: true });
+  assert.equal(row("ot_gems_500").ok, false); assert.equal(row("ot_gems_500").amount, 5); assert.equal(row("ot_tip_3").configured, false); assert.equal(row("ot_tip_3").ok, false);
+  assert.ok(!text.includes("sk_test_123")); assert.ok(!text.includes("price_ot"));
+  const off = await (await handle(greq("/ot/prices", null, "GET"), env(), deps)).json(); assert.equal(off.on, false); assert.ok(off.skus.every(x => !x.ok));
+});
+await test("open trail: the return address must be https, and a server without Stripe sells nothing", async () => {
+  assert.equal((await otBuy(otEnv({ OT_RETURN_URL: "http://play.example.test/games/kc-open-trail/" }), "ot_gems_80")).r.status, 503);
+  assert.equal((await otBuy(otEnv({ OT_RETURN_URL: "javascript:alert(1)" }), "ot_gems_80")).r.status, 503);
+  const dflt = otEnv({ OT_RETURN_URL: "" }); await otBuy(dflt, "ot_gems_80"); assert.equal(stripe.lastForm.success_url, "https://dewclaw-app.netlify.app/games/kc-open-trail/?cs={CHECKOUT_SESSION_ID}");
+  assert.equal((await handle(greq("/stripe/checkout", { sku: "ot_gems_80", install: INSTALL }), { ...env(), ALLOWED_ORIGIN: GAME }, deps)).status, 503);
+  /* a site that isn't on the list gets no CORS permission */
+  const evil = await handle(req("/stripe/checkout", { sku: "ot_gems_80", install: INSTALL }, "POST", { origin: "https://evil.example" }), otEnv(), deps);
+  assert.equal(evil.headers.get("access-control-allow-origin"), "null");
+});
+await test("open trail: adding the game left Dewclaw Plus and Pocket Pup purchases exactly as they were", async () => {
+  const e = otEnv();
+  let c = await (await handle(req("/stripe/checkout", { sku: "pp_bones_500", back: "/pocket" }), e, deps)).json();
+  assert.equal(stripe.lastForm.success_url, "https://dewclaw-app.netlify.app/?cs={CHECKOUT_SESSION_ID}#/pocket"); assert.equal(stripe.lastForm.allow_promotion_codes, "true"); assert.equal(stripe.lastForm["metadata[install]"], undefined);
+  let j = await (await handle(req("/stripe/claim", { session: c.url.split("/").pop() }), e, deps)).json();
+  assert.deepEqual(j.grant, { bones: 500, items: [] }); assert.equal(j.already, false); assert.equal(j.key, undefined);
+  c = await (await handle(req("/stripe/checkout", { sku: "dewclaw_plus_lifetime", back: "/plus" }), e, deps)).json();
+  j = await (await handle(req("/stripe/claim", { session: c.url.split("/").pop() }), e, deps)).json();
+  assert.equal(j.kind, "plus"); assert.equal(j.active, true); assert.match(j.code, /^[A-Z2-9]{4}-[A-Z2-9]{4}$/);
+  /* a Plus code is not accepted as a Trail Key */
+  assert.equal((await handle(greq("/ot/restore", { key: j.code }), e, deps)).status, 404);
 });
 
 console.log(`\n${passed} passed${process.exitCode ? ", with failures" : ""}`);

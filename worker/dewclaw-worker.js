@@ -71,6 +71,46 @@ const PP_GRANTS = {
   pp_revive:     { items: ["revive:1"], consumable: true }
 };
 
+/* KC: Open Trail (the browser game at /games/kc-open-trail/). Same rule as
+   Pocket Pup: this table, not the game, decides what a purchase is worth.
+   Money buys gems, cosmetics and a thank-you; every grant has bones: 0, and
+   nothing here is random. `flags` are saved world flags the game sets;
+   `once` marks the starter (one per save); `consumable: false` SKUs are
+   permanent and can be restored on another device with a Trail Key.
+   The spec is marketing/kc-open-trail/MONETIZATION-EXPANSION-SPEC.md, 4.2. */
+const OT_FOREST    = ["hat:moss-beanie", "bandana:fern", "collar:cedar", "trail:firefly", "skin:skateboard:forest", "skin:canoe:forest", "skin:van:forest", "decor:mushroom-lamp"];
+const OT_GALAXY    = ["hat:comet-cap", "bandana:starfield", "collar:nebula", "trail:stardust", "skin:skateboard:galaxy", "skin:canoe:galaxy", "skin:van:galaxy", "decor:moon-lamp"];
+const OT_ROADTRIP  = ["hat:road-visor", "bandana:route-stripe", "collar:mile-marker", "trail:dust", "skin:skateboard:roadtrip", "skin:canoe:roadtrip", "skin:van:roadtrip", "decor:roadside-sign"];
+const OT_HALLOWEEN = ["hat:pumpkin-patch", "bandana:candy-corn", "collar:cobweb", "trail:ember", "skin:skateboard:spooky", "skin:canoe:spooky", "skin:van:spooky", "decor:jack-lantern"];
+const OT_SUPPORTER = ["tag:supporter", "bandana:supporter", "den:gold-trim", "frame:supporter"];
+const OT_GRANTS = {
+  ot_gems_80:        { bones: 0, gems: 80,   items: [], flags: {}, consumable: true },
+  ot_gems_500:       { bones: 0, gems: 500,  items: [], flags: {}, consumable: true },
+  ot_gems_1200:      { bones: 0, gems: 1200, items: [], flags: {}, consumable: true },
+  ot_gems_2600:      { bones: 0, gems: 2600, items: [], flags: {}, consumable: true },
+  ot_gems_7000:      { bones: 0, gems: 7000, items: [], flags: {}, consumable: true },
+  ot_starter:        { bones: 0, gems: 400,  items: ["bandana:first-trail", "tag:first-trail", "trail:sunbeam", "skin:skateboard:first-trail"], flags: { "store:starter": true }, consumable: false, once: true },
+  ot_trail_pass:     { bones: 0, gems: 0,    items: ["pass:trail"], flags: { "store:pass": true }, consumable: false },
+  ot_pack_forest:    { bones: 0, gems: 0,    items: OT_FOREST, flags: {}, consumable: false },
+  ot_pack_galaxy:    { bones: 0, gems: 0,    items: OT_GALAXY, flags: {}, consumable: false },
+  ot_pack_roadtrip:  { bones: 0, gems: 0,    items: OT_ROADTRIP, flags: {}, consumable: false },
+  ot_pack_halloween: { bones: 0, gems: 0,    items: OT_HALLOWEEN, flags: {}, consumable: false },
+  ot_treat_3:        { bones: 0, gems: 0,    items: ["treat:3"],  flags: {}, consumable: true },
+  ot_treat_10:       { bones: 0, gems: 0,    items: ["treat:10"], flags: {}, consumable: true },
+  ot_supporter:      { bones: 0, gems: 600,  items: OT_SUPPORTER, flags: { "store:supporter": true }, consumable: false },
+  ot_everything:     { bones: 0, gems: 600,  items: ["pass:trail", ...OT_FOREST, ...OT_GALAXY, ...OT_ROADTRIP, ...OT_HALLOWEEN, ...OT_SUPPORTER], flags: { "store:pass": true, "store:supporter": true }, consumable: false },
+  ot_tip_3:          { bones: 0, gems: 0,    items: ["tag:good-human"], flags: {}, consumable: true }
+};
+/* what each SKU must cost, in US cents. A Stripe price that disagrees is never
+   sold (checkout) and never granted (claim), so a wrong price id in
+   STRIPE_PRICES cannot hand out 7,000 gems for 99 cents. */
+const OT_PRICES = {
+  ot_gems_80: 99, ot_gems_500: 499, ot_gems_1200: 999, ot_gems_2600: 1999, ot_gems_7000: 4999,
+  ot_starter: 499, ot_trail_pass: 599, ot_pack_forest: 399, ot_pack_galaxy: 399, ot_pack_roadtrip: 399, ot_pack_halloween: 399,
+  ot_treat_3: 199, ot_treat_10: 499, ot_supporter: 999, ot_everything: 2499, ot_tip_3: 300
+};
+const otGrant = g => ({ bones: 0, gems: g.gems || 0, items: [...(g.items || [])], flags: { ...(g.flags || {}) } });
+
 /* ------------------------------------------------------------------ utils */
 const enc = new TextEncoder();
 const b64url = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -199,6 +239,8 @@ const FAR = Date.UTC(2200, 0, 1);
 const stripeKey = env => String(env.STRIPE_SECRET_KEY || "");
 const stripeOn = env => !!(stripeKey(env) && env.STRIPE_PRICES);
 const stripePrices = env => { try { return JSON.parse(env.STRIPE_PRICES || "{}") || {}; } catch { return {}; } };
+/* a table lookup that only ever answers for the table's own keys, so "__proto__" or "constructor" sent as a SKU finds nothing */
+const own = (table, k) => (typeof k === "string" && table && Object.hasOwn(table, k) ? table[k] : undefined);
 async function stripe(env, deps, method, path, form) {
   if (!stripeKey(env)) throw new HttpError(503, "The server isn't set up for web payments yet.");
   const init = { method, headers: { authorization: `Bearer ${stripeKey(env)}` } };
@@ -267,9 +309,10 @@ async function webCheck(env, deps, token, force) {
 }
 async function handleStripeCheckout(env, deps, req) {
   if (!stripeOn(env)) throw new HttpError(503, "Web payments aren't switched on yet. Plus is sold in the Dewclaw app on Google Play.");
-  const { sku, back } = await readJson(req);
-  const price = stripePrices(env)[sku];
-  const w = WEB_PRODUCTS[sku], g = PP_GRANTS[sku];
+  const { sku, back, install } = await readJson(req);
+  const price = own(stripePrices(env), sku);
+  if (typeof sku === "string" && Object.hasOwn(OT_GRANTS, sku)) return otCheckout(env, deps, sku, price, install);
+  const w = own(WEB_PRODUCTS, sku), g = own(PP_GRANTS, sku);
   if (!price || !(w || g)) throw new HttpError(400, "That isn't something Dewclaw sells on the web.");
   const origin = String(env.APP_ORIGIN || "").replace(/\/+$/, "");
   if (!origin) throw new HttpError(503, "APP_ORIGIN isn't set on the server.");
@@ -304,17 +347,43 @@ async function handleStripeCheckout(env, deps, req) {
   return { url: s.url };
 }
 /* turns a finished Checkout session into what was bought; idempotent per session */
+/* KV has no transactions, so a read-then-write can be raced. Calls that share a key are run one after another inside this
+   isolate; that closes the race for requests the same isolate serves (the usual case for a burst from one client). Two
+   isolates can still overlap, which is why an Open Trail Trail Key is derived from the session and not drawn at random:
+   overlapping claims of one payment end in the same record and the same key. */
+const LOCKS = new Map();
+async function serial(key, fn) {
+  const prev = LOCKS.get(key) || Promise.resolve();
+  let release; const mine = prev.then(() => new Promise(r => { release = r; }));
+  LOCKS.set(key, mine);
+  await prev;
+  try { return await fn(); } finally { release(); if (LOCKS.get(key) === mine) LOCKS.delete(key); }
+}
 async function handleStripeClaim(env, deps, req) {
-  const { session } = await readJson(req);
+  const { session, install, key: trailKey } = await readJson(req);
   if (typeof session !== "string" || !/^cs_[A-Za-z0-9_]{4,200}$/.test(session)) throw new HttpError(400, "A checkout session is required.");
   const key = "claim:" + await sha256(session);
+  return serial(key, () => stripeClaim(env, deps, session, install, trailKey, key));
+}
+async function stripeClaim(env, deps, session, install, trailKey, key) {
   const seen = await env.DEWCLAW.get(key, "json");
-  if (seen) return { ...seen, already: true };
+  if (seen) {
+    /* an Open Trail claim belongs to the device that started the checkout: a copied return link is refused elsewhere */
+    if (seen.kind === "grant" && Object.hasOwn(OT_GRANTS, String(seen.sku)) && seen.install && seen.install !== await otInstallHash(install)) throw new HttpError(403, "That purchase was made on a different device. Use the Trail Key to restore it.");
+    const { install: _i, ...pub } = seen;
+    return { ...pub, already: true };
+  }
   const s = await stripe(env, deps, "GET", `/checkout/sessions/${encodeURIComponent(session)}`);
   if (s.status !== "complete") throw new HttpError(402, s.status === "expired" ? "That checkout expired. Start again." : "That payment hasn't finished yet.");
   if (!(s.payment_status === "paid" || s.payment_status === "no_payment_required")) throw new HttpError(402, "That payment hasn't gone through yet.");
-  const sku = s.metadata && s.metadata.sku, w = WEB_PRODUCTS[sku], g = PP_GRANTS[sku];
+  const sku = s.metadata && s.metadata.sku, w = own(WEB_PRODUCTS, sku), g = own(PP_GRANTS, sku);
   const customer = typeof s.customer === "string" ? s.customer : (s.customer && s.customer.id) || "";
+  if (typeof sku === "string" && Object.hasOwn(OT_GRANTS, sku)) {
+    const out = await otClaim(env, deps, s, sku, install, trailKey, session);
+    await env.DEWCLAW.put(key, JSON.stringify(out), { expirationTtl: 400 * 86400 });
+    const { install: _i, ...pub } = out;
+    return { ...pub, already: false };
+  }
   let out;
   if (w && w.mode === "subscription") {
     const subId = typeof s.subscription === "string" ? s.subscription : (s.subscription && s.subscription.id) || "";
@@ -329,7 +398,7 @@ async function handleStripeClaim(env, deps, req) {
 /* what a paid one-time purchase is worth, whichever processor took the money:
    Plus for life, a gift year (as a code), or a Pocket Pup grant */
 async function oneTimeGrant(env, deps, sku, ref, customer) {
-  const w = WEB_PRODUCTS[sku], g = PP_GRANTS[sku];
+  const w = own(WEB_PRODUCTS, sku), g = own(PP_GRANTS, sku);
   if (w && w.plus === "lifetime") {
     const token = await signToken(env, { k: "l", c: customer, s: ref, sku, t: deps.now() });
     await env.DEWCLAW.put("web:" + await sha256(token), JSON.stringify({ until: FAR, sku }));
@@ -342,6 +411,132 @@ async function oneTimeGrant(env, deps, sku, ref, customer) {
   }
   if (g) return { kind: "grant", sku, grant: { bones: g.bones || 0, items: g.items || [] }, consumable: g.consumable };
   throw new HttpError(400, "That checkout isn't for a Dewclaw product.");
+}
+
+/* ------------------------------------------------------- KC: Open Trail
+   The game's store reuses /stripe/checkout and /stripe/claim. What is added:
+
+   - the price check: the Stripe price behind an ot_ SKU must be a one-time USD
+     price of exactly OT_PRICES[sku] cents, at checkout and again at claim;
+   - the install id: a random id the game makes once and keeps in its save. Only
+     its hash is put in the session metadata, and the claim must send the same
+     id, so a copied return link grants nothing on another device;
+   - the Trail Key: a short code issued with the first permanent purchase.
+     /ot/restore turns it back into the permanent items on another device.
+     Gems, treats and tips are never restored.
+
+   Settings: OT_RETURN_URL (where the game is served, e.g.
+   https://example.com/games/kc-open-trail/ ; default APP_ORIGIN +
+   /games/kc-open-trail/). The game's origin must also be in ALLOWED_ORIGIN.
+   Grants are idempotent per Checkout session (claim:<hash> in KV, as above).
+   There is no webhook: refunds and disputes are handled by hand in Stripe. */
+const OT_INSTALL = /^[A-Za-z0-9_-]{16,64}$/;
+async function otInstallHash(install) {
+  return typeof install === "string" && OT_INSTALL.test(install) ? (await sha256("ot-install:" + install)).slice(0, 40) : "";
+}
+function otReturnUrl(env) {
+  const raw = String(env.OT_RETURN_URL || "").trim() || (String(env.APP_ORIGIN || "").replace(/\/+$/, "") ? String(env.APP_ORIGIN).replace(/\/+$/, "") + "/games/kc-open-trail/" : "");
+  if (!raw) throw new HttpError(503, "OT_RETURN_URL isn't set on the server.");
+  let u; try { u = new URL(raw); } catch { throw new HttpError(503, "OT_RETURN_URL isn't a valid address."); }
+  if (u.protocol !== "https:" && u.hostname !== "localhost") throw new HttpError(503, "OT_RETURN_URL must be https.");
+  return u.origin + u.pathname;
+}
+/* is the Stripe price for this SKU the one-time USD price the catalogue says? Read from Stripe, remembered for an hour. */
+async function otPriceCheck(env, deps, sku, priceId) {
+  const want = OT_PRICES[sku], k = "otprice:" + sku + ":" + priceId;
+  const hit = await env.DEWCLAW.get(k, "json");
+  if (hit && hit.at > deps.now() - 36e5) return hit;
+  const p = await stripe(env, deps, "GET", `/prices/${encodeURIComponent(priceId)}`);
+  const out = { at: deps.now(), amount: Number(p.unit_amount), currency: String(p.currency || "").toLowerCase(), ok: Number(p.unit_amount) === want && String(p.currency || "").toLowerCase() === "usd" && !p.recurring && p.active !== false };
+  await env.DEWCLAW.put(k, JSON.stringify(out), { expirationTtl: 86400 });
+  return out;
+}
+async function otCheckout(env, deps, sku, price, install) {
+  if (!price) throw new HttpError(400, "That item isn't on sale yet.");
+  const ih = await otInstallHash(install);
+  if (!ih) throw new HttpError(400, "The game didn't send its install id.");
+  if (!(await otPriceCheck(env, deps, sku, price)).ok) throw new HttpError(503, "That item's price isn't set up correctly yet, so it can't be sold.");
+  const back = otReturnUrl(env);
+  const form = {
+    mode: "payment",
+    "line_items[0][price]": price, "line_items[0][quantity]": "1",
+    success_url: `${back}?cs={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${back}?cancelled=1`,
+    "metadata[sku]": sku, "metadata[game]": "kc-open-trail", "metadata[install]": ih,
+    /* the claim only accepts the catalogue price in US dollars, so the buyer must be charged in US dollars: no local-currency pricing */
+    "adaptive_pricing[enabled]": "false"
+  };
+  const tax = String(env.STRIPE_TAX || "off").toLowerCase();
+  if (tax === "auto") { form["automatic_tax[enabled]"] = "true"; form.billing_address_collection = "auto"; form.customer_creation = "always"; }
+  else if (tax === "managed") form["managed_payments[enabled]"] = "true";
+  else form.customer_creation = "always";
+  const s = await stripe(env, deps, "POST", "/checkout/sessions", form);
+  if (!s.url) throw new HttpError(502, "Stripe didn't return a checkout link.");
+  /* the session id goes back too: the game writes it down before leaving, so the payment can be finished from the browser that
+     started it even when the return link opens somewhere else. It is useless without that browser's install id. */
+  return { url: s.url, ...(typeof s.id === "string" && /^cs_[A-Za-z0-9_]{4,200}$/.test(s.id) ? { session: s.id } : {}) };
+}
+/* a Trail Key record: { skus: [permanent ot_ SKUs] }. One key per device; later permanent purchases are added to it. */
+const otKeyName = c => "otkey:" + c;
+async function otKeyAdd(env, given, sku, session) {
+  const c = normCode(given);
+  if (c.length === 9) {
+    const rec = await env.DEWCLAW.get(otKeyName(c), "json");
+    if (rec && Array.isArray(rec.skus)) {
+      if (!rec.skus.includes(sku)) { rec.skus.push(sku); await env.DEWCLAW.put(otKeyName(c), JSON.stringify(rec)); }
+      return c;
+    }
+  }
+  /* a new key comes from the session and the server's secret, never from chance: claiming one payment twice at the same moment makes one key */
+  const secret = String(env.TOKEN_SECRET || stripeKey(env) || "");
+  for (let i = 0; i < 5; i++) {
+    const h = await sha256("ot-trailkey:" + i + ":" + session + ":" + secret);
+    const s = [0, 1, 2, 3, 4, 5, 6, 7].map(n => CODE_ALPHABET[parseInt(h.slice(n * 2, n * 2 + 2), 16) % 32]).join(""), code = s.slice(0, 4) + "-" + s.slice(4);
+    if (await env.DEWCLAW.get("code:" + code)) continue;
+    const rec = await env.DEWCLAW.get(otKeyName(code), "json");
+    if (rec && Array.isArray(rec.skus)) { if (!rec.skus.includes(sku)) { rec.skus.push(sku); await env.DEWCLAW.put(otKeyName(code), JSON.stringify(rec)); } return code; }
+    await env.DEWCLAW.put(otKeyName(code), JSON.stringify({ skus: [sku] })); return code;
+  }
+  throw new HttpError(500, "Couldn't make a Trail Key.");
+}
+/* a paid Checkout session for an ot_ SKU -> the grant. The caller stores the result under claim:<hash>. */
+async function otClaim(env, deps, s, sku, install, trailKey, session) {
+  const g = OT_GRANTS[sku], ih = await otInstallHash(install), meta = s.metadata || {};
+  if (s.mode && s.mode !== "payment") throw new HttpError(400, "That checkout isn't for a game item.");
+  if (s.payment_status !== "paid") throw new HttpError(402, "That payment hasn't gone through yet.");
+  if (!ih || !meta.install || meta.install !== ih) throw new HttpError(403, "That purchase was made on a different device. Use the Trail Key to restore it.");
+  /* the amount before discounts and tax must be the catalogue price, in US dollars */
+  if (Number(s.amount_subtotal) !== OT_PRICES[sku] || String(s.currency || "").toLowerCase() !== "usd") throw new HttpError(409, "That payment doesn't match the price of the item, so nothing was granted. Please contact support.");
+  const out = { kind: "grant", sku, grant: otGrant(g), consumable: !!g.consumable, once: !!g.once, amount: OT_PRICES[sku], currency: "USD", at: deps.now(), install: ih };
+  if (!g.consumable) out.key = await otKeyAdd(env, trailKey, sku, session);
+  return out;
+}
+/* Trail Key -> the permanent items again (no gems, no treats). Tries are limited per address and per day. */
+async function handleOtRestore(env, deps, req) {
+  const { key } = await readJson(req);
+  const ip = req.headers.get("cf-connecting-ip") || "unknown", lim = "otr:" + dayKey(deps.now()) + ":" + (await sha256("ot-ip:" + ip)).slice(0, 24);
+  /* counted one request at a time (see serial), so a burst of parallel guesses cannot all read the same count */
+  await serial(lim, async () => {
+    const tries = Number(await env.DEWCLAW.get(lim)) || 0;
+    if (tries >= 20) throw new HttpError(429, "Too many tries today. Please try again tomorrow.");
+    await env.DEWCLAW.put(lim, String(tries + 1), { expirationTtl: 2 * 86400 });
+  });
+  const c = normCode(key);
+  if (c.length !== 9) throw new HttpError(400, "Enter the 8-character Trail Key.");
+  const rec = await env.DEWCLAW.get(otKeyName(c), "json");
+  if (!rec || !Array.isArray(rec.skus)) throw new HttpError(404, "That Trail Key isn't on record. Check it and try again.");
+  const skus = rec.skus.filter(k => Object.hasOwn(OT_GRANTS, k) && !OT_GRANTS[k].consumable);
+  return { kind: "restore", key: c, skus, grants: skus.map(k => ({ sku: k, grant: { ...otGrant(OT_GRANTS[k]), gems: 0 }, once: !!OT_GRANTS[k].once })) };
+}
+/* an owner's check, not used by the game: does every ot_ SKU have a Stripe price of the right amount? */
+async function handleOtPrices(env, deps) {
+  const ids = stripePrices(env), out = [];
+  for (const sku of Object.keys(OT_GRANTS)) {
+    const row = { sku, expected: OT_PRICES[sku] / 100, configured: !!ids[sku], amount: null, ok: false };
+    if (ids[sku] && stripeKey(env)) { try { const c = await otPriceCheck(env, deps, sku, ids[sku]); row.amount = c.amount / 100; row.ok = c.ok; } catch {} }
+    out.push(row);
+  }
+  return { on: stripeOn(env), returnUrl: (() => { try { return otReturnUrl(env); } catch { return null; } })(), skus: out };
 }
 
 /* ---------------------------------------------------------------- PayPal
@@ -632,6 +827,7 @@ export async function handle(req, env, deps = { fetch: globalThis.fetch.bind(glo
                     stripe: stripeOn(env), tax: ["auto", "managed"].includes(String(env.STRIPE_TAX || "").toLowerCase()) ? String(env.STRIPE_TAX).toLowerCase() : "off", paypal: paypalOn(env) ? (paypalLive(env) ? "live" : "sandbox") : false, monthlyAsks: c.MONTHLY_ASKS, dailyAsksTotal: c.DAILY_ASKS_TOTAL }, 200, h);
     }
     if (req.method === "GET" && path === "/stripe/prices") return json(await handleStripePrices(env, deps), 200, { ...h, "cache-control": "public, max-age=300" });
+    if (req.method === "GET" && path === "/ot/prices") return json(await handleOtPrices(env, deps), 200, { ...h, "cache-control": "no-store" });
     if (req.method !== "POST") throw new HttpError(404, "Not found.");
     if (path === "/verify") return json(await handleVerify(env, deps, req), 200, h);
     if (path === "/ask") return json(await handleAsk(env, deps, req), 200, h);
@@ -640,6 +836,7 @@ export async function handle(req, env, deps = { fetch: globalThis.fetch.bind(glo
     if (path === "/stripe/claim") return json(await handleStripeClaim(env, deps, req), 200, h);
     if (path === "/stripe/restore") return json(await handleStripeRestore(env, deps, req), 200, h);
     if (path === "/stripe/portal") return json(await handleStripePortal(env, deps, req), 200, h);
+    if (path === "/ot/restore") return json(await handleOtRestore(env, deps, req), 200, h);
     if (path === "/paypal/checkout") return json(await handlePaypalCheckout(env, deps, req), 200, h);
     if (path === "/paypal/claim") return json(await handlePaypalClaim(env, deps, req), 200, h);
     throw new HttpError(404, "Not found.");

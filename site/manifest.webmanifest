@@ -11,22 +11,101 @@
   "theme_color": "#1F4A33",
   "lang": "en-US",
   "dir": "ltr",
-  "categories": ["lifestyle", "health", "utilities"],
+  "categories": [
+    "lifestyle",
+    "health",
+    "utilities"
+  ],
   "icons": [
-    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ],
   "screenshots": [
-    { "src": "screenshots/phone-1-chart.png", "sizes": "1080x1920", "type": "image/png", "form_factor": "narrow", "label": "Your pet's chart" },
-    { "src": "screenshots/phone-2-care.png", "sizes": "1080x1920", "type": "image/png", "form_factor": "narrow", "label": "Care, today" },
-    { "src": "screenshots/phone-3-dewclawmd.png", "sizes": "1080x1920", "type": "image/png", "form_factor": "narrow", "label": "DewclawMD" },
-    { "src": "screenshots/phone-4-geopet.png", "sizes": "1080x1920", "type": "image/png", "form_factor": "narrow", "label": "Geopet" }
+    {
+      "src": "screenshots/phone-1-chart.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Your pet's chart"
+    },
+    {
+      "src": "screenshots/phone-2-care.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Care, today"
+    },
+    {
+      "src": "screenshots/phone-3-dewclawmd.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "DewclawMD"
+    },
+    {
+      "src": "screenshots/phone-4-geopet.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Geopet"
+    }
   ],
   "shortcuts": [
-    { "name": "Care today", "url": "./index.html#/care", "description": "Reminders, walks and training for today" },
-    { "name": "Ask DewclawMD", "url": "./index.html#/vetmd", "description": "Ask anything about your pet" },
-    { "name": "First aid", "url": "./index.html#/care/firstaid", "description": "Emergency cards and poison lines" }
+    {
+      "name": "Care today",
+      "url": "./index.html#/care",
+      "description": "Reminders, walks and training for today",
+      "short_name": "Care",
+      "icons": [
+        {
+          "src": "icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Ask DewclawMD",
+      "url": "./index.html#/vetmd",
+      "description": "Ask anything about your pet",
+      "short_name": "DewclawMD",
+      "icons": [
+        {
+          "src": "icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "First aid",
+      "url": "./index.html#/care/firstaid",
+      "description": "Emergency cards and poison lines",
+      "short_name": "First aid",
+      "icons": [
+        {
+          "src": "icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
   ],
   "related_applications": [],
   "prefer_related_applications": false
