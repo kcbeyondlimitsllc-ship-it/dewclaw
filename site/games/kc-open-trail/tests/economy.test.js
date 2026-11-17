@@ -145,8 +145,10 @@ const clean = (name, o) => { const ext = o.requests.filter(u => !u.startsWith(BA
     const aboard = kind => { const r = __ot.rides().find(x => x.kind === kind); if (!r) return null; const foot = kc.capacity(); __ot.enter(r.id); __ot.step(3); const on = kc.capacity(); __ot.exit(); __ot.step(3); return on - foot; };
     out.aboard = { canoe: aboard('canoe'), van: aboard('van'), skateboard: aboard('skateboard') };
     /* 14: Pop Deck pays per ollie, at most once every 5 seconds */
-    const ollie = () => { const b = w.get('bones'); __ot.emit('trick', { kind: 'ollie', id: 't' }); return w.get('bones') - b; }, pop = () => { __ot.step(170, 1 / 30); const a = ollie(), b = ollie(); __ot.step(90, 1 / 30); const c = ollie(); __ot.step(170, 1 / 30); const d = ollie(); return [a, b, c, d]; };
+    const ollie = (speed = 9) => { const b = w.get('bones'); __ot.emit('trick', { kind: 'ollie', id: 't', speed }); return w.get('bones') - b; }, pop = () => { __ot.step(170, 1 / 30); const a = ollie(), b = ollie(); __ot.step(90, 1 / 30); const c = ollie(); __ot.step(170, 1 / 30); const d = ollie(); return [a, b, c, d]; };
     out.pop = [pop()]; for (let i = 0; i < 3; i++) { tier('popdeck'); out.pop.push(pop()); }
+    /* tier 3: a parked board pays nothing, and no more than 30 payouts in any 10 minutes of play */
+    __ot.step(170, 1 / 30); out.popParked = [ollie(0), ollie(2)]; { let n = 0; for (let i = 0; i < 60; i++) { __ot.step(160, 1 / 30); if (ollie() > 0) n++; } out.popCap = n; }
     /* --- 21, 22: the den (move in first, pay on a bar) and den storage --- */
     const den = () => ({ stage: g.place.get('eco:den').level, slots: U.denSlots(), outfits: U.outfitSlots(), travel: g.travel.list().some(p => p.id === 'den'), nap: U.nap(3) === true, bowl: U.bowlReady(), paintFree: e.itemPrice('skin:van:river').bones === 0 });
     out.den = [den()]; out.denstoreEarly = e.check('denstore').reason;
@@ -202,6 +204,7 @@ const clean = (name, o) => { const ext = o.requests.filter(u => !u.startsWith(BA
   eq('Trail Tyres: share of the off-road slowdown removed', r3(tn.tyres.seen), [0, 0.3333, 0.6667, 1]); eq('Roof Rack: extra carry in a van', tn.rack.seen, [0, 1, 2, 3]);
   eq('measured aboard: carry slots gained by hopping on (canoe +3, van +3, skateboard +0)', L.aboard, { canoe: 3, van: 3, skateboard: 0 });
   eq('Pop Deck: bones for [an ollie, another at once, one 3 s later, one 5.7 s after that] per tier', L.pop, [[0, 0, 0, 0], [1, 0, 0, 1], [2, 0, 0, 2], [3, 0, 0, 3]]);
+  eq('Pop Deck: an ollie on a parked or crawling board pays nothing, and 60 ollies in a row stop paying at 30 payouts in 10 minutes (6 were paid just before)', [L.popParked, L.popCap], [[0, 0], 24]);
   eq('KC\'s Den: the Pup Tent is free', L.denFree, [true, 1, 0, 0]);
   eq('KC\'s Den: world stage and decor spots per stage', L.den.map(d => [d.stage, d.slots]), [[0, 0], [1, 4], [2, 8], [3, 12], [4, 18], [5, 26], [6, 36]]);
   eq('KC\'s Den: nap from the Doghouse, fast travel from the Garden Shed, bone bowl from the Trail Cabin, free paint at the Bluff Lodge', L.den.map(d => [d.nap, d.travel, d.bowl, d.paintFree].map(Number).join('')), ['0000', '0000', '1000', '1100', '1110', '1110', '1111']);

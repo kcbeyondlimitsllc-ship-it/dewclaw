@@ -14,12 +14,13 @@
      the gate and pressed a button (pay, finish a payment that was started here, restore). With the placeholder config
      nothing is ever requested and every item says "Coming soon".
 
-   Mock mode is for tests: it exists only when the page was opened with BOTH ?debug=1 and ?mock=1. It pretends to be the
-   worker (same answers, same refusals) so the whole path can be run without Stripe. It cannot be reached in a normal
-   session: without ?debug=1 the mock code is never called and a made-up return link is ignored.
+   Mock mode is for tests: it exists only when the page is served from localhost / 127.0.0.1 AND was opened with BOTH
+   ?debug=1 and ?mock=1. It pretends to be the worker (same answers, same refusals) so the whole path can be run without
+   Stripe. On any other host (the live site included) the query words do nothing: the mock code is never called and a
+   made-up return link is ignored.
 
    Saved data: game.moduleData('store') survives "Start over" (install id, applied purchase sessions, journal, Trail Key,
-   permanent SKUs, the limit, pass steps already paid, purchased gems still unspent). game.moduleData('storeTrail') is
+   permanent SKUs, the limit, pass steps already paid, purchased gems still unspent, the things purchased gems bought). game.moduleData('storeTrail') is
    the free column of the Trail Journal and starts again with a new save.
 
    Public API (game.modules.store): see the object returned by init at the bottom of this file. */
@@ -109,19 +110,27 @@ export function init(game) {
   const bySku = new Map(CATALOG.map(c => [c.sku, c]));
   const query = new URLSearchParams(location.search);
   const DEBUG = game.debug === true && query.get('debug') === '1';
-  const MOCK = DEBUG && query.get('mock') === '1';
+  /* the pretend store exists on a developer's own machine only: on any other host the two query words do nothing */
+  const LOCAL = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
+  const MOCK = DEBUG && LOCAL && query.get('mock') === '1';
 
   /* ---------- saved data ---------- */
-  const S = game.moduleData('store', { install: '', applied: [], journal: [], key: '', perm: [], cap: DEFAULT_CAP, pending: null, gemBank: 0, passPaid: [] });
+  const S = game.moduleData('store', { install: '', applied: [], journal: [], key: '', perm: [], cap: DEFAULT_CAP, pending: null, gemBank: 0, gemItems: {}, passPaid: [] });
   game.save.keepOnReset('store');
   for (const k of ['applied', 'journal', 'perm', 'passPaid']) if (!Array.isArray(S[k])) S[k] = [];
   if (typeof S.install !== 'string' || !/^[A-Za-z0-9_-]{16,64}$/.test(S.install)) S.install = '';
   if (typeof S.key !== 'string' || !KEY_RE.test(S.key)) S.key = '';
   if (!CAPS.includes(S.cap)) S.cap = DEFAULT_CAP;
   if (!Number.isFinite(S.gemBank) || S.gemBank < 0) S.gemBank = 0;
-  if (!S.pending || typeof S.pending !== 'object' || !bySku.has(S.pending.sku) || !(Date.now() - S.pending.t < 2 * DAY)) S.pending = null;
-  S.perm = S.perm.filter(k => bySku.has(k) && bySku.get(k).type !== 'consumable'); S.passPaid = S.passPaid.filter(n => Number.isInteger(n) && n >= 1 && n <= STEPS.length);
+  /* a checkout that was started: kept 2 days, or 35 once the payment page's session id is known (a paid one must stay claimable) */
+  if (!S.pending || typeof S.pending !== 'object' || !bySku.has(S.pending.sku) || (S.pending.session != null && !SESSION_RE.test(String(S.pending.session))) || !(Date.now() - S.pending.t < (S.pending.session ? 35 : 2) * DAY)) S.pending = null;
   S.journal = S.journal.filter(j => j && typeof j === 'object' && Number.isFinite(j.t)).slice(-200);
+  /* purchased gems still unspent can never be more than the gems this device's journal shows were bought (plus the pass's 300) */
+  { const bought = S.journal.reduce((n, j) => n + (j.kind === 'buy' && bySku.has(j.sku) ? bySku.get(j.sku).grant.gems || 0 : 0), 0) + 300; if (S.gemBank > bought) S.gemBank = bought; }
+  /* gemItems: things bought with purchased gems -> how many of those gems went into each (never more than its gem price) */
+  if (!S.gemItems || typeof S.gemItems !== 'object' || Array.isArray(S.gemItems)) S.gemItems = {};
+  for (const id of Object.keys(S.gemItems)) { const it = eco.item && eco.item(id), n = Math.floor(Number(S.gemItems[id])); if (!it || !(it.gems > 0) || !(n > 0)) delete S.gemItems[id]; else S.gemItems[id] = Math.min(n, it.gems); }
+  S.perm = S.perm.filter(k => bySku.has(k) && bySku.get(k).type !== 'consumable'); S.passPaid = S.passPaid.filter(n => Number.isInteger(n) && n >= 1 && n <= STEPS.length);
   const J = game.moduleData('storeTrail', { free: [], missions: [] });
   for (const k of ['free', 'missions']) if (!Array.isArray(J[k])) J[k] = [];
   const save = () => game.save.save();
@@ -140,7 +149,8 @@ export function init(game) {
     return c.type === 'permanent' && sku !== 'ot_everything' && sku !== 'ot_supporter' && c.grant.items.every(i => eco.owns(i)); };
   /* spec 4.4 (8): an owned permanent item is not offered again; the bundle goes once two or more of its parts are owned */
   const hidden = sku => ownsSku(sku) || (sku === 'ot_everything' && EVERYTHING_PARTS.filter(ownsSku).length >= 2);
-  const spent30 = (now = Date.now()) => S.journal.reduce((n, j) => n + (j.kind === 'buy' && now - j.t < WINDOW && now >= j.t - DAY ? j.cents || 0 : 0), 0);
+  /* a purchase dated in the future (the device clock was changed) still counts: only one older than 30 days drops out */
+  const spent30 = (now = Date.now()) => S.journal.reduce((n, j) => n + (j.kind === 'buy' && now - j.t < WINDOW ? j.cents || 0 : 0), 0);
   const room = () => Math.max(0, S.cap - spent30());
 
   /* ---------- the photo frame that comes with the Supporter set ---------- */
@@ -151,10 +161,17 @@ export function init(game) {
   };
 
   /* ---------- gems that were paid for: never lost to "Start over" ----------
-     gemBank is how many purchased gems are still unspent, counting free gems as spent first. It can only fall as the
-     balance falls, so a new save gets back exactly what was paid for and not yet used. */
+     gemBank is how many purchased gems are still unspent, counting free gems as spent first. It falls as the balance falls,
+     and when purchased gems go into an item that item is written down in gemItems with how many went in. If the purchase
+     is undone, or the prop is put away for its gems, exactly those gems go back into the bank. So a new save gets back
+     what was paid for: unspent purchased gems, and the things purchased gems bought. */
+  let dropped = 0;
   const bank = n => { S.gemBank = Math.max(0, Math.round(S.gemBank + n)); };
-  const clampBank = () => { const have = game.wallet.get('gems'); if (S.gemBank > have) S.gemBank = have; };
+  const clampBank = () => { const have = game.wallet.get('gems'); if (S.gemBank > have) { dropped += S.gemBank - have; S.gemBank = have; } };
+  bus.on('itemBought', e => { const d = e && e.currency === 'gems' && e.cost > 0 && e.item && e.item.cat !== 'treat' ? Math.min(dropped, e.cost) : 0; dropped = 0; if (d > 0) { S.gemItems[e.id] = Math.min((S.gemItems[e.id] || 0) + d, e.cost); save(); } });
+  const giveBack = (id, gems) => { const d = Math.min(S.gemItems[id] || 0, gems > 0 ? gems : 0); delete S.gemItems[id]; if (d > 0) { bank(d); clampBank(); dropped = 0; } save(); };
+  bus.on('itemUndone', e => { if (e && e.id in S.gemItems) giveBack(e.id, e.gems); });
+  bus.on('decor', e => { if (e && e.on === false && e.id in S.gemItems && e.refund && e.refund.gems > 0) giveBack(e.id, e.refund.gems); });
 
   /* ---------- putting a grant into the save: only through game.economy.grant ---------- */
   function applyGrant(sku, grant, source) {
@@ -186,7 +203,7 @@ export function init(game) {
     if (!quiet || bones || gems) game.toast('Trail Journal: ' + [bones ? bones + ' bones' : '', gems + passGems ? (gems + passGems) + (gems + passGems === 1 ? ' gem' : ' gems') : '', items.length ? (items.length === 1 ? PASS_ITEMS.find(p => p.id === items[0]).name : items.length + ' cosmetics') : ''].filter(Boolean).join(', '), { icon: 'star', kind: 'gold', ms: 3600 });
     save(); bus.emit('journalStep', { bones, gems: gems + passGems, items }); return { bones, gems: gems + passGems, items };
   }
-  let tick = 0; bus.on('second', () => { if (++tick % 2 === 0) { clampBank(); trailCheck(false); } });
+  let tick = 0; bus.on('second', () => { if (++tick % 2 === 0) { clampBank(); dropped = 0; trailCheck(false); } });
   bus.on('wallet', clampBank); bus.on('spend', clampBank);
 
   function journalTab(pane) {
@@ -199,9 +216,9 @@ export function init(game) {
       const row = el('div', { class: 'tj-row' + (reached ? ' done' : ''), 'data-step': s.n });
       row.appendChild(el('i', { class: 'tj-n' }, String(s.n)));
       const goal = el('div', { class: 'tj-goal' }); const b = el('b'); b.textContent = s.text; goal.appendChild(b); const sm = el('small'); sm.textContent = reached ? 'Reached' : `${now.toLocaleString('en-US')} of ${s.need.toLocaleString('en-US')}`; goal.appendChild(sm); row.appendChild(goal);
-      row.appendChild(el('div', { class: 'tj-free' + (J.free.includes(s.n) ? ' paid' : '') }, ui.price(s.free) + (J.free.includes(s.n) ? '<em>Paid</em>' : '')));
+      row.appendChild(el('div', { class: 'tj-free' + (J.free.includes(s.n) ? ' paid' : '') }, ui.price(s.free) + (J.free.includes(s.n) ? '<em>Earned</em>' : '')));
       if (showPass) { const paid = S.passPaid.includes(s.n), d = el('div', { class: 'tj-pass' + (paid ? ' paid' : '') + (pass ? '' : ' off') });
-        d.innerHTML = '<i class="tj-lab">Pass</i>' + (s.pass.item ? `<span class="tj-it">${ui.icon('star', 16)}<b>${esc(s.pass.name)}</b></span>` : ui.price({ gems: s.pass.gems }) + `<small>about ${esc(aboutUsd(s.pass.gems))}</small>`) + (paid ? '<em>Paid</em>' : ''); row.appendChild(d); }
+        d.innerHTML = '<i class="tj-lab">Pass</i>' + (s.pass.item ? `<span class="tj-it">${ui.icon('star', 16)}<b>${esc(s.pass.name)}</b></span>` : ui.price({ gems: s.pass.gems }) + `<small>about ${esc(aboutUsd(s.pass.gems))}</small>`) + (paid ? '<em>Added</em>' : ''); row.appendChild(d); }
       list.appendChild(row); }
     pane.appendChild(list);
     if (showPass && !pass) pane.appendChild(ui.note(`The Pass column is the Trail Journal pass: ${money(bySku.get('ot_trail_pass').cents)} of real money in the grown-ups' Store. It holds cosmetics and gems only, pays every step already reached, and never runs out.`));
@@ -223,7 +240,7 @@ export function init(game) {
       if (!c) return fail(400, "That isn't something Dewclaw sells on the web.");
       if (!/^[A-Za-z0-9_-]{16,64}$/.test(String(body.install || ''))) return fail(400, "The game didn't send its install id.");
       const id = 'cs_mock_' + randomId(12).replace(/[^A-Za-z0-9]/g, 'x'); kv.sessions[id] = { sku: c.sku, install: body.install, paid: next !== 'unpaid', amount: next === 'amount' ? 1 : c.cents }; mockWrite(kv);
-      const u = new URL(location.href); u.searchParams.set('debug', '1'); u.searchParams.set('mock', '1'); u.searchParams.delete('cancelled'); u.searchParams.set('cs', id); return { status: 200, body: { url: u.href } }; }
+      const u = new URL(location.href); u.searchParams.set('debug', '1'); u.searchParams.set('mock', '1'); u.searchParams.delete('cancelled'); u.searchParams.set('cs', id); return { status: 200, body: { url: u.href, session: id } }; }
     if (path === '/stripe/claim') { const id = String(body.session || ''); if (!SESSION_RE.test(id)) return fail(400, 'A checkout session is required.');
       const seen = kv.claims[id];
       if (seen) { if (seen.install !== body.install) return fail(403, 'That purchase was made on a different device. Use the Trail Key to restore it.'); const { install: _i, ...pub } = seen; return { status: 200, body: { ...pub, already: true } }; }
@@ -276,6 +293,7 @@ export function init(game) {
     if (!sellable(sku)) { game.toast('Coming soon. This cannot be bought yet.', { icon: 'hand' }); return false; }
     if (hidden(sku)) { game.toast('You already have this.', { icon: 'star' }); return false; }
     if (c.cents > room()) { game.toast(`That would go over this device's limit of ${money(S.cap)} in 30 days.`, { kind: 'warn', icon: 'hand', ms: 4200 }); return false; }
+    if (S.pending && S.pending.session) { game.toast('An earlier payment has not been added yet. Finish it or forget it first, at the top of the Store.', { kind: 'warn', icon: 'hand', ms: 5000 }); return false; }
     if (!(await ui.gate({ reason: `This buys "${c.name}" for ${money(c.cents)} of real money.` }))) return false;
     if (!game.grownUp.spending || !sellable(sku)) return false;
     confirmBuy(c); return true;
@@ -289,6 +307,8 @@ export function init(game) {
       let u; try { u = new URL(res.url); } catch (e) { throw new Error('The payment page did not open.'); }
       const okHost = MOCK ? u.origin === location.origin : (u.protocol === 'https:' && u.hostname === 'checkout.stripe.com');
       if (!okHost) throw new Error('The payment page did not open.');
+      /* the session id is written down before leaving, so a payment whose return link lands in another browser or app can still be finished from here */
+      if (typeof res.session === 'string' && SESSION_RE.test(res.session)) S.pending.session = res.session;
       bus.emit('storeCheckout', { sku: c.sku, cents: c.cents }); save();
       location.assign(u.href);
     } catch (e) { S.pending = null; save(); busy = false; game.toast(e.message || 'That did not work. Nothing was charged.', { kind: 'warn', ms: 5000 }); }
@@ -304,12 +324,15 @@ export function init(game) {
       bd.appendChild(ui.note(MOCK ? 'TEST MODE: this was a pretend payment. No money moved.' : 'The receipt from Stripe went to the email address typed on the payment page. The game does not see that address.', MOCK ? 'warn' : ''));
     }, actions: [{ label: 'Back to the game', primary: true }] });
   }
+  let lastStatus = 0;
   async function claim(session) {
-    if (busy) return false; busy = true;
+    if (busy) return false; busy = true; lastStatus = 0;
     try {
       const ref = await digest(session);
       if (S.applied.includes(ref)) { S.pending = null; save(); tell(() => game.toast('That purchase was already added.', { icon: 'star' })); return false; }
-      const res = await call('/stripe/claim', { session, install: S.install, ...(S.key ? { key: S.key } : {}) });
+      const res = await call('/stripe/claim', { session, install: S.install, ...(S.key ? { key: S.key } : {}) }); lastStatus = 200;
+      /* the server says this session was claimed before: it is added only when it is the checkout this device wrote down and has not applied (the first answer was lost on the way) */
+      if (res && res.already === true && !(S.pending && S.pending.session === session)) { S.pending = null; save(); tell(() => game.toast('That purchase was already added.', { icon: 'star' })); return false; }
       const c = res && res.kind === 'grant' ? bySku.get(res.sku) : null, bad = c ? grantProblem(res.grant) : 'kind';
       if (bad) { S.pending = null; save(); bus.emit('storeRefused', { reason: bad }); tell(() => game.toast('The server sent something that is not a store item, so nothing was added. Please contact support.', { kind: 'warn', ms: 6000 })); return false; }
       S.applied.push(ref); S.applied = S.applied.slice(-400);
@@ -319,6 +342,7 @@ export function init(game) {
       bus.emit('storePurchase', { sku: c.sku, cents: c.cents, gems: got.gems, items: got.items });
       tell(() => thanks(c, res, got)); return true;
     } catch (e) {
+      lastStatus = e.status || 0;
       /* a payment that could not be confirmed yet is kept, so the store can offer "Finish adding your purchase" */
       if (S.pending && (!e.status || e.status === 402 || e.status >= 500)) { S.pending.session = session; save(); } else { S.pending = null; save(); }
       tell(() => game.toast(e.message || 'That purchase could not be added yet.', { kind: 'warn', ms: 6000 })); return false;
@@ -332,7 +356,7 @@ export function init(game) {
     if (!SESSION_RE.test(cs)) return;
     if (cs.startsWith('cs_mock_') && !MOCK) return;          /* a pretend session means nothing outside the test mode */
     if (!MOCK && !LIVE) return;                              /* the store is not open: nothing is asked of anyone */
-    if (!S.pending || !S.install) { tell(() => game.toast('That payment was not started on this device. A grown-up can use Restore purchases with the Trail Key.', { kind: 'warn', ms: 6000 })); return; }
+    if (!S.pending || !S.install) { tell(() => game.toast('That payment was started in a different browser or app, so it cannot be added here. Open the game where Pay was pressed, then Store, Finish adding it.', { kind: 'warn', ms: 9000 })); return; }
     claim(cs);
   }
 
@@ -386,8 +410,11 @@ export function init(game) {
     const intro = el('p', { class: 'st-sub' }); intro.textContent = 'For grown-ups. Everything here costs real money and is a cosmetic, gems or a thank-you. Bones, and everything that changes how KC plays, are never sold: they are earned by playing.'; bd.appendChild(intro);
     const lim = el('div', { class: 'st-limit' }); const lt = el('span'); lt.textContent = `Spent on this device in the last 30 days: ${money(spent30())} of ${money(S.cap)}. A limit in the game, not at your bank.`; lim.appendChild(lt);
     const lb = el('button', { type: 'button', class: 'btn alt', 'data-act': 'cap' }); lb.textContent = 'Change limit'; lb.addEventListener('click', () => capScreen()); lim.appendChild(lb); bd.appendChild(lim);
-    if (S.pending && S.pending.session) { const fin = el('div', { class: 'st-limit' }); const t = el('span'); t.textContent = `A payment for "${bySku.get(S.pending.sku).name}" has not been added yet.`; fin.appendChild(t);
-      const b = el('button', { type: 'button', class: 'btn go', 'data-act': 'finish' }); b.textContent = 'Finish adding it'; b.addEventListener('click', async () => { const s = S.pending && S.pending.session; if (s) { await claim(s); if (ui.current && ui.current.id === 'store') ui.current.handle.refresh(); } }); fin.appendChild(b); bd.appendChild(fin); }
+    if (S.pending && S.pending.session) { const fin = el('div', { class: 'st-limit' }); const t = el('span'); t.textContent = `A payment for "${bySku.get(S.pending.sku).name}" was started here and has not been added. If it was paid, finish adding it.`; fin.appendChild(t);
+      const b = el('button', { type: 'button', class: 'btn go', 'data-act': 'finish' }); b.textContent = 'Finish adding it'; b.addEventListener('click', async () => { const s = S.pending && S.pending.session; if (s) { const ok = await claim(s);
+        if (!ok && lastStatus === 402 && S.pending && await ui.confirm('Not paid yet', 'The payment server says no money was taken for this. Forget it? (If a payment is still going through, keep it and try again later.)', 'Forget it', 'Keep it')) { S.pending = null; save(); }
+        if (ui.current && ui.current.id === 'store') ui.current.handle.refresh(); } }); fin.appendChild(b);
+      const fb = el('button', { type: 'button', class: 'btn alt', 'data-act': 'forget' }); fb.textContent = 'Nothing was paid'; fb.addEventListener('click', async () => { if (await ui.confirm('Forget this payment?', 'Only do this if no money was taken. If a payment was made, go back and press "Finish adding it".', 'Forget it', 'Go back')) { S.pending = null; save(); if (ui.current && ui.current.id === 'store') ui.current.handle.refresh(); } }); fin.appendChild(fb); bd.appendChild(fin); }
     const owned = [];
     for (const [gid, title, sub] of GROUPS) { const cards = [];
       for (const c of CATALOG.filter(x => x.group === gid)) { if (hidden(c.sku)) { if (ownsSku(c.sku)) owned.push(c.name); continue; }
@@ -437,8 +464,12 @@ export function init(game) {
   /* "Start over" keeps this module's record, so what was paid for comes back: permanent items, pass rewards, unspent purchased gems */
   { const back = []; for (const sku of S.perm) { const c = bySku.get(sku); for (const i of c.grant.items) if (!/^treat:/.test(i) && !eco.owns(i) && !back.includes(i)) back.push(i); for (const k of Object.keys(c.grant.flags)) if (eco.getFlag(k) !== c.grant.flags[k]) eco.setFlag(k, c.grant.flags[k]); }
     for (const n of S.passPaid) { const it = STEPS[n - 1].pass.item; if (it && !eco.owns(it) && !back.includes(it)) back.push(it); }
+    for (const id of Object.keys(S.gemItems)) if (!eco.owns(id) && !back.includes(id)) back.push(id);
     const gems = Math.max(0, S.gemBank - game.wallet.get('gems'));
     if (back.length || gems) eco.grant({ gems, items: back }, 'store:kept'); }
+  /* "Start over": say what is kept, and put the grown-up gate first when real money has been spent on this device */
+  if (Array.isArray(ui.resetNotes)) ui.resetNotes.push(() => (S.perm.length || S.gemBank > 0 || Object.keys(S.gemItems).length || S.journal.some(j => j.kind === 'buy' || j.kind === 'restore')
+    ? { gate: true, text: 'Kept: everything bought in the Store, the purchased gems not yet spent, and the things bought with purchased gems.' } : null));
   perks();
   game.shop.registerTab({ id: 'journal', title: 'Trail Journal', icon: 'flag', order: 80, render: journalTab });
   game.shop.registerTab({ id: 'store', title: 'Store', icon: 'gem', order: 100, render: storeTab });

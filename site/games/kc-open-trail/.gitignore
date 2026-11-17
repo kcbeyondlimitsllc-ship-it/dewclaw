@@ -1,2 +1,8 @@
 /desktop-*.png
 /phone-*.png
+# test screenshots, in case a test is pointed at this folder
+/*.png
+/economy/
+/merch/
+/missions/
+/store/

@@ -695,6 +695,25 @@ await test("open trail: guessing Trail Keys is limited per address per day", asy
   assert.equal((await handle(req("/ot/restore", { key: "AAAA-AAA2" }, "POST", { origin: GAME, "cf-connecting-ip": "203.0.113.10" }), e, deps)).status, 404, "another address is not blocked");
   assert.ok(![...e.DEWCLAW.m.keys()].some(k => k.includes("203.0.113")), "the address itself is not stored");
 });
+await test("open trail: claiming one paid session several times at once grants once and makes one Trail Key", async () => {
+  const e = otEnv(); const { id } = await otBuy(e, "ot_supporter");
+  const all = await Promise.all([1, 2, 3, 4, 5].map(() => otClaimReq(e, id)));
+  assert.deepEqual(all.map(c => c.r.status), [200, 200, 200, 200, 200]);
+  assert.equal(all.filter(c => c.j.already === false).length, 1, "exactly one first claim");
+  assert.equal(new Set(all.map(c => c.j.key)).size, 1, "one key");
+  assert.equal([...e.DEWCLAW.m.keys()].filter(k => k.startsWith("otkey:")).length, 1, "one Trail Key record");
+  const g = await otBuy(e, "ot_gems_7000"), gems = await Promise.all([1, 2, 3].map(() => otClaimReq(e, g.id)));
+  assert.equal(gems.filter(c => c.j.already === false).length, 1);
+});
+await test("open trail: parallel Trail Key guesses are counted one by one", async () => {
+  const e = otEnv();
+  const st = (await Promise.all(Array.from({ length: 40 }, (_, i) => handle(req("/ot/restore", { key: "BBBB-BB" + "23456789"[i % 8] + "23456789"[(i >> 3) % 8] }, "POST", { origin: GAME, "cf-connecting-ip": "203.0.113.77" }), e, deps)))).map(r => r.status);
+  assert.equal(st.filter(s => s === 429).length, 20); assert.equal(st.filter(s => s === 404).length, 20);
+});
+await test("open trail: checkout pins US dollars and hands back the session id for the game to keep", async () => {
+  const e = otEnv(); const { j, id } = await otBuy(e, "ot_pack_forest");
+  assert.equal(j.session, id); assert.equal(stripe.lastForm["adaptive_pricing[enabled]"], "false"); assert.equal(stripe.lastForm.allow_promotion_codes, undefined);
+});
 await test("open trail: /ot/prices tells the owner which SKUs are set up; the Stripe key is never in an answer", async () => {
   const e = otEnv({ STRIPE_PRICES: JSON.stringify({ ...Object.fromEntries(OT_SKUS.map(k => [k, "price_" + k])), ot_tip_3: undefined }) }); stripe.otPrices = { price_ot_gems_500: { unit_amount: 500, currency: "usd" } };
   const r = await handle(greq("/ot/prices", null, "GET"), e, deps), j = await r.json(), text = JSON.stringify(j); stripe.otPrices = {};

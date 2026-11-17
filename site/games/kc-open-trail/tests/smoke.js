@@ -11,7 +11,10 @@ const http = require('http'), fs = require('fs'), path = require('path');
 const { chromium } = require('playwright');
 
 const ROOT = path.resolve(__dirname, '..'), PORT = +(process.env.PORT || 8947), BASE = `http://localhost:${PORT}/`;
-const OUT = path.resolve(process.argv[2] || path.join(require('os').tmpdir(), 'kc-open-trail-shots'));
+const TMP_OUT = path.join(require('os').tmpdir(), 'kc-open-trail-shots');
+let OUT = path.resolve(process.argv[2] || TMP_OUT);
+/* screenshots never go into the game folder (it is the deploy root): "node tests/smoke.js ." saves them in the temp folder instead */
+if (OUT === ROOT || OUT.startsWith(ROOT + path.sep)) { console.log(`NOTE  screenshots go to ${TMP_OUT}, not into the game folder`); OUT = TMP_OUT; }
 fs.mkdirSync(OUT, { recursive: true });
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.jpg': 'image/jpeg', '.webmanifest': 'application/manifest+json', '.json': 'application/json', '.txt': 'text/plain' };
 const server = http.createServer((req, res) => {
@@ -226,12 +229,14 @@ async function seamChecks(page, name, touch, vp) {
   const g1 = await page.evaluate(() => ({ ok: window.__g1, modal: __ot.state().modal, same: window.__keep() === window.__before, stored: Object.keys(localStorage).join(',') }));
   await page.evaluate(() => { window.__g2 = null; __ot.game.ui.gate({}).then(v => { window.__g2 = v; }); }); for (let i = 0; i < 3; i++) await passGate(page, touch, true); await page.waitForFunction(() => window.__g2 !== null, null, { timeout: 3000 }).catch(() => {});
   const g2 = await page.evaluate(async () => { const r = { wrong: window.__g2, modal: __ot.state().modal, shut: await __ot.game.ui.gate({}), events: window.__gate.join() }; return r; });
-  ok(T + 'grown-up gate: a times-table question on a 44 px number pad (no text box), right answer passes, three wrong answers shut it; nothing is stored', g0.spending === false && g0.saved === false && gk.n === 12 && gk.min >= 44 && gk.fits && gk.inputs === 0 && gk.paused && /grown-up/i.test(gk.text) && /\d+\s*×\s*\d+/.test(gk.text) && g1.ok === true && g1.modal === null && g1.same && g2.wrong === false && g2.modal === null && g2.shut === false && g2.events === 'true,false,false' && !/gate/i.test(g1.stored), `keys ${Math.round(gk.min)} px; ${g2.events}`);
-  /* the 30 s lock-out lives in memory only: a reload clears it, so the remaining gate checks run after the save / reload step (seamChecksAfterReload) */
+  ok(T + 'grown-up gate: a times-table question on a 44 px number pad (no text box), right answer passes, three wrong answers shut it; nothing about the answer is stored', g0.spending === false && g0.saved === false && gk.n === 12 && gk.min >= 44 && gk.fits && gk.inputs === 0 && gk.paused && /grown-up/i.test(gk.text) && /\d+\s*×\s*\d+/.test(gk.text) && g1.ok === true && g1.modal === null && g1.same && g2.wrong === false && g2.modal === null && g2.shut === false && g2.events === 'true,false,false' && !/gate/i.test(g1.stored), `keys ${Math.round(gk.min)} px; ${g2.events}`);
+  /* the lock-out is kept with the settings, so a reload does not clear it: seamChecksAfterReload checks that, then lifts it for the remaining gate checks */
 }
 /* after the reload: what was saved is back, and the gated flows (spending switch, leaving link, Settings rows) work */
 async function seamChecksAfterReload(page, name, touch) {
   const T = name + ': seam: ';
+  const lk = await page.evaluate(async () => { const g = __ot.game, had = !!(g.state.settings.gate && g.state.settings.gate.until > Date.now()), shut = await g.ui.gate({}); g.state.settings.gate = null; g.save.save(); return { had, shut, modal: __ot.state().modal }; });
+  ok(T + 'grown-up gate: after three wrong answers it is still shut after a reload (only the closing time is kept, with the settings)', lk.had && lk.shut === false && lk.modal !== 'gate', JSON.stringify(lk));
   const bk = await page.evaluate(() => { const g = __ot.game, C = g.cosmetics, before = { eq: { ...g.state.equipped }, hat: g.kc.parts.hatAnchor.children.length, data: g.moduleData('smoke', { n: 0, list: [] }), owned: g.economy.owns('smoke:hat') };
     C.define({ id: 'smoke:hat', slot: 'hat', value: { type: 'cap', color: 0x3f7fd6 } }); C.define({ id: 'smoke:board', slot: 'skin:skateboard', value: { primary: 0x112233, secondary: 0xffffff } });
     return { before, hat: g.kc.parts.hatAnchor.children.length, board: g.vehicles.skins.skateboard.primary, spending: g.grownUp.spending }; });
@@ -422,7 +427,7 @@ async function runViewport(browser, name, vp, touch, quality, tourIdx, stub = fa
     ok(`${name}: Jump button lifts KC`, (await st(page)).pos.y > j0 + 0.2 || (await page.evaluate(() => __ot.events.some(e => e.type === 'jump'))));
   } else {
     await visit(page, -168, -166, Math.PI / 2); const a = await st(page);
-    await page.keyboard.down('KeyW'); await page.waitForTimeout(1200); await page.keyboard.up('KeyW'); const b = await st(page);
+    await page.keyboard.down('KeyW'); let b = a; for (let i = 0; i < 8; i++) { await page.waitForTimeout(600); b = await st(page); if (dist(a.pos, b.pos) > 1.5) break; } await page.keyboard.up('KeyW');   /* software rendering can be a few frames a second: wait for the distance, not for a time */
     ok(`${name}: W walks KC forward`, dist(a.pos, b.pos) > 1.5, dist(a.pos, b.pos).toFixed(1) + ' units');
     await page.mouse.move(640, 300); await page.mouse.down(); await page.mouse.move(760, 300, { steps: 6 }); await page.mouse.up(); await page.waitForTimeout(150);
     ok(`${name}: mouse drag turns the camera`, Math.abs((await st(page)).cam.yaw - b.cam.yaw) > 0.1);

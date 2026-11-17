@@ -28,7 +28,7 @@ export function init(game) {
   /* ---------- a ladder card: name, level pips, what it does now, what the next tier does, the cost, and why not if not ---------- */
   async function buyLadder(l) {
     const c = eco.check(l.id); if (!c.ok) return; const n = eco.level(l.id) + 1, name = l.max > 1 ? `${l.name}: tier ${n} of ${l.max}` : l.name;
-    if (l.payLater) { if (c.cost > 0 && !(await ui.confirm(`Move into the ${l.eff.stages[n - 1]}?`, `It costs ${fmt(c.cost)} bones. KC moves in now and pays it off on a bar, a little at a time or all at once. There is no rush and it never costs more.`, 'Move in', 'Not now'))) return; if (eco.buyLevel(l.id)) done(`${l.eff.stages[n - 1]}: ${l.fx[n - 1]}`); return; }
+    if (l.payLater) { if (c.cost > 0 && !(await ui.confirm(`Move into the ${l.eff.stages[n - 1]}?`, `It costs ${fmt(c.cost)} bones. KC moves in now and pays it off on a bar, a little at a time or all at once. There is no rush and it never costs more.`, 'Move in', 'Not now'))) return; if (eco.buyLevel(l.id)) done(l.fx[n - 1]); return; }
     if (!(await ui.confirmSpend({ id: l.id, name, text: l.fx[n - 1], price: { bones: c.cost }, icon: l.icon || 'star', source: 'upgrade:' + l.id, yes: 'Yes, upgrade' }))) return;
     if (eco.buyLevel(l.id, { paid: true })) done(`${l.name}: ${l.fx[n - 1]}`); else { game.wallet.add('bones', c.cost, 'refund'); game.shop.refresh(); }
   }
@@ -52,8 +52,8 @@ export function init(game) {
   const peek = () => { const m = document.getElementById('modal'); if (!m) return; m.classList.add('eco-peek'); clearTimeout(peek.t); const off = () => { m.classList.remove('eco-peek'); m.removeEventListener('pointerdown', off, true); }; peek.t = setTimeout(off, 2600); setTimeout(() => m.addEventListener('pointerdown', off, true), 50); };
   async function pickCurrency(it, p) {
     if (!p.either) return 'bones';
-    return new Promise(res => { let out = null; ui.openModal({ id: 'eco-pay', title: 'Pay with bones or gems?', wallet: true, render: b => { b.appendChild(ui.item({ title: it.name, text: 'Gems are never needed: every gem price can be paid in bones instead.', ...swatch(it), price: p })); },
-      actions: [{ label: `${fmt(p.bones)} bones`, primary: true, onClick: () => { out = 'bones'; } }, { label: `${fmt(p.gems)} gems`, onClick: () => { out = 'gems'; } }], onClose: () => res(out) }); });
+    return new Promise(res => { let out = null; ui.openModal({ id: 'eco-pay', title: 'Pay with bones or gems?', wallet: true, render: b => { b.appendChild(ui.item({ title: it.name, text: 'Gems are never needed: every gem price can be paid in bones instead.', ...swatch(it), price: p })); b.appendChild(ui.note(`${fmt(p.gems)} gems is about ${eco.usd(p.gems)} if the gems were bought.`, 'usd')); },
+      actions: [{ label: `${fmt(p.bones)} bones`, primary: true, onClick: () => { out = 'bones'; } }, { label: `${fmt(p.gems)} gems (about ${eco.usd(p.gems)})`, onClick: () => { out = 'gems'; } }], onClose: () => res(out) }); });
   }
   async function buyItem(it, after) {
     const p = eco.itemPrice(it.id), cur = await pickCurrency(it, p); if (!cur) return false; const c = eco.checkItem(it.id, cur);
@@ -64,10 +64,10 @@ export function init(game) {
     if (after) after(); return true;
   }
   function wearCard(d, it) {
-    const owned = eco.owns(d.id) || !!d.free, on = game.cosmetics.equipped(d.slot) === d.id, p = it ? eco.itemPrice(it.id) : null, lock = it && !owned && it.req ? it.req(game) : null, und = eco.undoable(d.id);
+    const owned = eco.owns(d.id) || !!d.free, on = game.cosmetics.equipped(d.slot) === d.id, p = it ? eco.itemPrice(it.id) : null, lock = it && !owned && it.req ? it.req(game) : null, und = eco.undoable(d.id), ride = String(d.slot).startsWith('skin:');
     const text = it && it.gems && !owned ? `${fmt(it.gems)} gems is about ${eco.usd(it.gems)} if the gems were bought` : it && !owned ? it.where : '';
-    const card = ui.item({ id: d.id, title: d.name, text, ...swatch(d), price: owned ? undefined : p, tag: on ? 'Wearing' : owned ? 'Owned' : '', on, locked: lock || undefined, onPreview: () => { game.cosmetics.preview(d.id); peek(); },
-      button: owned ? { label: on ? 'Take off' : 'Wear', primary: !on, onClick: () => { if (on) game.cosmetics.unequip(d.slot); else game.cosmetics.equip(d.id); game.shop.refresh(); } } : it ? { label: 'Get', onClick: () => buyItem(it, () => { game.cosmetics.equip(d.id); done(`${d.name} is KC's now.`); }) } : undefined });
+    const card = ui.item({ id: d.id, title: d.name, text, ...swatch(d), price: owned ? undefined : p, tag: on ? (ride ? 'Painted on' : 'Wearing') : owned ? 'Owned' : '', on, locked: lock || undefined, onPreview: () => { game.cosmetics.preview(d.id); peek(); },
+      button: owned ? { label: on ? (ride ? 'Back to plain' : 'Take off') : ride ? 'Use this paint' : 'Wear', primary: !on, onClick: () => { if (on) game.cosmetics.unequip(d.slot); else game.cosmetics.equip(d.id); game.shop.refresh(); } } : it ? { label: 'Get', onClick: () => buyItem(it, () => { game.cosmetics.equip(d.id); done(`${d.name} is KC's now.`); }) } : undefined });
     if (und) { const b = btn(`Undo (${und.gems} gems back)`, async () => { if (await ui.confirm('Undo this?', `${d.name} goes back on the shelf and ${und.gems} gems come back.`, 'Undo', 'Keep it')) { eco.undo(d.id); done('Undone: the gems are back.'); } }, { alt: true, act: 'undo' }); card.querySelector('.side').appendChild(b); }
     return card;
   }
@@ -99,9 +99,12 @@ export function init(game) {
       if (data.outfits.length < slots) row.appendChild(btn('Save what KC is wearing', () => { const look = {}; for (const s of WEAR) { const id = game.cosmetics.equipped(s); if (id) look[s] = id; } data.outfits.push({ look }); game.save.save(); done('Outfit saved.'); }, { alt: true, act: 'outfit-save' }));
       pane.appendChild(row); }
     pane.appendChild(ui.note('Tap a picture to try something on before you get it. Clothes change how KC looks, never how she plays.'));
-    for (const s of WEAR) { const list = forSale(s); if (!list.length) continue; const first = eco.item(list[0].id); sec(pane, s, SLOT_NAMES[s], first ? first.where : ''); wearGrid(pane, list); }
+    /* the page is long on a phone: one row of jump buttons to each rail */
+    const jump = el('div', { class: 'eco-jump', role: 'group', 'aria-label': 'Jump to' }); pane.appendChild(jump);
+    const hop = (key, label) => { const b = btn(label, () => { const h = pane.querySelector(`[data-sec="${key}"]`); if (h) h.scrollIntoView({ block: 'start' }); }, { alt: true, act: 'jump' }); b.dataset.to = key; jump.appendChild(b); };
+    for (const s of WEAR) { const list = forSale(s); if (!list.length) continue; hop(s, SLOT_NAMES[s].replace(' and costumes', '')); const first = eco.item(list[0].id); sec(pane, s, SLOT_NAMES[s], first ? first.where : ''); wearGrid(pane, list); }
     const prem = eco.items(i => i.premium && i.cat === 'cosmetic' && !eco.owns(i.id)).map(i => game.cosmetics.get(i.id)).filter(Boolean);
-    if (prem.length) { sec(pane, 'premium', 'Special sets', 'Whispering Firs, Night Sky, Open Road and Spooky Hollow, piece by piece. Gems or bones: your choice.'); wearGrid(pane, prem); pane.appendChild(ui.note(`Gems come free from golden balls, new places and the daily sniff-outs. A grown-up can also buy them. Any gem price can be paid in bones instead, at ${eco.BONES_PER_GEM} bones a gem.`)); }
+    if (prem.length) { hop('premium', 'Special sets'); sec(pane, 'premium', 'Special sets', 'Whispering Firs, Night Sky, Open Road and Spooky Hollow, piece by piece. Gems or bones: your choice.'); wearGrid(pane, prem); pane.appendChild(ui.note(`Gems come free from golden balls, new places and the daily sniff-outs. A grown-up can also buy them. Any gem price can be paid in bones instead, at ${eco.BONES_PER_GEM} bones a gem.`)); }
   }
 
   /* ================= Rides ================= */
@@ -190,5 +193,5 @@ export function init(game) {
   door('tags', P.stall('Tag & Stamp'), 'Look at the tags', 'Tag & Stamp', 'wardrobe', 'tag');
 
   game.on('upgradePaid', () => game.shop.refresh());
-  return { open, tabs: ['upgrades', 'wardrobe', 'rides', 'den', 'businesses', 'funds'], outfits: () => data.outfits, buyLadder, remove: () => { for (const off of offs) off(); game.place.removeAll('eco:shop:'); } };
+  return { open, tabs: ['upgrades', 'wardrobe', 'rides', 'den', 'businesses', 'funds'], outfits: () => data.outfits, buyLadder, peek, remove: () => { for (const off of offs) off(); game.place.removeAll('eco:shop:'); } };
 }

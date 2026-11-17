@@ -67,6 +67,13 @@ async function gate(page, right = true) {
   for (const ch of ans) await page.click(`.keypad [data-key="${ch}"]`);
   await page.click('.keypad [data-key="ok"]');
 }
+/* with the real-money switch off the KC Gear tab only points to Settings: a grown-up turns the switch on there (the gate), then opens the real-gear list (the gate again) */
+async function switchOn(page) {
+  await page.click('.mgrown button:has-text("open Settings")'); await waitModal(page, 'settings');
+  await page.evaluate(() => document.querySelector('[data-set="spending"]').scrollIntoView({ block: 'center' })); await page.click('[data-set="spending"]'); await gate(page, true);
+  await page.waitForFunction(() => __ot.game.grownUp.spending === true); await waitModal(page, 'settings'); await action(page, 'Done'); await waitModal(page, 'shop');
+}
+async function seeReal(page) { await switchOn(page); await page.click('.mgrown button:has-text("see the real gear")'); await gate(page, true); await waitModal(page, 'merch-real'); }
 /* nothing wider than the screen, and every button, field and tab at least 44 px tall */
 const fit = page => page.evaluate(() => { const b = document.getElementById('modalBody'), small = [];
   const coreShop = document.getElementById('modal').classList.contains('shop');   /* the Shop screen's own close button belongs to the core (40 px on a short landscape phone; reported to the integrator) */
@@ -170,13 +177,16 @@ const fits = async (name, page) => { const f = await fit(page); ok(`${name}: fit
   const realCards = () => page.evaluate(() => document.querySelectorAll('.mreal').length);
   eq('switch off: openProduct() refuses, no screen opens, no tab opens', [await page.evaluate(() => __ot.game.modules.merch.openProduct('34460072')), await modal(page), A.popups.length], [false, null, 0]);
   await page.evaluate(() => __ot.game.modules.merch.open()); await waitModal(page, 'shop');
-  await page.click('.mgrown button:has-text("turn it on and see the real gear")'); await waitModal(page, 'gate');
-  ok('the first tap brings the grown-up gate, not the products', (await page.textContent('#modalTitle')) === 'Grown-ups only' && (await realCards()) === 0);
+  eq('switch off: the KC Gear tab has no button that opens real products or turns the switch on, only one that opens Settings', await page.evaluate(() => [...document.querySelectorAll('.mgrown button')].map(b => b.textContent)), ['Grown-ups: open Settings', 'Grown-ups: claim a twin from a real order']);
+  eq('switch off: openReal() refuses without a gate and leaves the switch off', [await page.evaluate(() => __ot.game.modules.merch.openReal()), await modal(page), await page.evaluate(() => __ot.game.grownUp.spending)], [false, 'shop', false]);
+  await page.click('.mgrown button:has-text("open Settings")'); await waitModal(page, 'settings');
+  await page.evaluate(() => document.querySelector('[data-set="spending"]').scrollIntoView({ block: 'center' })); await page.click('[data-set="spending"]'); await waitModal(page, 'gate');
+  ok('turning the switch on in Settings brings the grown-up gate, not the products', (await page.textContent('#modalTitle')) === 'Grown-ups only' && (await realCards()) === 0);
   await gate(page, false); await page.waitForTimeout(150);
   eq('a wrong answer keeps the gate shut: no products, switch still off, nothing opened', [await modal(page), await realCards(), await page.evaluate(() => __ot.game.grownUp.spending), A.popups.length, A.off.length], ['gate', 0, false, 0, 0]);
-  await action(page, 'Go back'); await waitModal(page, 'shop');
+  await action(page, 'Go back'); await waitModal(page, 'settings'); await action(page, 'Done'); await waitModal(page, 'shop');
   eq('"Go back" returns to the bones shop with nothing unlocked', [await realCards(), await page.evaluate(() => __ot.game.grownUp.spending), await page.evaluate(() => __ot.game.modules.merch.debug.unlocked)], [0, false, false]);
-  await page.click('.mgrown button:has-text("turn it on and see the real gear")'); await gate(page, true); await waitModal(page, 'merch-real');
+  await seeReal(page);
   const real = await page.evaluate(() => { const b = document.getElementById('modalBody'), cards = [...b.querySelectorAll('.mreal')]; return { spending: __ot.game.grownUp.spending, n: cards.length, ids: cards.map(c => c.dataset.product), first8: cards.slice(0, 8).map(c => c.dataset.product).sort(),
     prices: cards.map(c => c.querySelector('.mprice').textContent), imgs: cards.map(c => (c.querySelector('img') || {}).src || ''), ship: cards.every(c => /Printed to order\. Shipping is added at checkout\. No returns\./.test(c.textContent)), twins: cards.filter(c => c.querySelector('.mtwin')).length, links: b.querySelectorAll('a, iframe').length, strike: b.querySelectorAll('s, del, strike').length, text: b.innerText }; });
   ok('past the gate: the switch is on and all 54 real products are listed, the featured eight first', real.spending === true && real.n === 54 && new Set(real.ids).size === 54 && JSON.stringify(real.first8) === JSON.stringify(SPEC_FEATURED.slice().sort()), `n ${real.n}`);
@@ -279,7 +289,7 @@ const fits = async (name, page) => { const f = await fit(page); ok(`${name}: fit
   await B.page.evaluate(() => __ot.game.modules.merch.open()); await waitModal(B.page, 'shop');
   const rt = await B.page.evaluate(() => { const b = document.getElementById('modalBody'), heads = [...b.querySelectorAll('.sech')].map(h => h.textContent); const i = heads.findIndex(h => /^Retired designs/.test(h)); return { heads, bedCard: !!b.querySelector('.item[data-item="decor:river-bed"]'), price: +b.querySelector('.item[data-item="decor:river-bed"] .pc.bones b').textContent, rare: /rare|limited|last chance/i.test(b.innerText), i }; });
   ok('a retired product\'s twin stays on sale for bones at the same price on a "Retired designs" shelf, never called rare', rt.i >= 0 && rt.bedCard && rt.price === 800 && !rt.rare, JSON.stringify(rt.heads));
-  await B.page.click('.mgrown button:has-text("turn it on and see the real gear")'); await gate(B.page, true); await waitModal(B.page, 'merch-real');
+  await seeReal(B.page);
   const bad = await B.page.evaluate(() => { const b = document.getElementById('modalBody'), c = id => b.querySelector(`.mreal[data-product="${id}"]`); return { n: b.querySelectorAll('.mreal').length, bed: !!c('34395132'), notOurs: !!c('12345678') || !!c('abc'), capPrice: c('34460072').querySelector('.mprice').textContent, capImg: !!c('34460072').querySelector('img'), capTile: !!c('34460072').querySelector('.mthumb.none'), notice: b.innerText.includes('Shop sale, 20 to 27 November'), timer: /\d+\s*(days?|hours?|h|m|s)\s+left|ends in/i.test(b.innerText), url: __ot.game.modules.merch.product('34460072').url }; });
   ok('the retired product has no card and no link; rows with a bad id or shelf are dropped (53 cards)', bad.n === 53 && !bad.bed && !bad.notOurs, JSON.stringify(bad));
   eq('a retired product cannot be opened from code either', await B.page.evaluate(() => __ot.game.modules.merch.openProduct('34395132')), false);
@@ -298,7 +308,7 @@ const fits = async (name, page) => { const f = await fit(page); ok(`${name}: fit
   const miss = await Cx.page.evaluate(async () => { const g = __ot.game, m = g.modules.merch; __ot.give({ bones: 700 }); const pr = m.buyTwin('hat:pom-beanie'); await new Promise(r => setTimeout(r, 30)); [...document.querySelectorAll('#modalActions button')].find(b => b.textContent === 'Yes, get it').click(); const bought = await pr; g.ui.closeAll();
     return { loaded: m.loaded, err: !!m.loadError, n: m.products().length, bought, on: g.cosmetics.equipped('hat'), claim: m.debug.claim('KC-5555-0001', 'hat:flatbill').ok, shelves: Object.keys(m.places()).length, open: await m.openProduct('34460072') }; });
   ok('with merch.json missing (first run offline) the twins, the shelves and the claim still work, and no link can open', !miss.loaded && miss.err && miss.n === 0 && miss.bought === true && miss.on === 'hat:pom-beanie' && miss.claim === true && miss.shelves >= 4 && miss.open === false && Cx.popups.length === 0, JSON.stringify(miss));
-  await Cx.page.evaluate(() => __ot.game.modules.merch.open()); await waitModal(Cx.page, 'shop'); await Cx.page.click('.mgrown button:has-text("see the real gear")'); await gate(Cx.page, true); await waitModal(Cx.page, 'merch-real');
+  await Cx.page.evaluate(() => __ot.game.modules.merch.open()); await waitModal(Cx.page, 'shop'); await seeReal(Cx.page);
   ok('the real-gear list then says it could not be loaded and offers only the shop\'s home page', /could not be loaded/.test(await Cx.page.innerText('#modalBody')) && (await Cx.page.$$eval('.mreal', c => c.length)) === 0 && (await Cx.page.$$eval('#modalBody button', b => b.map(x => x.textContent))).join() === 'Go to the shop home page');
   ok('missing-file run: no outside request, no page errors', Cx.off.length === 0 && !Cx.errors.some(e => /pageerror/.test(e)), Cx.errors.slice(0, 2).join(' | '));
   await Cx.ctx.close();
@@ -308,7 +318,7 @@ const fits = async (name, page) => { const f = await fit(page); ok(`${name}: fit
   await L.page.evaluate(() => { __ot.give({ bones: 600 }); __ot.game.modules.merch.open('pets'); }); await waitModal(L.page, 'shop');
   await fits('KC Gear tab at 844 x 390', L.page); await L.page.screenshot({ path: path.join(OUT, '08-kc-gear-tab-844.png') });
   ok('opening from the pet shelf scrolls to the dog gear', await L.page.evaluate(() => { const h = document.querySelector('#modalBody .sech[data-shelf="pets"]'), b = document.getElementById('modalBody').getBoundingClientRect(), r = h.getBoundingClientRect(); return r.top >= b.top - 60 && r.top < b.bottom; }));
-  await L.page.click('.mgrown button:has-text("turn it on and see the real gear")'); await gate(L.page, true); await waitModal(L.page, 'merch-real');
+  await seeReal(L.page);
   eq('opened from a shelf, the real list starts with that shelf', await L.page.evaluate(() => document.querySelector('#modalBody .sech').dataset.shelf), 'pets');
   await fits('real-gear list at 844 x 390', L.page); await L.page.screenshot({ path: path.join(OUT, '09-real-gear-844.png') });
   await L.page.click('.mreal button'); await waitModal(L.page, 'merch-leaving'); await fits('leaving screen at 844 x 390', L.page); await L.page.screenshot({ path: path.join(OUT, '10-leaving-844.png') });

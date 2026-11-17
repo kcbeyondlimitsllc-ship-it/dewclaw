@@ -122,10 +122,11 @@ export function init(game) {
     if (!okd) return false;
     eco.grant({ items: [id] }, 'merch:' + t.shelf);
     if (isDecor(t)) { const U = den(), r = U && U.placeDecor ? U.placeDecor(id) : null; say(r === true ? `${t.name}: out by KC's den.` : `${t.name} is in the den's storage.`); }
-    else { C.equip(id); say(`KC is wearing the ${t.name}.`); }
+    else { C.equip(id); say(worn(t)); }
     game.shop.refresh(); return true;
   }
-  function wear(t, on) { if (on) { if (C.equip(t.id)) say(`KC is wearing the ${t.name}.`); } else C.unequip(t.slot); game.shop.refresh(); }
+  const isPaint = t => String(t.slot).startsWith('skin:'), worn = t => (isPaint(t) ? `The ${t.name} is on.` : `KC is wearing the ${t.name}.`);
+  function wear(t, on) { if (on) { if (C.equip(t.id)) say(worn(t)); } else C.unequip(t.slot); game.shop.refresh(); }
   function denToggle(t) { const U = den(); if (!U || !U.placeDecor) { say("Put it out from the Den tab.", ''); return; }
     if (U.decorOn && U.decorOn(t.id)) { U.removeDecor(t.id); say('Put away.', ''); } else { const r = U.placeDecor(t.id); if (r === true) say(`${t.name}: out by KC's den.`); else say(typeof r === 'string' ? r : 'There is no room at the den yet.', 'warn'); } game.shop.refresh(); }
 
@@ -134,8 +135,8 @@ export function init(game) {
     if (isDecor(t)) { const U = den(), on = !!(U && U.decorOn && U.decorOn(t.id));
       if (owned) { o.tag = on ? 'Out by the den' : claimed ? 'Yours (real gear)' : 'In den storage'; o.on = on; o.button = { label: on ? 'Put away' : 'Put out', primary: false, onClick: () => denToggle(t) }; }
       else { o.price = { bones: price(t.bones) }; o.button = { label: 'Get', onClick: () => buyTwin(t.id) }; }
-    } else { const on = C.equipped(t.slot) === t.id; o.onPreview = () => C.preview(t.id);
-      if (owned) { o.tag = on ? 'Wearing' : claimed ? 'Yours (real gear)' : 'Owned'; o.on = on; o.button = { label: on ? 'Take off' : 'Wear', primary: !on, onClick: () => wear(t, !on) }; }
+    } else { const on = C.equipped(t.slot) === t.id; o.onPreview = () => { C.preview(t.id); const S = game.modules.shop; if (S && S.peek) S.peek(); };
+      if (owned) { const paint = isPaint(t); o.tag = on ? (paint ? 'Painted on' : 'Wearing') : claimed ? 'Yours (real gear)' : 'Owned'; o.on = on; o.button = { label: on ? (paint ? 'Back to plain' : 'Take off') : paint ? 'Use this paint' : 'Wear', primary: !on, onClick: () => wear(t, !on) }; }
       else { o.price = { bones: price(t.bones) }; o.button = { label: 'Get', onClick: () => buyTwin(t.id) }; } }
     return ui.item(o);
   }
@@ -146,12 +147,14 @@ export function init(game) {
   const SPEND_OFF = 'The real-money shop is off on this device. A grown-up can turn it on in Settings.';
   const bigBtn = (label, onClick, cls = 'alt') => { const b = el('button', { type: 'button', class: 'btn ' + cls + ' mbig' }); b.textContent = label; b.addEventListener('click', () => { game.audio.sfx('ui'); onClick(); }); return b; };
 
-  /* one gate for the real-gear side. With the real-money switch off, the only way in is turning the switch on (which asks the gate itself). */
+  /* one gate for the real-gear side. With the real-money switch off nothing here opens and nothing here turns it on: a grown-up
+     does that in Settings (spec 4.4, 1), so "having a look" can never leave the device able to spend. */
   async function pass(reason) {
     if (unlocked) return true;
-    if (!game.grownUp.spending) return (await game.grownUp.setSpending(true)) && game.grownUp.spending;
+    if (!game.grownUp.spending) { say(SPEND_OFF, 'warn'); return false; }
     return ui.gate({ reason });
   }
+  const toSettings = () => { if (typeof ui.settings === 'function') ui.settings(); else say(SPEND_OFF, 'warn'); };
 
   function thumb(p, size) {
     const box = el('div', { class: 'mthumb' }), fallback = () => { box.classList.add('none'); box.innerHTML = ui.icon('paw', 28); };
@@ -258,14 +261,14 @@ export function init(game) {
     for (const s of SHELVES) { const list = live.filter(t => t.shelf === s.id), winter = s.seasonal; if (winter ? !winterOpen() : !list.length) continue;
       const h = ui.heading(s.title, s.where); h.dataset.shelf = s.id; pane.appendChild(h); if (s.id === focusShelf) focusEl = h;
       if (list.length) pane.appendChild(ui.grid(list.map(twinCard)));
-      if (winter) { pane.appendChild(ui.note('The winter shelf holds real ornaments and gift things. They are real-world items, so they are on the grown-ups side.')); pane.appendChild(bigBtn('Grown-ups: see the winter shelf', () => openReal('winter'))); } }
+      if (winter) { pane.appendChild(ui.note('The winter shelf holds real ornaments and gift things. They are real-world items, so they are on the grown-ups side.')); pane.appendChild(game.grownUp.spending ? bigBtn('Grown-ups: see the winter shelf', () => openReal('winter')) : ui.note('Ask a grown-up to turn on the shop. ' + SPEND_OFF)); } }
     if (gone.length) { pane.appendChild(ui.heading('Retired designs', 'Still here for bones, at the same price')); pane.appendChild(ui.grid(gone.map(twinCard))); }
     pane.appendChild(ui.note('Twins are inspired by the real designs and drawn in the game\'s own style. They belong to this save and cannot be traded.'));
 
     const gh = ui.heading('For grown-ups', `Real KC gear from the ${SHOP_NAME} shop, a separate website`); gh.dataset.shelf = 'grownups'; pane.appendChild(gh);
     const box = el('div', { class: 'mgrown' });
     if (game.grownUp.spending) { box.appendChild(ui.note('The real things cost real money and are bought on the shop\'s own website, not in the game. A grown-up question comes first.')); box.appendChild(bigBtn('Grown-ups: see the real gear', () => openReal(focusShelf))); }
-    else { box.appendChild(ui.note('Ask a grown-up to turn on the shop. ' + SPEND_OFF)); box.appendChild(bigBtn('Grown-ups: turn it on and see the real gear', () => openReal(focusShelf))); }
+    else { box.appendChild(ui.note('Ask a grown-up to turn on the shop. ' + SPEND_OFF)); box.appendChild(bigBtn('Grown-ups: open Settings', toSettings)); }
     box.appendChild(bigBtn('Grown-ups: claim a twin from a real order', () => openClaim()));
     pane.appendChild(box);
     if (focusEl) { const f = focusEl; requestAnimationFrame(() => { try { f.scrollIntoView({ block: 'start' }); } catch (e) { /* ignore */ } }); }

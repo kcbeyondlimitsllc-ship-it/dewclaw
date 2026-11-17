@@ -30,8 +30,9 @@ cd site/games/kc-open-trail && python3 -m http.server 8931
 
 ES modules need http(s); opening `index.html` from disk will not work.
 `?q=low|medium|high` forces a quality level, `?nosw` skips the service worker,
-`?debug=1` adds the debug hooks (`?debug=1&mock=1` together also give the
-store a pretend payment page for tests; neither works alone for that).
+`?debug=1` adds the debug hooks. `?debug=1&mock=1` together also give the
+store a pretend payment page for tests, but only when the game is served from
+`localhost` or `127.0.0.1`: on any other host the two words do nothing.
 
 ## Controls
 
@@ -94,7 +95,19 @@ contract between them and the core, and each module's public API, are in
   while the game is played, the Lantern Fund, the Town Fund and eight Trail
   Markers. Bones cosmetics, bakery treats, and gem cosmetics that always
   carry a bones price too. Every price is multiplied by one constant,
-  `ECON_SCALE` in `economy.js` (1.0).
+  `ECON_SCALE` in `economy.js` (1.0). It is the price knob only: mission
+  pay, tills, digs and loose bones do not move with it.
+- **Income** (measured with bots, see the notes at the top of `economy.js`
+  and in `missions.js`): bots that do one thing and nothing else earned far
+  more than spec 3.1 plans, so the sources are throttled: a loose bone comes
+  back after 50 to 60 minutes, a dig spot rests 30 minutes, fetch pays for
+  the first 6 fetches in any 10 minutes of play, Pop Deck pays only on the
+  move and at most 30 times in 10 minutes, and a finished mission pays its
+  job rate in full once in every 40 minutes of play (one extra run in
+  between pays a tenth, more pay 1 bone; a nap or a new game day does not
+  bring it round sooner). These throttles have not been re-measured with
+  long bot runs or with children; if income is still off, raise
+  `ECON_SCALE` (prices) or the windows above, not single prices.
 - **Shop** (`shop.js` and the tabs other modules register): nine tabs on one
   screen: Upgrades, Wardrobe, Rides, Den & Buddies, Businesses, Town, Trail
   Journal, KC Gear, Store. It opens from the pause menu and from prompts at

@@ -214,7 +214,7 @@ export function createVehicles(game) {
     else {
       const g = world.groundAt(r.x, r.z, r.y + 0.35);
       if (r.kind === 'skateboard') {
-        if (input.pressed.jump && !r.air) { r.vy = 6.2 * Math.sqrt(tn.pop); r.air = true; game.audio.sfx('jump'); bus.emit('trick', { kind: 'ollie', id: r.id }); }
+        if (input.pressed.jump && !r.air) { r.vy = 6.2 * Math.sqrt(tn.pop); r.air = true; game.audio.sfx('jump'); bus.emit('trick', { kind: 'ollie', id: r.id, speed: Math.abs(r.speed) }); }
         if (r.air) { r.vy -= 20 * dt; r.y += r.vy * dt; if (r.y <= g) { r.y = g; r.air = false; r.vy = 0; fx.burst('dust', r.x, g, r.z, 3); } } else if (g < r.y - 0.4) { r.air = true; r.vy = 0; } else r.y = lerp(r.y, g, damp(22, dt));
         r.roll = lerp(r.roll, -dyaw / dt * 0.12, damp(8, dt)); if (Math.abs(r.speed) > 6 && !r.air && Math.random() < dt * 10) fx.burst('dust', r.x, r.y, r.z, 1);
       } else { r.y = lerp(r.y, g, damp(14, dt)); r.roll = lerp(r.roll, -dyaw / dt * 0.04 * clamp(r.speed / 8, 0, 1), damp(5, dt)); if (Math.abs(r.speed) > 5 && surf !== 1 && Math.random() < dt * 8) fx.burst('dust', r.x - Math.sin(r.yaw) * 2.2, r.y, r.z - Math.cos(r.yaw) * 2.2, 1); }

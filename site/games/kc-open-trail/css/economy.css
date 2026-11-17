@@ -45,3 +45,7 @@
 .item:has(.prices .or) { flex-wrap:wrap; }
 .item:has(.prices .or) .side { flex:1 1 100%; flex-direction:row; justify-content:space-between; align-items:center; flex-wrap:wrap; }
 .sech[data-sec] { scroll-margin-top:64px; }
+/* Wardrobe: jump buttons to each rail (they wrap; nothing scrolls sideways) */
+.eco-jump { display:flex; flex-wrap:wrap; gap:8px; padding:2px 0 8px; margin:0 0 4px; }
+.eco-jump .btn { flex:0 1 auto; min-height:44px; padding:8px 14px; font-size:14px; white-space:nowrap; }
+.sech[data-sec] { scroll-margin-top:66px; }

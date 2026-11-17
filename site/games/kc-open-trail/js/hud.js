@@ -23,7 +23,8 @@ export function createHud(game) {
     bus.emit('toast', { text }); ui._clearBanner(); return t;
   };
   /* a toast and the district / mission banner must not sit on top of each other: the banner steps down below the toasts */
-  ui._clearBanner = () => { const b = $('banner'); if (!b.classList.contains('on')) return; b.style.top = ''; const tr = $('toasts').getBoundingClientRect(), br = b.getBoundingClientRect(); if (tr.height && br.height && br.top < tr.bottom + 6 && br.bottom > tr.top - 6) b.style.top = Math.round(tr.bottom + 10) + 'px'; };
+  ui._clearBanner = () => { const b = $('banner'); if (!b.classList.contains('on')) return; b.style.top = ''; /* the same goes for the objective and the run timer chip */
+    for (const e of [$('objective'), $('runTimer'), $('toasts')]) { if (e.hidden) continue; const r = e.getBoundingClientRect(), br = b.getBoundingClientRect(); if (r.height && br.height && br.top < r.bottom + 6 && br.bottom > r.top - 6) b.style.top = Math.round(r.bottom + 10) + 'px'; } };
   ui.banner = (title, sub) => { const b = $('banner'); b.innerHTML = (sub ? `<small>${sub}</small>` : '') + '<span></span>'; b.lastChild.textContent = title; b.classList.add('on'); ui._clearBanner(); clearTimeout(ui._bt); ui._bt = setTimeout(() => b.classList.remove('on'), 2600); };
   ui.fade = (mid, ms = 320) => { ui.fading = true; const f = $('fade'); f.classList.add('on'); setTimeout(() => { try { mid && mid(); } finally { setTimeout(() => { f.classList.remove('on'); ui.fading = false; }, 120); } }, ms); };
 
@@ -57,6 +58,15 @@ export function createHud(game) {
     if (ui.stack.length) show(ui.stack[ui.stack.length - 1]); else { modal.hidden = true; ui.modalOpen = false; ui.current = null; $('modalBody').textContent = ''; $('modalActions').textContent = ''; $('game').focus({ preventScroll: true }); }
   };
   ui.closeAll = () => { while (ui.stack.length) ui.closeModal(); };
+  ui.resetNotes = [];
+  /* keyboard focus stays inside an open screen: Tab from the last control goes to the first (and back), never to the HUD behind it */
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Tab' || !ui.modalOpen || modal.hidden) return;
+    const list = [...modal.querySelectorAll('button, input, select, textarea, a[href], [tabindex]:not([tabindex="-1"])')].filter(x => !x.disabled && !x.hidden && x.getClientRects().length);
+    if (!list.length) { e.preventDefault(); return; }
+    const first = list[0], last = list[list.length - 1], cur = document.activeElement, inside = modal.contains(cur);
+    if (e.shiftKey ? (!inside || cur === first) : (!inside || cur === last)) { e.preventDefault(); (e.shiftKey ? last : first).focus({ preventScroll: false }); }
+  }, true);
   ui.isPaused = () => ui.stack.some(m => m.pause !== false);
   ui.confirm = (title, text, yes = 'Yes', no = 'Cancel') => new Promise(res => { let done = false; ui.openModal({ id: 'confirm', title, html: `<p>${text}</p>`, actions: [{ label: no, onClick: () => { done = true; res(false); } }, { label: yes, primary: true, onClick: () => { done = true; res(true); } }], onClose: () => { if (!done) res(false); } }); });
   $('modalClose').addEventListener('click', () => { sfx(); ui.closeModal(); });
@@ -127,7 +137,12 @@ export function createHud(game) {
       else { const c = el('input', { type: 'checkbox', 'data-set': r.id }); c.checked = !!(r.get && r.get()); c.addEventListener('change', async () => { const want = c.checked; let ok = true; try { ok = (await (r.set && r.set(want))) !== false; } catch (e) { console.error(e); ok = false; } const now = r.get ? !!r.get() : ok ? want : !want; const live = document.querySelector(`[data-set="${r.id}"]`); if (live) live.checked = now; game.save.save(); }); row(r.label, c); }
     }
     const reset = el('button', { type: 'button', class: 'btn danger', style: 'margin-top:12px;width:100%' }); reset.textContent = 'Start over (erase save)';
-    reset.addEventListener('click', async () => { if (await ui.confirm('Start over?', 'This erases KC\'s bones, gems and everything she has found on this device.', 'Erase', 'Keep playing')) { game.save.reset(); location.reload(); } });
+    reset.addEventListener('click', async () => {
+      /* modules that keep something through a reset say so here (ui.resetNotes: [() => ({ text, gate }) | null]); anything bought with real money puts the grown-up gate first */
+      const notes = (ui.resetNotes || []).map(fn => { try { return fn(); } catch (e) { return null; } }).filter(Boolean);
+      if (notes.some(n => n.gate) && !(await ui.gate({ reason: 'Starting over erases this save. Things bought with real money are on this device, so a grown-up decides.' }))) return;
+      const text = 'This erases the bones, upgrades, missions, the things bought with bones or free gems, and everything KC has found on this device. It cannot be undone.' + notes.map(n => ' ' + ui.esc(n.text)).join('');
+      if (await ui.confirm('Start over?', text, 'Erase', 'Keep playing')) { game.save.reset(); location.reload(); } });
     b.appendChild(reset);
   }, actions: [{ label: 'Done', primary: true }] });
 
@@ -238,12 +253,14 @@ export function createHud(game) {
   const tlEl = $('tl'), tlb = () => { const r = tlEl.getBoundingClientRect(); if (r.height > 0) document.documentElement.style.setProperty('--tlb', Math.round(r.bottom) + 'px'); const cw = cp.clientWidth, ch = cp.clientHeight; if (cw && ch && (cp.width !== cw * 2 || cp.height !== ch * 2)) { cp.width = cw * 2; cp.height = ch * 2; } };
   if (typeof ResizeObserver !== 'undefined') new ResizeObserver(tlb).observe(tlEl); addEventListener('resize', tlb);
   /* first-run touch coach: says what each half of the screen does until the player has moved and looked (saved in flags.coached) */
-  const coach = $('coach'), coachDone = { move: false, look: false }; let coachOn = false, coachT = 0;
+  const coach = $('coach'), coachDone = { move: false, look: false }; let coachOn = false, coachT = 0, coachMoved = -1;
   const coachStart = () => { if (state.flags.coached) return; coachOn = true; coachT = 0; coach.classList.add('show'); };
   const coachTick = dt => { coachT += dt; const inp = game.input;
     if (!coachDone.move && Math.hypot(inp.moveX, inp.moveY) > 0.3) { coachDone.move = true; coach.querySelector('.cl').classList.add('done'); }
     if (!coachDone.look && Math.abs(inp.camX) + Math.abs(inp.camY) > 0.004) { coachDone.look = true; coach.querySelector('.cr').classList.add('done'); }
-    if ((coachDone.move && coachDone.look) || coachT > 40) { coachOn = false; setTimeout(() => coach.classList.remove('show'), 500); if (coachDone.move && coachDone.look) game.economy.setFlag('coached', true); } };
+    /* the camera follows by itself, so looking is optional: once she has moved the look hint gets 8 more seconds, and nothing stays past 20. Shown once per save. */
+    if (coachDone.move && coachMoved < 0) coachMoved = coachT;
+    if ((coachDone.move && coachDone.look) || (coachMoved >= 0 && coachT - coachMoved > 8) || coachT > 20) { coachOn = false; setTimeout(() => coach.classList.remove('show'), 500); if (coachDone.move || coachT > 20) game.economy.setFlag('coached', true); } };
 
   /* ---------- live readouts ---------- */
   const wB = $('wBones'), wG = $('wGems');
@@ -253,12 +270,12 @@ export function createHud(game) {
   bus.on('discover', e => { if (ui.started && game.rewards.zone) { game.economy.grant({ bones: game.rewards.zone }, 'discover'); } });
   /* rows the objective and the run timer take under the minimap column on a narrow portrait phone (the toasts hang below them) */
   const rows = () => { const o = $('objective'), t = $('runTimer'), de = document.documentElement.style; de.setProperty('--objh', o.hidden ? '0px' : (o.offsetHeight + 6) + 'px'); de.setProperty('--tmrh', t.hidden ? '0px' : (t.offsetHeight + 6) + 'px'); };
-  bus.on('objective', o => { const e = $('objective'); e.hidden = !o; if (o) { e.textContent = o.label || 'Objective'; } rows(); });
+  bus.on('objective', o => { const e = $('objective'); e.hidden = !o; if (o) { e.textContent = o.label || 'Objective'; } rows(); ui._clearBanner(); });
   /* where the objective is, or null for a text-only objective such as "Bark at the echo point  1/3" */
   const objPos = () => { const o = game.api.objective; if (!o) return null; const q = o.getPos ? o.getPos() : o; return q && Number.isFinite(q.x) && Number.isFinite(q.z) ? q : null; };
   ui.objPos = objPos;
   /* the run timer chip under the compass: ui.setTimer('Paper round  0:42', { warn: true }) ; ui.setTimer(null) hides it */
-  let timerText = null; ui.setTimer = (text, o = {}) => { const e = $('runTimer'); if (text == null) { if (timerText != null) { e.hidden = true; timerText = null; rows(); } return; } if (text !== timerText) { const was = e.hidden; e.textContent = timerText = text; e.hidden = false; if (was) rows(); } e.classList.toggle('warn', !!o.warn); };
+  let timerText = null; ui.setTimer = (text, o = {}) => { const e = $('runTimer'); if (text == null) { if (timerText != null) { e.hidden = true; timerText = null; rows(); } return; } if (text !== timerText) { const was = e.hidden; e.textContent = timerText = text; e.hidden = false; if (was) { rows(); ui._clearBanner(); } } e.classList.toggle('warn', !!o.warn); };
   let lastPrompt = '', clockT = 0, frame = 0, lastStam = -1, lastLow = null, stickWas = false;
   const stam = $('stamina'), stamBar = stam.querySelector('.bar i'), stickEl = $('stick'), knob = stickEl.firstChild;
   ui.update = dt => {

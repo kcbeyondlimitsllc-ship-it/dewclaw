@@ -8,7 +8,7 @@ import { dogMaterial } from './kc.js';
 export function createCollect(game) {
   const { world, bus, state, fx, kc, scene, api } = game, R = rng(8080), mat = dogMaterial();
   /* tunable by the economy agent */
-  game.rewards = { bone: 1, goldenBall: { gems: 1, bones: 10 }, dig: [3, 8], photo: 5, sign: 2, fetch: 2, zone: 3, digCooldown: 240, boneRespawn: [100, 140] };
+  game.rewards = { bone: 1, goldenBall: { gems: 1, bones: 10 }, dig: [3, 8], photo: 5, sign: 2, fetch: 2, zone: 3, digCooldown: 240, boneRespawn: [100, 140], fetchPaid: 0, fetchWindow: 600 };   /* fetchPaid: how many fetches pay in each fetchWindow seconds of play (0 = every one) */
   const C = { bones: [], balls: [], digs: [], photos: PHOTO_SPOTS, items: new Map() };
 
   /* ---------- bones ---------- */
@@ -34,7 +34,7 @@ export function createCollect(game) {
     g.tf(0, 1.36, 0.18, Math.PI / 2, 0, 0); g.cyl(0, 0, 0, 0.19, 0.17, 0.16, 10, D); g.cyl(0, 0.16, 0, 0.13, 0.13, 0.02, 10, 0x8fc4e8); g.notf();
     const m = new THREE.InstancedMesh(g.build(), mat, PHOTO_SPOTS.length); m.frustumCulled = false; m.name = 'photoSpots'; scene.add(m); const m4 = new THREE.Matrix4();
     PHOTO_SPOTS.forEach((p, i) => { let x = p.x + 2.2, z = p.z + 1.5; for (const [ox, oz] of [[2.2, 1.5], [-2.2, -1.5], [2.2, -1.5], [-2.2, 1.5], [0, 3], [0, -3], [3.4, 0], [-3.4, 0]]) { const tx = p.x + ox, tz = p.z + oz, th = world.heightAt(tx, tz); if (th > WATER_Y + 0.2 && !world.blockedAt(tx, tz, th, 0.9) && world.groundAt(tx, tz, 200) < th + 0.05) { x = tx; z = tz; break; } } p.mx = x; p.mz = z; m4.makeRotationY(i); m4.setPosition(x, world.groundAt(x, z, 200), z); m.setMatrixAt(i, m4);
-      api.addInteractable({ id: 'photo:' + p.id, kind: 'photoSpot', x, z, r: 2.6, label: 'Photo spot: ' + p.name, icon: 'camera', onInteract: () => game.ui.photoMode(true) }); }); }
+      api.addInteractable({ id: 'photo:' + p.id, kind: 'photoSpot', x, z, r: 2.6, label: 'Photo spot: ' + p.name, icon: 'camera', enabled: () => !(game.travel && game.travel.blocked) /* not while a mission is on: its own prompt (the bell, a giver) must win; the camera button still works */, onInteract: () => game.ui.photoMode(true) }); }); }
   bus.on('photoTaken', e => {
     for (const p of PHOTO_SPOTS) if (Math.hypot(kc.pos.x - p.x, kc.pos.z - p.z) < 14) { const first = !state.collected.photos.includes(p.id); if (first) { state.collected.photos.push(p.id); game.economy.grant({ bones: game.rewards.photo }, 'photo'); game.ui.toast(`Photo spot found: ${p.name}  +${game.rewards.photo} bones`, { icon: 'camera', kind: 'good' }); } bus.emit('pickup', { kind: 'photo', id: p.id, name: p.name, first, value: first ? game.rewards.photo : 0, x: p.x, z: p.z }); return; }
   });
@@ -64,7 +64,9 @@ export function createCollect(game) {
     return it;
   };
   bus.on('drop', e => { const it = e.item; if (!it || !C.items.has(it.id)) return; it.held = false; it.x = e.x; it.z = e.z; it.y = Math.max(world.groundAt(e.x, e.z, kc.pos.y + 0.6), WATER_Y - 0.05) + 0.14; scene.add(it.mesh); it.mesh.position.set(it.x, it.y, it.z); it.mesh.scale.setScalar(it.scale); });
-  bus.on('carry', e => { const it = e.item; if (it && it.thrown) { it.thrown = false; state.stats.fetches = (state.stats.fetches || 0) + 1; game.economy.grant({ bones: game.rewards.fetch }, 'fetch'); fx.burst('spark', kc.pos.x, kc.pos.y + 0.8, kc.pos.z, 6); bus.emit('fetch', { id: it.id, value: game.rewards.fetch }); } });
+  bus.on('carry', e => { const it = e.item; if (it && it.thrown) { it.thrown = false; state.stats.fetches = (state.stats.fetches || 0) + 1; if (fetchT - fetchT0 >= (+game.rewards.fetchWindow || 600)) { fetchT0 = fetchT; fetchN = 0; } const cap = +game.rewards.fetchPaid || 0, value = !cap || fetchN < cap ? game.rewards.fetch : 0; fetchN++;
+    if (value) game.economy.grant({ bones: value }, 'fetch'); fx.burst('spark', kc.pos.x, kc.pos.y + 0.8, kc.pos.z, 6); bus.emit('fetch', { id: it.id, value }); } });
+  let fetchT = 0, fetchT0 = 0, fetchN = 0; bus.on('tick', e => { fetchT += e.dt; });
   C.ball = api.addCarriable({ id: 'kc-ball', kind: 'ball', label: 'ball', x: SPAWN.x + 5, z: SPAWN.z - 0.5 });
   /* a person KC drops her ball next to will throw it for her */
   bus.on('drop', e => { if (e.kind !== 'ball' && e.item?.kind !== 'ball') return; for (const p of game.npcs.peds) if (p.parts.root.visible && Math.hypot(p.x - e.x, p.z - e.z) < 3.4) { setTimeout(() => { const it = e.item; if (it.held || it.flying) return; for (let i = 0; i < 10; i++) { const a = Math.random() * TAU, d = 11 + Math.random() * 7, tx = it.x + Math.sin(a) * d, tz = it.z + Math.cos(a) * d, h = world.heightAt(tx, tz); if (h > WATER_Y + 0.2 && !world.blockedAt(tx, tz, h, 1)) { it.throwTo(tx, tz); p.state = 'greet'; p.timer = 1.2; game.audio.sfx('jump'); game.ui.toast('Fetch!', { icon: 'ball' }); bus.emit('throw', { id: it.id, by: p.id }); break; } } }, 700); return; } });

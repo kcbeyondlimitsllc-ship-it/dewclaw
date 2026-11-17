@@ -38,7 +38,7 @@ const MISSIONS = [
     run(c) {
       const { game } = c, stops = ['records', 'pets', 'tailor', 'bakery', 'picturehouse', 'cafe', 'toys', 'hardware', 'gallery', 'diner'].map(id => { const d = game.place.door(id, 2.2); return { x: d.x, z: d.z, r: 3.2, label: d.building.sign }; });
       c.note('Deliver the morning papers');
-      c.timed({ label: 'Paper round', seconds: 80, checkpoints: stops, failText: 'The shops opened before the last paper landed. Wren has a fresh bundle ready.',
+      c.timed({ label: 'Paper round', seconds: 100, checkpoints: stops, failText: 'The shops opened before the last paper landed. Wren has a fresh bundle ready.',
         onCheckpoint: i => { c.say('Paper on the mat: ' + stops[i].label, { icon: 'paw', ms: 1600 }); c.puff(stops[i].x, stops[i].z); },
         onFinish: r => (r.ok ? c.win({ time: r.time }) : r.reason === 'time' && c.fail()) });
     } },
@@ -269,6 +269,7 @@ const TASKS = {
   explore: { ev: 'enterZone', ok: (e, t) => { if (!e.district || (t.seen || (t.seen = [])).includes(e.id)) return false; t.seen.push(e.id); return true; }, w: [8, 12], text: n => `Pass through ${n} different districts` }
 };
 const WEEKLY_PAY = { bones: 50, bonus: 50 };
+export const JOB_WINDOW = 40 * 60, JOB_EXTRA = 0.1;   /* seconds of play between full pays for one job; what one extra run in between pays */
 function seeded(str) { let h = 1779033703 ^ str.length; for (let i = 0; i < str.length; i++) { h = Math.imul(h ^ str.charCodeAt(i), 3432918353); h = (h << 13) | (h >>> 19); } let a = h >>> 0; return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 const two = n => String(n).padStart(2, '0');
 const weekKey = d => { const t = new Date(d.getFullYear(), d.getMonth(), d.getDate()); t.setDate(t.getDate() + 3 - ((t.getDay() + 6) % 7)); const y = t.getFullYear(), w1 = new Date(y, 0, 4); return `${y}-W${two(1 + Math.round(((t - w1) / 864e5 - 3 + ((w1.getDay() + 6) % 7)) / 7))}`; };
@@ -277,16 +278,25 @@ function makeTasks(key) { const r = seeded('kc-trail-' + key), pool = Object.key
 export function init(game) {
   const { bus, kc, world, scene } = game, ui = game.ui, place = game.place;
   if (typeof document !== 'undefined' && !document.querySelector('link[data-kc-missions]')) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'css/missions.css'; l.setAttribute('data-kc-missions', '1'); document.head.appendChild(l); }
-  const data = game.moduleData('missions', { done: {}, best: {}, paidDay: {}, bones: 0, runs: 0, weekly: null, way: null, ferry: false });
+  const data = game.moduleData('missions', { done: {}, best: {}, paidAt: {}, extra: {}, clock: 0, bones: 0, runs: 0, weekly: null, way: null, ferry: false });
+  delete data.paidDay; /* older saves: full pay used to follow the game day */
   delete data.daily; /* older saves: the daily sniff-outs moved to the economy module */
-  for (const k of ['done', 'best', 'paidDay']) if (!data[k] || typeof data[k] !== 'object') data[k] = {};
+  for (const k of ['done', 'best']) if (!data[k] || typeof data[k] !== 'object') data[k] = {};
   const defs = [...MISSIONS, ...ACTIVITIES.map(a => ({ ...a, fest: true }))], byId = new Map(defs.map(d => [d.id, d])), givers = new Map();
   let active = null, now = () => new Date();
   const festOn = () => !!game.economy.getFlag('festival');
   const available = d => !d.fest || festOn();
-  const scale = () => { const e = game.modules.economy, s = Number((e && (e.ECON_SCALE ?? e.scale)) ?? game.rewards.mission ?? 1); return Number.isFinite(s) && s > 0 ? s : 1; };
-  /* what the next finish pays: the first-time reward once, then the job rate (in full once a game day, 40% for extra runs that day) */
-  const pay = d => { const s = scale(); if (!data.done[d.id]) return Math.round(d.reward * s); return Math.max(1, Math.round(d.again * s * (data.paidDay[d.id] === world.day ? 0.4 : 1))); };
+  /* Mission pay is income, so ECON_SCALE (the price knob, spec 3.3) does not touch it: raising prices must not raise pay with them.
+     What the next finish pays: the first-time reward once, then the job rate. A job pays in full once in every JOB_WINDOW
+     seconds of play (counted on this module's own clock, so a nap or the device clock cannot bring it round sooner); in
+     between, one extra run pays a tenth and any more pay a single bone. Measured before this rule: one 20-second job
+     replayed back to back paid about 4,700 bones an hour. */
+  if (!Number.isFinite(data.clock) || data.clock < 0) data.clock = 0;
+  for (const k of ['paidAt', 'extra']) if (!data[k] || typeof data[k] !== 'object') data[k] = {};
+  for (const k of Object.keys(data.paidAt)) if (!(Number.isFinite(data.paidAt[k]) && data.paidAt[k] <= data.clock)) delete data.paidAt[k];
+  bus.on('tick', e => { if (e && e.dt > 0 && e.dt < 1) data.clock += e.dt; });
+  const fullPay = d => !(d.id in data.paidAt) || data.clock - data.paidAt[d.id] >= JOB_WINDOW;
+  const pay = d => { if (!data.done[d.id]) return Math.round(d.reward); if (fullPay(d)) return Math.max(1, Math.round(d.again)); return (data.extra[d.id] || 0) < 1 ? Math.max(1, Math.round(d.again * JOB_EXTRA)) : 1; };
 
   /* ---------- the mission context ---------- */
   function makeCtx(def) {
@@ -346,7 +356,7 @@ export function init(game) {
     const n = data.done[d.id] || 0, best = data.best[d.id];
     return `<p class="ms-where">${esc(d.fest ? 'Fog Bell Festival' : 'Mission ' + d.n + ' of 16')} · ${esc(d.place)}</p><p>${esc(d.story)}</p><ol class="ms-steps">${d.steps.map(s => `<li>${esc(s)}</li>`).join('')}</ol>` +
       `<p class="ms-pay">${n ? 'This run pays' : 'Reward'} ${ui.price({ bones: pay(d) + 0 })}${d.timed ? '<span class="ms-chip">Against the clock</span>' : ''}</p>` +
-      (n ? `<p class="ms-small">Done ${n} time${n === 1 ? '' : 's'}${best ? ' · best ' + fmtBest(d, best) : ''}. A job pays in full once each game day, and a little for extra runs the same day.</p>` : `<p class="ms-small">${d.timed ? 'If the clock wins, nothing is lost. You can go again straight away.' : 'No clock. Take all the time you like.'}</p>`) + extra;
+      (n ? `<p class="ms-small">Done ${n} time${n === 1 ? '' : 's'}${best ? ' · best ' + fmtBest(d, best) : ''}. A job pays in full once in every 40 minutes of play, and only a little for extra runs in between.</p>` : `<p class="ms-small">${d.timed ? 'If the clock wins, nothing is lost. You can go again straight away.' : 'No clock. Take all the time you like.'}</p>`) + extra;
   }
   const fmtBest = (d, v) => (d.score ? v + ' ' + d.score : Math.floor(v / 60) + ':' + two(Math.floor(v % 60)));
   function offer(d) {
@@ -374,8 +384,9 @@ export function init(game) {
         actions: [{ label: 'Try again', primary: true, onClick: () => retry(d.id) }, { label: 'Later' }] });
       return;
     }
-    const first = !data.done[d.id], bones = pay(d) + Math.max(0, Math.round(c.bonus || 0)), got = game.economy.grant({ bones }, (d.fest ? 'activity:' : 'mission:') + d.id);
-    data.done[d.id] = (data.done[d.id] || 0) + 1; data.paidDay[d.id] = world.day; data.bones += got.bones; data.runs++;
+    const first = !data.done[d.id], bones = pay(d) + (first || fullPay(d) ? Math.max(0, Math.round(c.bonus || 0)) : 0), got = game.economy.grant({ bones }, (d.fest ? 'activity:' : 'mission:') + d.id);
+    if (first || fullPay(d)) { data.paidAt[d.id] = data.clock; data.extra[d.id] = 0; } else data.extra[d.id] = (data.extra[d.id] || 0) + 1;
+    data.done[d.id] = (data.done[d.id] || 0) + 1; data.bones += got.bones; data.runs++;
     const v = d.score ? o.score : o.time; if (Number.isFinite(v) && (data.best[d.id] == null || (d.score ? v > data.best[d.id] : v < data.best[d.id]))) data.best[d.id] = +(+v).toFixed(1);
     mark(d); game.audio.sfx('reward'); game.fx.burst('spark', kc.pos.x, kc.pos.y + 1.2, kc.pos.z, 22);
     game.banner(d.fest ? 'Well played!' : 'Mission complete', d.name); game.toast(`+${got.bones} bones: ${d.name}`, { icon: 'bone', kind: 'gold', ms: 3600 });
@@ -389,12 +400,14 @@ export function init(game) {
   /* ---------- "show me the way" ---------- */
   function showWay(id) { const d = byId.get(id); if (!d || !available(d)) return false; if (active) { reAim(); return true; } data.way = id; game.setObjective({ x: d.at.x, z: d.at.z, label: 'To ' + d.giver.name + ': ' + d.name, color: BLUE }); game.toast('The way to ' + d.name + ' is on the compass and the map.', { icon: 'map' }); return true; }
   function reAim() { if (!active) return; const c = active; if (game.run && game.run.total) return; const at = c.at, label = c.label; c.at = undefined; c.label = undefined; if (label) c.goal(label, at, c.need); }
-  bus.on('second', () => { if (!data.way || active) return; const d = byId.get(data.way); if (!d || !available(d) || dist(d.at, kc.pos) < 7) { data.way = null; if (!active) game.setObjective(null); } else if (!game.api.objective) game.setObjective({ x: d.at.x, z: d.at.z, label: 'To ' + d.giver.name + ': ' + d.name, color: BLUE }); });
+  bus.on('second', () => { if (!data.way || active) return; const d = byId.get(data.way); if (!d || !available(d) || dist(d.at, kc.pos) < 2.6) { data.way = null; if (!active) game.setObjective(null); } else if (!game.api.objective) game.setObjective({ x: d.at.x, z: d.at.z, label: 'To ' + d.giver.name + ': ' + d.name, color: BLUE }); });
 
   /* ---------- the shuttle boat ---------- */
   const ferryOk = to => data.ferry || (active && active.def.id === 'shuttle' && (to === 'marina' || kc.carried.some(i => i.id === 'ms:shuttle:bag')));
-  function ferry(to) { const p = FERRY[to]; if (!p || ui.fading) return false; game.audio.sfx('splash'); ui.fade(() => { kc.teleport(p.x, p.z, p.yaw); game.cam.yaw = p.yaw; game.cam.snap(); for (const f of game.npcs.followers) { f.x = kc.pos.x - 1.2; f.z = kc.pos.z - 1.2; } game.toast('The shuttle puts in at ' + p.name + '.', { icon: 'flag' }); bus.emit('ferry', { to }); }); return true; }
-  for (const [from, to] of [['marina', 'island'], ['island', 'marina']]) place.marker({ id: 'ferry:' + from, x: FERRY[from].x, z: FERRY[from].z, label: 'Shuttle boat', icon: 'flag', color: BLUE, prompt: 'Ride the shuttle to ' + FERRY[to].name, r: 3, prio: 4, enabled: () => ferryOk(to) && !kc.ride, onInteract: () => ferry(to) });
+  /* after a crossing KC stands on the return marker: it stays quiet until she has walked off it, so a habit tap does not send her straight back */
+  let landed = null; bus.on('tick', () => { if (landed && dist(FERRY[landed], kc.pos) > 5) landed = null; });
+  function ferry(to) { const p = FERRY[to]; if (!p || ui.fading) return false; game.audio.sfx('splash'); ui.fade(() => { kc.teleport(p.x, p.z, p.yaw); game.cam.yaw = p.yaw; game.cam.snap(); for (const f of game.npcs.followers) { f.x = kc.pos.x - 1.2; f.z = kc.pos.z - 1.2; } game.toast('The shuttle puts in at ' + p.name + '.', { icon: 'flag' }); landed = to; bus.emit('ferry', { to }); }); return true; }
+  for (const [from, to] of [['marina', 'island'], ['island', 'marina']]) place.marker({ id: 'ferry:' + from, x: FERRY[from].x, z: FERRY[from].z, label: 'Shuttle boat', icon: 'flag', color: BLUE, prompt: 'Ride the shuttle to ' + FERRY[to].name, r: 3, prio: 4, enabled: () => ferryOk(to) && !kc.ride && landed !== from, onInteract: () => ferry(to) });
 
   /* ---------- trail tasks ---------- */
   function ensureTasks() { const wk = weekKey(now()); if (data.weekly && data.weekly.key === wk && Array.isArray(data.weekly.tasks)) return false; data.weekly = makeTasks(wk); return true; }
@@ -404,9 +417,9 @@ export function init(game) {
   function bump(type, e) {
     const set = data.weekly; if (!set) return;
     for (const t of set.tasks) { const T = TASKS[t.type]; if (!T || T.ev !== type || t.done || (T.ok && !T.ok(e, t))) continue; t.have = Math.min(t.n, t.have + 1); if (t.have < t.n) continue; t.done = true;
-      const got = game.economy.grant({ bones: Math.round(WEEKLY_PAY.bones * scale()) }, 'weekly');
+      const got = game.economy.grant({ bones: WEEKLY_PAY.bones }, 'weekly');
       game.toast(`Trail task done: ${taskText(t)}  +${got.bones} bones`, { icon: 'paw', kind: 'good', ms: 3600 }); game.audio.sfx('reward'); bus.emit('taskDone', { span: 'weekly', type: t.type, bones: got.bones }); }
-    if (!set.paid && set.tasks.length && set.tasks.every(t => t.done)) { set.paid = true; const got = game.economy.grant({ bones: Math.round(WEEKLY_PAY.bonus * scale()) }, 'weekly:all');
+    if (!set.paid && set.tasks.length && set.tasks.every(t => t.done)) { set.paid = true; const got = game.economy.grant({ bones: WEEKLY_PAY.bonus }, 'weekly:all');
       game.toast(`All three trail tasks done this week!  +${got.bones} bones`, { icon: 'bone', kind: 'gold', ms: 4200 }); bus.emit('tasksAllDone', { span: 'weekly', ...got }); }
   }
   ensureTasks(); let taskT = 0; bus.on('second', () => { if (++taskT >= 30) { taskT = 0; ensureTasks(); } });
@@ -427,7 +440,7 @@ export function init(game) {
     if (active && !!active.def.fest === fest) { p.appendChild(ui.heading('Now playing', active.def.giver.name + ' is counting on KC')); p.appendChild(ui.grid([row(active.def)])); }
     if (todo.filter(d => !active || active.def !== d).length) { p.appendChild(ui.heading(fest ? 'Festival activities' : 'To do', fest ? 'On the plaza and around old town' : 'Find the giver on the map, or let the compass show the way')); p.appendChild(ui.grid(todo.filter(d => !active || active.def !== d).map(row))); }
     if (done.filter(d => !active || active.def !== d).length) { p.appendChild(ui.heading('Done: play again as a job', `${done.length} of ${list.length} finished`)); p.appendChild(ui.grid(done.filter(d => !active || active.def !== d).map(row))); }
-    p.appendChild(ui.note('Missions pay bones, and bones only ever come from playing. A job pays in full once each game day and a little for extra runs that day.'));
+    p.appendChild(ui.note('Missions pay bones, and bones only ever come from playing. A job pays in full once in every 40 minutes of play and only a little for extra runs in between.'));
   }
   function paneTasks(p) {
     ensureTasks();
@@ -436,7 +449,7 @@ export function init(game) {
       p.appendChild(box); p.appendChild(ui.note(note, good ? 'good' : '')); };
     const so = sniffOuts(), w = data.weekly;
     if (so) block(so.goals.map(g => ({ text: g.text, have: g.have, n: g.need, done: g.done })), "Today's sniff-outs", 'Three little things to do, new each day', '', so.paid ? `All three done: ${so.gems} gems are in the pouch. Three new ones tomorrow.` : `Do all three for ${so.gems} gems. New ones come tomorrow either way.`, so.paid);
-    block(w.tasks.map(t => ({ text: taskText(t), have: t.have, n: t.n, done: t.done })), "This week's trail tasks", 'Three bigger ones, new each Monday', ui.price({ bones: Math.round(WEEKLY_PAY.bones * scale()) }), w.paid ? 'All three done. The bonus bones are in the pouch. Three new ones on Monday.' : `Do all three for ${Math.round(WEEKLY_PAY.bonus * scale())} bones more. Skip a week whenever you like.`, w.paid);
+    block(w.tasks.map(t => ({ text: taskText(t), have: t.have, n: t.n, done: t.done })), "This week's trail tasks", 'Three bigger ones, new each Monday', ui.price({ bones: WEEKLY_PAY.bones }), w.paid ? 'All three done. The bonus bones are in the pouch. Three new ones on Monday.' : `Do all three for ${WEEKLY_PAY.bonus} bones more. Skip a week whenever you like.`, w.paid);
     p.appendChild(ui.note('Trail tasks never pile up and there is no streak to keep. Miss a day or a week and nothing is lost.'));
   }
   let handle = null; const redraw = () => { if (handle && ui.current && ui.current.id === 'missions') handle.refresh(); };

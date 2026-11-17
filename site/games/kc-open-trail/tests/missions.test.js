@@ -110,8 +110,10 @@ async function runMission(page, id, label, o = {}) {
   await page.click('.tabpane .item[data-item="ms-creek"] .btn');
   const way = await M(page, (m, ot) => ({ modal: ot.state().modal, obj: ot.game.api.objective, way: m.data.way }));
   ok('journal: "Show me the way" closes the screen and points the compass / map objective at the giver', !way.modal && way.obj && Math.abs(way.obj.x - (-384)) < 1 && way.way === 'creek', JSON.stringify(way.obj));
-  const arrive = await M(page, (m, ot) => { ot.teleport(-386, -116, 0); ot.step(80); return { obj: ot.game.api.objective, way: m.data.way }; });
-  ok('journal: the waypoint clears itself on arrival', !arrive.obj && !arrive.way);
+  const near = await M(page, (m, ot) => { const d = m.list().find(x => x.id === 'creek'); ot.teleport(d.x + 4.5, d.z, 0); ot.step(80); return { obj: !!ot.game.api.objective, way: m.data.way, prompt: ot.state().prompt }; });
+  ok('journal: 4.5 m from the giver, before the talk prompt shows, the pointer is still up', near.obj && near.way === 'creek' && !/Talk to/.test(near.prompt || ''), JSON.stringify(near));
+  const arrive = await M(page, (m, ot) => { const d = m.list().find(x => x.id === 'creek'); ot.teleport(d.x + 1.4, d.z + 1.4, 0); ot.step(80); return { obj: ot.game.api.objective, way: m.data.way, prompt: ot.state().prompt }; });
+  ok('journal: the waypoint clears itself on arrival, where the talk prompt is showing', !arrive.obj && !arrive.way && /Talk to/.test(arrive.prompt || ''), JSON.stringify(arrive));
   ok('pause menu: a Missions entry exists', await page.evaluate(() => __ot.game.ui.menuItems.some(i => i.id === 'missions')));
 
   /* ---------- kind failure: run out the clock on the paper round, then retry from the modal ---------- */
@@ -148,11 +150,15 @@ async function runMission(page, id, label, o = {}) {
 
   /* ---------- replay pay ---------- */
   if (!ONLY || ONLY === 'creek') {
-    await page.evaluate(() => { __ot.game.world.day += 1; });
-    const a = await runMission(page, 'creek', 'replay: Creek Chase again (new game day)');
-    ok('replay: a finished mission pays the job rate (50) on a new game day', a && a.pays === 50 && a.got === 50, a && `${a.pays}`);
-    const b = await runMission(page, 'creek', 'replay: Creek Chase a third time (same game day)');
-    ok('replay: extra runs on the same game day pay 40% (20), and the card says so', b && b.pays === 20 && b.got === 20, b && `${b.pays}`);
+    await page.evaluate(() => { __ot.game.modules.missions.data.clock += 40 * 60; });
+    const a = await runMission(page, 'creek', 'replay: Creek Chase again (40 minutes of play later)');
+    ok('replay: a finished mission pays the job rate (50) once 40 minutes of play have passed', a && a.pays === 50 && a.got === 50, a && `${a.pays}`);
+    const b = await runMission(page, 'creek', 'replay: Creek Chase a third time (straight away)');
+    ok('replay: one extra run in between pays a tenth (5), and the card says so', b && b.pays === 5 && b.got === 5, b && `${b.pays}`);
+    await page.evaluate(() => { __ot.game.world.day += 3; __ot.setTime(23.9); __ot.step(60); });
+    const c3 = await runMission(page, 'creek', 'replay: Creek Chase a fourth time (after a new game day and a nap)');
+    ok('replay: any more runs pay 1 bone, and a new game day or a nap does not bring full pay round sooner', c3 && c3.pays === 1 && c3.got === 1, c3 && `${c3.pays}`);
+    ok('replay: mission pay does not move with ECON_SCALE (the price knob)', await page.evaluate(() => { const m = __ot.game.modules.missions, e = __ot.game.economy, was = e.ECON_SCALE, before = m.list().map(d => d.pays).join(); e.ECON_SCALE = 2; const after = m.list().map(d => d.pays).join(); e.ECON_SCALE = was; return before === after; }));
   }
 
   /* ---------- a mission can be set aside ---------- */

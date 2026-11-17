@@ -120,7 +120,7 @@ Only when all of that works: repeat 3.1 in **live mode**, put the live ids in bo
 
 - `node worker/test.js` runs the worker tests with Stripe faked: every SKU, replays, unknown SKUs, tampered amounts, the device check and the Trail Key.
 - From `site/games/kc-open-trail`: `NODE_PATH=$(npm root -g) node tests/store.test.js` runs the game in a real browser, including one section against the real worker code with Stripe faked.
-- A developer can try the whole store without Stripe by opening the game with `?debug=1&mock=1` at the end of the address. The screen then says "TEST MODE" and no money moves. Without `?debug=1` this mode does not exist, so a player cannot reach it.
+- A developer can try the whole store without Stripe by opening the game with `?debug=1&mock=1` at the end of the address. The screen then says "TEST MODE" and no money moves. This mode exists only when the game is served from a developer's own machine (`localhost` or `127.0.0.1`); on the live site the two words do nothing, so a player cannot reach it.
 
 ---
 
@@ -129,6 +129,10 @@ Only when all of that works: repeat 3.1 in **live mode**, put the live ids in bo
 There is no automatic link between Stripe and a player's save. Refunds are done by hand in the Stripe Dashboard.
 
 - The store screen promises: **unused gems are refunded on request within 14 days of purchase.** The game has no server-side balance, so you cannot check whether the gems were used. In practice you take the buyer's word. Decide whether you are comfortable with that; for these amounts it is usually cheaper than arguing.
+- **Currency.** The worker asks Stripe to charge in US dollars only (`adaptive_pricing[enabled]=false` on the checkout) and the claim accepts nothing but the catalogue price in US dollars. This was tested against a pretend Stripe, not the real one: before opening the store, make one real test-mode purchase from a non-US card or address and check that the item arrives. If Stripe still shows a local-currency price, also turn Adaptive Pricing off in the Stripe dashboard.
+- **A payment whose return link opens somewhere else** (another browser, a private window, an in-app browser): nothing is added there. The game that started the payment has written the payment's id down, so the grown-up opens the game where Pay was pressed, then Store, "Finish adding it". If that browser's data was wiped in between, the item cannot be added by the game: refund the payment in Stripe.
+- **Trail Keys cannot be switched off from the game.** A key works on any number of devices. After a refund or a leaked key, delete the record `otkey:<KEY>` in the worker's KV store by hand; devices that already restored keep their items.
+- **Two requests at the same moment.** Cloudflare KV has no transactions. The worker now handles claims of one payment, and restore tries from one address, one at a time inside a running copy of itself, and a Trail Key is worked out from the payment (not drawn at random), so a double claim gives one key. Two separate copies of the worker could still each count a restore try; the 20-a-day limit is a brake, not a wall.
 - A refund does not remove anything from the game. That is deliberate: **never lock or damage a save over a refund or a dispute.** The store screen says so.
 - To find a payment, ask for the email address used on Stripe's page, or the date and amount from the game's purchase journal.
 - Because the save lives on the device, a determined person can edit it and give themselves gems. Nothing of real value can be taken that way; do not build anything on the assumption that a gem balance is trustworthy.

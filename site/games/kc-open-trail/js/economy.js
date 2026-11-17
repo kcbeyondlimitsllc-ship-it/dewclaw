@@ -19,11 +19,18 @@ export const ECON_SCALE = 1.0;
 /* Seconds before a picked-up loose bone comes back (the core's default is 100 to 140). Set at integration after a bot measured income
    against spec 3.1 (about 150 loose bones an hour early on): a player who only takes bones on her path earned about 170 an hour,
    one who steps up to 8 m aside about 450, and one who does nothing but chase bones about 1,480, more than a repeatable job pays.
-   A bone now takes most of a game day (12 minutes) to return; a first pass through any place is unchanged. Measured again with
-   this value: about 170 (path only), 220 (8 m aside) and 1,070 (nothing but bones, about what repeatable jobs pay). If playtest
+   With 600 to 780 seconds that became about 170 (path only), 220 (8 m aside) and 1,070 (nothing but bones); the cross-review then
+   raised it again (below). If playtest
    shows bone-chasing still beats jobs, thin the bones in data.js or raise this further. This is not ECON_SCALE: prices and
    mission pay are untouched. */
-export const BONE_RESPAWN = [600, 780];
+export const BONE_RESPAWN = [3000, 3600];
+/* Set at the cross-review after a second bot run (see README, "Income"): a bot that does nothing but one thing earned, per hour,
+   about 2,000 from loose bones on a fresh save, 770 from dig spots (4,000 with the late kit) and 780 from fetch, against spec 3.1's
+   150 / 250 / 50. So: a loose bone now takes 50 to 60 minutes to come back (the 770 bones in the world are worth about 800 an hour
+   to someone who sweeps the whole map and nothing else; a first pass is unchanged), a dig spot rests for 30 minutes, and fetch
+   pays bones for the first 6 fetches in every 10 minutes of play (it stays a game after that; it just pays nothing).
+   None of this is ECON_SCALE: prices are untouched. */
+export const DIG_COOLDOWN = 1800, FETCH_PAID = 6, FETCH_WINDOW = 600;
 export const BONES_PER_GEM = 50;          /* any gem price can be paid in bones at this rate; never the other way round */
 export const GEM_PACK = { gems: 80, usd: 0.99 };   /* the smallest pack: the rate behind every "about $X" label */
 export const UNDO_MS = 10 * 60 * 1000;    /* a gem purchase can be undone for ten minutes */
@@ -54,7 +61,7 @@ function buildLadders() {
     L(11, 'camera', 'camera', 'Trail Camera', [250, 700, 1800], ['6 photo frames', '5 colour filters and zoom', 'Stickers, 4 KC poses and a photo wall in the den'], { type: 'camera' }, { text: 'More to do in photo mode.', icon: 'camera' }),
     L(12, 'wheels', 'rides', 'Smooth Wheels', [200, 500, 1200], ['Top speed +8%', 'Top speed +16%', 'Top speed +24%'], { type: 'tune', kind: 'skateboard', key: 'max', v: [1.08, 1.16, 1.24] }, { ride: 'skateboard', text: 'Every skateboard rolls faster.', where: 'Channel Cyclery' }),
     L(13, 'trucks', 'rides', 'Carving Trucks', [200, 500, 1200], ['Turning +10%', 'Turning +20%', 'Turning +30%'], { type: 'tune', kind: 'skateboard', key: 'turn', v: [1.1, 1.2, 1.3] }, { ride: 'skateboard', text: 'Every skateboard turns tighter.', where: 'Channel Cyclery' }),
-    L(14, 'popdeck', 'rides', 'Pop Deck', [200, 500, 1200], ['Each ollie pays 1 bone', 'Each ollie pays 2 bones', 'Each ollie pays 3 bones'], { type: 'trick', v: [1, 2, 3], every: 5 }, { ride: 'skateboard', text: 'Ollies pay bones (one payout every 5 seconds).', where: 'Channel Cyclery' }),
+    L(14, 'popdeck', 'rides', 'Pop Deck', [200, 500, 1200], ['Each ollie pays 1 bone', 'Each ollie pays 2 bones', 'Each ollie pays 3 bones'], { type: 'trick', v: [1, 2, 3], every: 5, speed: 4, cap: 30, window: 600 }, { ride: 'skateboard', text: 'Ollies on the move pay bones: one payout every 5 seconds, up to 30 in any 10 minutes of play.', where: 'Channel Cyclery' }),
     L(15, 'cedar', 'rides', 'Cedar Paddle', [250, 600, 1500], ['Top speed +8%', 'Top speed +16%', 'Top speed +24%'], { type: 'tune', kind: 'canoe', key: 'max', v: [1.08, 1.16, 1.24] }, { ride: 'canoe', text: 'Every canoe paddles faster.', where: 'Knot & Oar Chandlery' }),
     L(16, 'keel', 'rides', 'Steady Keel', [250, 600, 1500], ['Turning +10%', 'Turning +20%', 'Turning +30%'], { type: 'tune', kind: 'canoe', key: 'turn', v: [1.1, 1.2, 1.3] }, { ride: 'canoe', text: 'Every canoe turns tighter.', where: 'Knot & Oar Chandlery' }),
     L(17, 'drybox', 'rides', 'Dry Box', [250, 600, 1500], ['Carry 1 more in a canoe', 'Carry 2 more in a canoe', 'Carry 3 more in a canoe'], { type: 'tune', kind: 'canoe', key: 'carry', v: [1, 2, 3] }, { ride: 'canoe', text: 'Room for more while KC is aboard a canoe.', where: 'Knot & Oar Chandlery' }),
@@ -132,7 +139,7 @@ const DAILY_POOL = [['bones', 20, 'Sniff up 20 loose bones'], ['digs', 3, 'Dig 3
 export const DAILY_GEMS = 2;
 
 export function init(game) {
-  if (game.rewards) game.rewards.boneRespawn = BONE_RESPAWN.slice();
+  if (game.rewards) { game.rewards.boneRespawn = BONE_RESPAWN.slice(); game.rewards.digCooldown = DIG_COOLDOWN; game.rewards.fetchPaid = FETCH_PAID; game.rewards.fetchWindow = FETCH_WINDOW; }
   const { state, bus, wallet } = game, eco = game.economy;
   const byId = new Map(LADDERS.map(l => [l.id, l])), items = new Map(ITEMS.map(i => [i.id, i]));
   const price = n => Math.max(0, Math.round((Number(n) || 0) * ECON_SCALE));
@@ -144,7 +151,8 @@ export function init(game) {
   if (!obj(state.upgrades)) state.upgrades = {};
   for (const l of LADDERS) { const v = state.upgrades[l.id]; if (v === undefined) continue; const n = Math.floor(Number(v)); if (!Number.isFinite(n) || n <= 0) delete state.upgrades[l.id]; else state.upgrades[l.id] = Math.min(l.max, n); }
   for (const k of Object.keys(data.owed)) { const l = byId.get(k), v = Math.floor(Number(data.owed[k])), lv = l ? state.upgrades[k] || 0 : 0; if (!l || !l.payLater || !(v > 0) || lv < 1) delete data.owed[k]; else data.owed[k] = Math.min(v, price(l.costs[lv - 1])); }
-  data.undo = data.undo.filter(u => obj(u) && typeof u.id === 'string' && u.gems > 0 && Number.isFinite(u.t)).slice(-20);
+  data.undo = data.undo.filter(u => obj(u) && typeof u.id === 'string' && u.gems > 0 && Number.isFinite(u.t) && items.has(u.id) && items.get(u.id).gems > 0).slice(-20); for (const u of data.undo) u.gems = Math.min(Math.floor(u.gems), items.get(u.id).gems);
+  for (const it of ITEMS) if (it.cat === 'treat' && typeof state.owned[it.id] === 'number') state.owned[it.id] = Math.max(1, Math.min(99, Math.floor(state.owned[it.id]) || 1));
   for (const c of ['bones', 'gems']) { const v = Math.floor(Number(state.wallet[c])); state.wallet[c] = Number.isFinite(v) && v > 0 ? v : 0; }
 
   /* ---- ladders ---- */
@@ -227,7 +235,7 @@ export function init(game) {
   const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
   const pick3 = date => { let h = 2166136261; for (const ch of date) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0; const pool = DAILY_POOL.slice(), out = []; for (let i = 0; i < 3; i++) { h = (Math.imul(h, 1103515245) + 12345) >>> 0; out.push(pool.splice(h % pool.length, 1)[0]); } return out; };
   const daily = () => {
-    const date = today(); if (data.daily.date !== date) { data.daily = { date, base: {}, paid: false }; for (const [stat] of DAILY_POOL) data.daily.base[stat] = Number(state.stats[stat]) || 0; }
+    const date = today(); if (data.daily.date !== date) { /* a device date that goes backwards starts no new paid day */ const hi = typeof data.daily.hi === 'string' && data.daily.hi > date ? data.daily.hi : date; data.daily = { date, base: {}, paid: hi > date, hi }; for (const [stat] of DAILY_POOL) data.daily.base[stat] = Number(state.stats[stat]) || 0; }
     const goals = pick3(date).map(([stat, need, text]) => { const have = Math.max(0, Math.min(need, Math.floor((Number(state.stats[stat]) || 0) - (Number(data.daily.base[stat]) || 0)))); return { stat, text, need, have, done: have >= need }; });
     return { date, goals, done: goals.every(g => g.done), paid: !!data.daily.paid, gems: DAILY_GEMS };
   };

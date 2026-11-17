@@ -96,7 +96,7 @@ export function init(game) {
   /* removeDecor(id) -> { bones, gems } handed back (everything that was paid for it), or null */
   function removeDecor(id) {
     if (!(id in U.decor)) return null; unstand(id); delete U.decor[id];
-    const p = U.paid[id], back = { bones: 0, gems: 0 }; if (obj(p) && p.n > 0 && (p.c === 'bones' || p.c === 'gems')) { back[p.c] = Math.floor(p.n); delete state.owned[id]; game.wallet.add(p.c, back[p.c], 'refund:' + id); } delete U.paid[id];
+    const p = U.paid[id], back = { bones: 0, gems: 0 }, ip = eco.itemPrice(id) || {}; /* never more back than the prop costs, whatever the save says */ if (obj(p) && p.n > 0 && (p.c === 'bones' || p.c === 'gems') && ip[p.c] > 0) { back[p.c] = Math.min(Math.floor(p.n), ip[p.c]); delete state.owned[id]; game.wallet.add(p.c, back[p.c], 'refund:' + id); } delete U.paid[id];
     bus.emit('decor', { id, on: false, refund: back }); game.save.save(); return back;
   }
   bus.on('itemBought', e => { if (e.item && e.item.cat === 'decor') U.paid[e.id] = { c: e.currency, n: e.cost }; });
@@ -105,8 +105,11 @@ export function init(game) {
   for (const id of Object.keys(U.paid)) if (!eco.owns(id)) delete U.paid[id];
 
   const nap = hour => { if (lv('den') < 2 || !Number.isFinite(hour)) return false; const go = () => { world.setTime(((hour % 24) + 24) % 24); bus.emit('nap', { hour }); }; if (game.ui.fade && game.ui.started) { game.ui.closeAll(); game.ui.fade(go); } else go(); return true; };
-  const bowlReady = () => lv('den') >= 4 && U.bowl !== today();
-  const bowl = () => { if (!bowlReady()) return 0; U.bowl = today(); const got = eco.grant({ bones: 25 }, 'den:bowl').bones; game.audio.sfx('eat'); game.save.save(); return got; };
+  /* once a calendar day, and never for a date earlier than the latest one already paid (a device clock set back pays nothing) */
+  const dayN = () => { const d = new Date(); return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 864e5); };
+  if (!Number.isFinite(U.bowlN)) { const m = /^(\d+)-(\d+)-(\d+)$/.exec(U.bowl); U.bowlN = m ? Math.floor(Date.UTC(+m[1], +m[2] - 1, +m[3]) / 864e5) : 0; }
+  const bowlReady = () => lv('den') >= 4 && dayN() > U.bowlN;
+  const bowl = () => { if (!bowlReady()) return 0; U.bowl = today(); U.bowlN = dayN(); const got = eco.grant({ bones: 25 }, 'den:bowl').bones; game.audio.sfx('eat'); game.save.save(); return got; };
   const planning = () => { if (lv('den') < 5) return false; if (!U.planning) { U.planning = true; eco.setFlag('den:planning', true); bus.emit('planningBoard', {}); } return true; };
   const trophies = () => { const c = state.collected, s = state.stats, done = eco.ladders().filter(l => lv(l.id) >= l.max).length;
     return [['Golden balls found', c.balls.length], ['Places discovered', c.zones.length], ['Photo spots snapped', c.photos.length], ['Signposts read', c.signs.length], ['Ladders finished', done], ['Digs', s.digs || 0], ['Days on the trail', state.day || 1]]; };
@@ -178,7 +181,9 @@ export function init(game) {
 
   /* ================= Pop Deck: bones for ollies, at most one payout every 5 seconds ================= */
   let lastTrick = -99, clock = 0; bus.on('tick', e => { clock += e.dt; });
-  bus.on('trick', () => { const n = lv('popdeck'); if (!n || clock - lastTrick < eco.ladder('popdeck').eff.every) return; lastTrick = clock; eco.grant({ bones: eco.ladder('popdeck').eff.v[n - 1] }, 'trick'); });
+  /* Pop Deck pays for ollies on the move only (a parked board paid 2,118 bones an hour at tier 3 for one tap every 5 seconds), and at most `cap` times in any `window` seconds of play */
+  let tricks = [];
+  bus.on('trick', e => { const n = lv('popdeck'), f = eco.ladder('popdeck').eff; if (!n || clock - lastTrick < f.every || !(e && e.speed >= f.speed)) return; tricks = tricks.filter(t => clock - t < f.window); if (tricks.length >= f.cap) return; tricks.push(clock); lastTrick = clock; eco.grant({ bones: f.v[n - 1] }, 'trick'); });
 
   /* ================= bakery treats ================= */
   /* useTreat(id) -> true | reason */

@@ -347,10 +347,25 @@ async function handleStripeCheckout(env, deps, req) {
   return { url: s.url };
 }
 /* turns a finished Checkout session into what was bought; idempotent per session */
+/* KV has no transactions, so a read-then-write can be raced. Calls that share a key are run one after another inside this
+   isolate; that closes the race for requests the same isolate serves (the usual case for a burst from one client). Two
+   isolates can still overlap, which is why an Open Trail Trail Key is derived from the session and not drawn at random:
+   overlapping claims of one payment end in the same record and the same key. */
+const LOCKS = new Map();
+async function serial(key, fn) {
+  const prev = LOCKS.get(key) || Promise.resolve();
+  let release; const mine = prev.then(() => new Promise(r => { release = r; }));
+  LOCKS.set(key, mine);
+  await prev;
+  try { return await fn(); } finally { release(); if (LOCKS.get(key) === mine) LOCKS.delete(key); }
+}
 async function handleStripeClaim(env, deps, req) {
   const { session, install, key: trailKey } = await readJson(req);
   if (typeof session !== "string" || !/^cs_[A-Za-z0-9_]{4,200}$/.test(session)) throw new HttpError(400, "A checkout session is required.");
   const key = "claim:" + await sha256(session);
+  return serial(key, () => stripeClaim(env, deps, session, install, trailKey, key));
+}
+async function stripeClaim(env, deps, session, install, trailKey, key) {
   const seen = await env.DEWCLAW.get(key, "json");
   if (seen) {
     /* an Open Trail claim belongs to the device that started the checkout: a copied return link is refused elsewhere */
@@ -364,7 +379,7 @@ async function handleStripeClaim(env, deps, req) {
   const sku = s.metadata && s.metadata.sku, w = own(WEB_PRODUCTS, sku), g = own(PP_GRANTS, sku);
   const customer = typeof s.customer === "string" ? s.customer : (s.customer && s.customer.id) || "";
   if (typeof sku === "string" && Object.hasOwn(OT_GRANTS, sku)) {
-    const out = await otClaim(env, deps, s, sku, install, trailKey);
+    const out = await otClaim(env, deps, s, sku, install, trailKey, session);
     await env.DEWCLAW.put(key, JSON.stringify(out), { expirationTtl: 400 * 86400 });
     const { install: _i, ...pub } = out;
     return { ...pub, already: false };
@@ -447,7 +462,9 @@ async function otCheckout(env, deps, sku, price, install) {
     "line_items[0][price]": price, "line_items[0][quantity]": "1",
     success_url: `${back}?cs={CHECKOUT_SESSION_ID}`,
     cancel_url: `${back}?cancelled=1`,
-    "metadata[sku]": sku, "metadata[game]": "kc-open-trail", "metadata[install]": ih
+    "metadata[sku]": sku, "metadata[game]": "kc-open-trail", "metadata[install]": ih,
+    /* the claim only accepts the catalogue price in US dollars, so the buyer must be charged in US dollars: no local-currency pricing */
+    "adaptive_pricing[enabled]": "false"
   };
   const tax = String(env.STRIPE_TAX || "off").toLowerCase();
   if (tax === "auto") { form["automatic_tax[enabled]"] = "true"; form.billing_address_collection = "auto"; form.customer_creation = "always"; }
@@ -455,11 +472,13 @@ async function otCheckout(env, deps, sku, price, install) {
   else form.customer_creation = "always";
   const s = await stripe(env, deps, "POST", "/checkout/sessions", form);
   if (!s.url) throw new HttpError(502, "Stripe didn't return a checkout link.");
-  return { url: s.url };
+  /* the session id goes back too: the game writes it down before leaving, so the payment can be finished from the browser that
+     started it even when the return link opens somewhere else. It is useless without that browser's install id. */
+  return { url: s.url, ...(typeof s.id === "string" && /^cs_[A-Za-z0-9_]{4,200}$/.test(s.id) ? { session: s.id } : {}) };
 }
 /* a Trail Key record: { skus: [permanent ot_ SKUs] }. One key per device; later permanent purchases are added to it. */
 const otKeyName = c => "otkey:" + c;
-async function otKeyAdd(env, given, sku) {
+async function otKeyAdd(env, given, sku, session) {
   const c = normCode(given);
   if (c.length === 9) {
     const rec = await env.DEWCLAW.get(otKeyName(c), "json");
@@ -468,14 +487,20 @@ async function otKeyAdd(env, given, sku) {
       return c;
     }
   }
+  /* a new key comes from the session and the server's secret, never from chance: claiming one payment twice at the same moment makes one key */
+  const secret = String(env.TOKEN_SECRET || stripeKey(env) || "");
   for (let i = 0; i < 5; i++) {
-    const code = makeCode();
-    if (!(await env.DEWCLAW.get(otKeyName(code))) && !(await env.DEWCLAW.get("code:" + code))) { await env.DEWCLAW.put(otKeyName(code), JSON.stringify({ skus: [sku] })); return code; }
+    const h = await sha256("ot-trailkey:" + i + ":" + session + ":" + secret);
+    const s = [0, 1, 2, 3, 4, 5, 6, 7].map(n => CODE_ALPHABET[parseInt(h.slice(n * 2, n * 2 + 2), 16) % 32]).join(""), code = s.slice(0, 4) + "-" + s.slice(4);
+    if (await env.DEWCLAW.get("code:" + code)) continue;
+    const rec = await env.DEWCLAW.get(otKeyName(code), "json");
+    if (rec && Array.isArray(rec.skus)) { if (!rec.skus.includes(sku)) { rec.skus.push(sku); await env.DEWCLAW.put(otKeyName(code), JSON.stringify(rec)); } return code; }
+    await env.DEWCLAW.put(otKeyName(code), JSON.stringify({ skus: [sku] })); return code;
   }
   throw new HttpError(500, "Couldn't make a Trail Key.");
 }
 /* a paid Checkout session for an ot_ SKU -> the grant. The caller stores the result under claim:<hash>. */
-async function otClaim(env, deps, s, sku, install, trailKey) {
+async function otClaim(env, deps, s, sku, install, trailKey, session) {
   const g = OT_GRANTS[sku], ih = await otInstallHash(install), meta = s.metadata || {};
   if (s.mode && s.mode !== "payment") throw new HttpError(400, "That checkout isn't for a game item.");
   if (s.payment_status !== "paid") throw new HttpError(402, "That payment hasn't gone through yet.");
@@ -483,16 +508,19 @@ async function otClaim(env, deps, s, sku, install, trailKey) {
   /* the amount before discounts and tax must be the catalogue price, in US dollars */
   if (Number(s.amount_subtotal) !== OT_PRICES[sku] || String(s.currency || "").toLowerCase() !== "usd") throw new HttpError(409, "That payment doesn't match the price of the item, so nothing was granted. Please contact support.");
   const out = { kind: "grant", sku, grant: otGrant(g), consumable: !!g.consumable, once: !!g.once, amount: OT_PRICES[sku], currency: "USD", at: deps.now(), install: ih };
-  if (!g.consumable) out.key = await otKeyAdd(env, trailKey, sku);
+  if (!g.consumable) out.key = await otKeyAdd(env, trailKey, sku, session);
   return out;
 }
 /* Trail Key -> the permanent items again (no gems, no treats). Tries are limited per address and per day. */
 async function handleOtRestore(env, deps, req) {
   const { key } = await readJson(req);
   const ip = req.headers.get("cf-connecting-ip") || "unknown", lim = "otr:" + dayKey(deps.now()) + ":" + (await sha256("ot-ip:" + ip)).slice(0, 24);
-  const tries = Number(await env.DEWCLAW.get(lim)) || 0;
-  if (tries >= 20) throw new HttpError(429, "Too many tries today. Please try again tomorrow.");
-  await env.DEWCLAW.put(lim, String(tries + 1), { expirationTtl: 2 * 86400 });
+  /* counted one request at a time (see serial), so a burst of parallel guesses cannot all read the same count */
+  await serial(lim, async () => {
+    const tries = Number(await env.DEWCLAW.get(lim)) || 0;
+    if (tries >= 20) throw new HttpError(429, "Too many tries today. Please try again tomorrow.");
+    await env.DEWCLAW.put(lim, String(tries + 1), { expirationTtl: 2 * 86400 });
+  });
   const c = normCode(key);
   if (c.length !== 9) throw new HttpError(400, "Enter the 8-character Trail Key.");
   const rec = await env.DEWCLAW.get(otKeyName(c), "json");

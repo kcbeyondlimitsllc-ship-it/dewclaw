@@ -73,7 +73,7 @@ game.economy.spend({ bones: 150 }, 'shop') // -> boolean; takes both currencies 
 game.economy.catalog                       // [] for the economy module to fill with its item / upgrade table
 game.economy.setFlag('festival', true) ; game.economy.getFlag('festival')   // saved in state.flags, emits `flag`
 game.rewards   // tunable payouts: { bone: 1, goldenBall: { gems: 1, bones: 10 }, dig: [3, 8], photo: 5, sign: 2, fetch: 2, zone: 3,
-               //                    digCooldown: 240 (s), boneRespawn: [100, 140] (s) }   e.g. Dig Mitts: game.rewards.dig = [4, 9]
+               //                    digCooldown: 240 (s), boneRespawn: [100, 140] (s), fetchPaid: 0, fetchWindow: 600 }   (economy.js sets 1800, [3000, 3600], 6, 600)   e.g. Dig Mitts: game.rewards.dig = [4, 9]
 ```
 
 `grant` never checks a price and `spend` never grants: a purchase is `if (await game.ui.confirmSpend({...})) game.economy.grant({ items: [id] }, 'shop')`.
@@ -139,7 +139,7 @@ game.vehicles.getTuning('van')   // -> { max, acc, turn, pop, offroad, keep, car
 | `keep` | how many carried things stay in her mouth when she hops on (default 0; the van and the tram always keep everything) | adds | 0 to 8 |
 | `carry` | extra carry slots while she is aboard (Dry Box, Roof Rack) | adds | 0 to 8 |
 
-Emits `tuningChanged` { kind, tuning }. Not saved by the core: re-apply in `init`. Pop Deck's bones per ollie need no hook: listen for `trick`.
+Emits `tuningChanged` { kind, tuning }. Not saved by the core: re-apply in `init`. Pop Deck's bones per ollie need no hook: listen for `trick` (it carries the board's `speed`; Pop Deck pays only on the move).
 Paint: `game.setSkin('van', { primary, secondary })` directly, or by id through `game.cosmetics` (slot `skin:van`).
 
 ### Followers: Trail Buddies, Buddy Whistle, party treat, dog-walking jobs (`js/npc.js`)
@@ -364,7 +364,7 @@ await game.ui.openExternal({ url: 'https://kcbeyondlimits.com/product/34460072',
 ```
 
 - The gate asks a times-table question (6 to 12 times 6 to 9) answered on an on-screen number pad, so no device keyboard opens.
-  Nothing about the answer is stored or sent. Three wrong tries close it and keep it shut for 30 seconds (in memory only). Emits `gate` { ok }.
+  Nothing about the answer is stored or sent. Three wrong tries close it: 30 seconds, then 2 minutes, then 10 (the closing time is kept in `state.settings.gate`, so a reload does not reopen it; a pass clears it). Emits `gate` { ok }.
   It is a deterrent for a child, not proof of age.
 - While `game.grownUp.spending` is false the store shows only "Ask a grown-up to turn on the shop". Use the gate again before every real-money
   screen, the merch claim and restore, as the spec says.
@@ -409,7 +409,7 @@ Each file's header comment is the full reference; this is the map.
 | `economy` | `js/economy.js`, `css/economy.css` | The price table: 30 ladders (46 tracks), every bones and gem item, `ECON_SCALE`, free gems (one per new district, three daily sniff-outs worth 2 gems), the 10-minute Undo on gem purchases. Extends `game.economy`. | `state.upgrades` (id -> level), `modules.economy { owed, met, daily, undo }` |
 | `upgrades` | `js/upgrades.js` | What the ladders do in the world: modifiers, ride tuning, KC's Den (six stages, pay-later bar, nap, bowl, decor with full refund, gold trim), Trail Buddies and the Whistle, the three businesses and their tills, the Lantern Fund, the Town Fund, Trail Markers. | `modules.upgrades { tills, decor, paid, bowl, called, wall, planning }` |
 | `shop` | `js/shop.js` | Six Shop tabs (`upgrades`, `wardrobe`, `rides`, `den`, `businesses`, `funds`) and the ten door / stall prompts `eco:shop:*`. | `modules.shop { outfits }` |
-| `missions` | `js/missions.js`, `js/activities.js`, `css/missions.css` | 16 story missions, 8 Fog Bell Festival activities (only while the `festival` flag is on), the journal (pause menu: Missions), three weekly trail tasks, the Sand Island ferry. Bones only. | `modules.missions { done, best, paidDay, bones, runs, weekly, way, ferry }` |
+| `missions` | `js/missions.js`, `js/activities.js`, `css/missions.css` | 16 story missions, 8 Fog Bell Festival activities (only while the `festival` flag is on), the journal (pause menu: Missions), three weekly trail tasks, the Sand Island ferry. Bones only. | `modules.missions { done, best, paidAt, extra, clock, bones, runs, weekly, way, ferry }` |
 | `store` | `js/store.js`, `js/store-config.js`, `css/store.css` | The real-money catalogue (16 SKUs), the device limit, the purchase journal, restore by Trail Key, and the Trail Journal (30 steps: free column and pass column). Tabs `journal` and `store`. | `modules.store` (kept through "Start over"), `modules.storeTrail` (resets with the save) |
 | `merch` | `js/merch.js`, `css/merch.css`, `merch.json`, `img/merch/*.jpg`, `tools/sync-merch.js` | The KC shelves in the world, the 14 bones twins, the 54 real products behind the gate, the leaving screen, the honour-basis claim. Tab `merch` ("KC Gear"). | `modules.merch { claimed }` (kept through "Start over") |
 | `guide` | `js/guide.js` | First steps for a new player: points at the first job, then at Tailwind Pet Supply for the first upgrade, then steps aside. Pays and charges nothing. | `modules.guide { step, told }` |
@@ -431,7 +431,7 @@ Each file's header comment is the full reference; this is the map.
 - **The den's planning board** (River Cottage) calls `missions.open('board')`, the mission list under another title.
 - **Loose bones come back slowly:** `economy.js` sets `game.rewards.boneRespawn` to `BONE_RESPAWN` (600 to 780 s; the core's own default
   is 100 to 140) so that sweeping one street over and over does not out-earn the jobs. The comment beside the constant has the measurements.
-- **Prices scale together:** `economy.ECON_SCALE` (1.0) multiplies every bones price (`economy.price(n)`); `missions.js` and `merch.js` use it too.
+- **Prices scale together:** `economy.ECON_SCALE` (1.0) multiplies every bones price (`economy.price(n)`); `merch.js` uses it for the twins. It is the price knob only: mission pay, weekly task pay, tills, digs and loose bones do not move with it (spec 3.3).
 - **Tills earn only while the game is played** (the `second` event). Nothing accrues while the game is closed; the spec asks for exactly that.
 - **Shop tabs, left to right:** upgrades 10, wardrobe 20, rides 30, den 40, businesses 60, funds ("Town") 70, journal 80, merch ("KC Gear") 90, store 100.
 - **Prefixes of placed ids:** `eco:` (den, businesses, funds, shop doors), `msg:` / `ms:` / `fest:` / `ferry:` (missions), `merch:` (shelves), `guide:` (the one first-steps marker).
@@ -464,7 +464,7 @@ den denstore buddy:<dog> whistle biz:cart biz:canoes biz:pumpkins lantern marker
 `missions | festival | tasks | board`, `showWay(id)`, `ferry(to)`, `tasks()`, `complete()` / `fail()` (debug). Events: `missionStart`,
 `missionComplete` { id, name, first, bones, festival, count }, `missionFail`, `missionLeave`, `ferry`, `taskDone`, `tasksAllDone`.
 A running mission sets `game.travel.blocked`. First-time pay totals 1,800 bones (the tutorial 50); a replay pays its job rate in full once
-per game day and 40% for extra runs that day. Mission ids: `bell paper patrol shuttle castle lunch sniff creek echo mill train haul corn flags walk carts`.
+in every 40 minutes of play (`JOB_WINDOW`, counted on the module's own clock: a nap or a new game day changes nothing), one extra run in between pays a tenth and any more pay 1 bone. Mission ids: `bell paper patrol shuttle castle lunch sniff creek echo mill train haul corn flags walk carts`.
 
 ### `game.modules.store`
 
@@ -476,7 +476,10 @@ per game day and 40% for extra runs that day. Mission ids: `bell paper patrol sh
   The owner's steps are in `marketing/kc-open-trail/MONETIZATION.md`.
 - While `game.grownUp.spending` is false the Store tab shows only "Ask a grown-up to turn on the shop." The gate is asked to open the store,
   again on every Buy, and before restore and the limit screen.
-- Mock mode (a pretend payment page, for tests) exists only with both `?debug=1` and `?mock=1`.
+- Mock mode (a pretend payment page, for tests) exists only on `localhost` / `127.0.0.1` and only with both `?debug=1` and `?mock=1`; on the live site the words do nothing.
+- `/stripe/checkout` answers `{ url, session }`; the game writes the session id into `pending` before leaving, so a payment whose return link opens in another browser or app can be finished from the Store ("Finish adding it") in the browser that started it.
+- "Start over" (`ui.resetNotes`, an array of `() => ({ text, gate }) | null`): the store says what is kept and, once real money has been spent on the device, puts the grown-up gate first. Kept: Store purchases, purchased gems not yet spent, and the things purchased gems bought (`modules.store.gemItems`).
+- `merch.js` never turns the real-money switch on: with it off, the KC Gear tab only offers a button that opens Settings.
 - The worker side is `worker/dewclaw-worker.js` (`OT_GRANTS`, `OT_PRICES`, `/stripe/checkout`, `/stripe/claim`, `/ot/restore`, `/ot/prices`);
   `worker/test.js` holds the game's `CATALOG` and the worker's table together.
 
@@ -578,7 +581,7 @@ cosmetics, ride tuning and the screens in `game.ui`. Two details that live only 
 | `interact` | `{ id, kind, target }` any interactable used |
 | `vehicleEnter` / `vehicleExit` | `{ id, kind }` (`skateboard`, `canoe`, `van`, `tram`) |
 | `tramStop` | `{ stop, index, riding }` the Heron Line tram reached a stop (`riding`: KC is aboard) |
-| `trick` | `{ kind: 'ollie', id }` |
+| `trick` | `{ kind: 'ollie', id, speed }` |
 | `npcTalk` | `{ id, name, line, where }` KC used a talk prompt; `npcPet` `{ id, name, x, z }` a person petted KC; `npcWave` `{ id, name }` |
 | `fogBell` | `{ x, z }` KC rang the Old Fog Bell; `chime` `{ hour }` the courthouse clock struck (heard within 260 units) |
 | `dogPlay` | `{ id, name, x, z }` |

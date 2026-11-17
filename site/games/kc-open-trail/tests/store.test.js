@@ -114,7 +114,8 @@ const layout = page => page.evaluate(() => { const m = document.getElementById('
     eq('spending off: the Trail Journal shows 30 steps, no pass column and no dollar sign', j0, { rows: 30, pass: 0, dollar: false });
     /* a wrong answer does not turn spending on */
     { const p = page.evaluate(() => __ot.game.grownUp.setSpending(true)); await page.waitForSelector('.gateq b'); for (let i = 0; i < 3; i++) { await page.tap('.keypad [data-key="1"]'); await page.tap('.keypad [data-key="ok"]'); } eq('three wrong answers at the gate leave spending off', [await p, await page.evaluate(() => __ot.game.grownUp.spending)], [false, false]); }
-    await page.evaluate(() => { __ot.game.ui.closeAll(); }); await o.boot();   /* a reload clears the 30-second gate lock, which lives in memory only */
+    await page.evaluate(() => { __ot.game.ui.closeAll(); }); await o.boot();
+    eq('the gate stays shut after a reload (the lock-out is kept with the settings)', await page.evaluate(async () => { const g = __ot.game, shut = await g.ui.gate({}); g.state.settings.gate = null; g.save.save(); return shut; }), false);
     ok('a grown-up turns spending on through the gate', await spendingOn(page) === true && await page.evaluate(() => __ot.game.grownUp.spending));
     await openStore(page);
     const cards = await page.evaluate(() => [...document.querySelectorAll('.modal.store [data-item^="ot_"], #modal [data-item^="ot_"]')].map(c => ({ sku: c.dataset.item, price: (c.querySelector('.prices') || {}).textContent, btn: c.querySelector('button').textContent, disabled: c.querySelector('button').disabled })));
@@ -425,6 +426,45 @@ const layout = page => page.evaluate(() => { const m = document.getElementById('
     ok('real worker: the fake secret key never reached the browser', !(await page.evaluate(() => JSON.stringify(localStorage))).includes('sk_test') );
     ok('real worker: no page errors', o.errors.filter(e => /pageerror/.test(e)).length === 0 && o2.errors.filter(e => /pageerror/.test(e)).length === 0, [...o.errors, ...o2.errors].slice(0, 3).join(' | '));
     configOverride = null; await o.ctx.close(); await o2.ctx.close(); wsrv.close(); }
+
+  /* ---------- 9. cross-review: purchased gems through Undo and "Start over", a payment that never came back, a replayed claim, the mock is local only ---------- */
+  { const o = await open(browser), { page } = o; await spendingOn(page);
+    const r = await page.evaluate(async () => { const g = __ot.game, st = g.modules.store, e = g.economy, w = g.state.wallet, d = () => st.debug.data(), free = w.gems; await st.debug.buy('ot_gems_500'); g.ui.closeAll();
+      const out = { bank0: d().gemBank }; e.buyItem('bandana:fern', 'gems'); out.written = d().gemItems['bandana:fern'] > 0 && d().gemBank < 500; e.undo('bandana:fern'); out.undone = [d().gemBank, Object.keys(d().gemItems).length, w.gems - free];
+      e.buyItem('bandana:starfield', 'gems'); e.buyItem('trail:firefly', 'gems'); out.kept = Object.keys(d().gemItems).sort().join(); out.left = [d().gemBank === w.gems, w.gems < 500 + free]; g.save.save(); return out; });
+    eq('Undo on a gem purchase puts the purchased gems back in the count that "Start over" keeps', [r.bank0, r.written, r.undone], [500, true, [500, 0, 500]]);
+    eq('things bought with purchased gems are written down', [r.kept, r.left], ['bandana:starfield,trail:firefly', [true, true]]);
+    await page.evaluate(() => { __ot.game.ui.settings(); const b = [...document.querySelectorAll('#modalBody button')].find(x => /Start over/.test(x.textContent)); b.scrollIntoView(); b.click(); });
+    await page.waitForSelector('.gateq b'); ok('"Start over" asks the grown-up gate first once real money has been spent on the device', true); await solveGate(page);
+    await page.waitForFunction(() => __ot.game.ui.current && __ot.game.ui.current.id === 'confirm');
+    const txt = await page.evaluate(() => document.getElementById('modalBody').textContent);
+    ok('the "Start over" screen says what goes and what is kept', /bought with bones or free gems/.test(txt) && /Kept: everything bought in the Store, the purchased gems not yet spent, and the things bought with purchased gems/.test(txt), txt);
+    await Promise.all([page.waitForNavigation(), page.evaluate(() => [...document.querySelectorAll('#modalActions button')].find(b => b.textContent === 'Erase').click())]); await o.ready();
+    eq('after "Start over" the things bought with purchased gems and the unspent purchased gems are back; the undone one is not', await page.evaluate(() => { const g = __ot.game, e = g.economy; const bank = g.modules.store.debug.data().gemBank; return [e.owns('bandana:starfield'), e.owns('trail:firefly'), e.owns('bandana:fern'), g.state.wallet.bones < 50, bank > 200 && g.state.wallet.gems >= bank && g.state.wallet.gems <= bank + 3]; }), [true, true, false, true, true]);
+    /* a replayed claim: the server says "already", and it is not this device's written-down checkout */
+    const rep = await page.evaluate(async () => { const g = __ot.game, st = g.modules.store, S = g.state.modules.store, kv = st.debug.kv(), id = Object.keys(kv.claims).find(k => kv.claims[k].sku === 'ot_gems_500'), g0 = g.state.wallet.gems, j0 = st.journal().length;
+      S.applied = []; S.pending = { sku: 'ot_gems_500', t: Date.now() }; const a = await st.debug.claim(id), mid = g.state.wallet.gems - g0;
+      S.applied = []; S.pending = { sku: 'ot_gems_500', t: Date.now(), session: id }; const b = await st.debug.claim(id); g.ui.closeAll(); return [a, mid, st.journal().length - j0 >= 0, b, g.state.wallet.gems - g0]; });
+    eq('a session the server has already answered is not added again by emptying the local list; only the checkout this device wrote down (a lost first answer) is', rep, [false, 0, true, true, 500]);
+    /* a payment that was started and never came back */
+    await page.evaluate(() => { __ot.game.state.modules.store.pending = { sku: 'ot_supporter', t: Date.now(), session: 'cs_mock_neverpaid000' }; });
+    await openStore(page);
+    eq('a started payment with a known session offers "Finish adding it" and "Nothing was paid", and holds other purchases', await page.evaluate(async () => [!!document.querySelector('[data-act="finish"]'), !!document.querySelector('[data-act="forget"]'), await __ot.game.modules.store.buy('ot_gems_80')]), [true, true, false]);
+    const L9 = await layout(page); ok('store with a pending payment: 44 px targets, no sideways scroll', L9.small.length === 0 && !L9.sideways, JSON.stringify(L9));
+    await page.tap('[data-act="finish"]'); await page.waitForFunction(() => __ot.game.ui.current && __ot.game.ui.current.id === 'confirm');
+    ok('when the server says nothing was paid, the game offers to forget the payment', /no money was taken/.test(await page.evaluate(() => document.getElementById('modalBody').textContent)));
+    await page.evaluate(() => [...document.querySelectorAll('#modalActions button')].find(b => b.textContent === 'Forget it').click()); await page.waitForFunction(() => __ot.game.modules.store.pending === null);
+    /* the pretend checkout writes the session id down before it leaves */
+    await page.evaluate(() => { __ot.game.ui.closeAll(); window.__seen = null; __ot.game.on('storeCheckout', () => { window.__seen = (__ot.game.state.modules.store.pending || {}).session || ''; localStorage.setItem('kc-test-seen', window.__seen); }); });
+    await Promise.all([page.waitForNavigation(), page.evaluate(() => { __ot.game.modules.store.debug.pay('ot_pack_forest'); })]); await o.ready();
+    eq('the checkout session id was saved before leaving, and the purchase was added on return', await page.evaluate(() => [/^cs_mock_/.test(localStorage.getItem('kc-test-seen') || ''), __ot.game.economy.owns('collar:cedar'), __ot.game.modules.store.pending]), [true, true, null]);
+    ok('section 9: no console errors', o.errors.length === 0, o.errors.slice(0, 3).join(' | ')); eq('section 9: nothing requested from outside', o.outside(), []);
+    await o.ctx.close();
+    /* the same address words on a host that is not localhost: no pretend store */
+    const b2 = await chromium.launch({ args: ['--host-resolver-rules=MAP play.example.test 127.0.0.1'] }), p2 = await (await b2.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, serviceWorkers: 'block' })).newPage();
+    await p2.goto(BASE.replace('localhost', 'play.example.test') + '?debug=1&nosw=1&mock=1'); await p2.waitForFunction(() => window.__ot && window.__ot.ready, null, { timeout: 120000 });
+    eq('on a host other than localhost, ?debug=1&mock=1 gives no pretend store: nothing is sellable and there are no store test hooks', await p2.evaluate(() => { const st = __ot.game.modules.store; return [location.hostname, st.mock, 'debug' in st, st.sellable('ot_everything')]; }), ['play.example.test', false, false, false]);
+    await b2.close(); }
 
   await browser.close(); server.close();
   console.log(`\n${passed} passed, ${failed} failed. Screenshots: ${OUT}`);

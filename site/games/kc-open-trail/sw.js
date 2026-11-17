@@ -2,7 +2,7 @@
    Bump VERSION whenever any file in SHELL changes.
    The real-product thumbnails (the merch pictures under img/) are deliberately NOT in SHELL: they load only when a grown-up opens the
    real-gear list (spec 5.5) and are then kept by the runtime cache below. */
-const VERSION = "kc-open-trail-v5";
+const VERSION = "kc-open-trail-v6";
 const PREFIX = "kc-open-trail-";
 const SHELL = ["./", "./index.html", "./style.css", "./manifest.webmanifest",
   "./vendor/three/three.module.min.js",

@@ -71,16 +71,18 @@ export function createUiKit(game, ui, env) {
 
   /* ---------- the grown-up gate ----------
      ui.gate({ reason }) -> Promise<boolean>. A times-table question a grown-up answers on an on-screen number pad
-     (no device keyboard pops up). Nothing about the answer is stored or sent; three wrong tries close the gate for
-     30 seconds (kept in memory only). It is a deterrent, not proof of age. */
-  let gateShut = 0;
+     (no device keyboard pops up). Nothing about the answer is stored or sent. Three wrong tries close the gate: for
+     30 seconds the first time, 2 minutes the second, 10 minutes after that. The closing time and the count are kept with the
+     settings in the save, so a page reload does not open the gate again; a pass sets the count back. A deterrent, not proof of age. */
+  const SHUT = [30000, 120000, 600000];
+  const gs = () => { const g = state.settings.gate, ok = g && typeof g === 'object' && Number.isFinite(g.until) && Number.isInteger(g.n) && g.n >= 0; return ok ? { until: Math.min(g.until, Date.now() + SHUT[2]), n: g.n } : { until: 0, n: 0 }; };   /* reads only: a save without a lock-out stays as it was */
   ui.gate = (o = {}) => new Promise(res => {
-    if (performance.now() < gateShut) { ui.toast('Ask a grown-up to help, then try again in a moment.', { icon: 'hand' }); bus.emit('gate', { ok: false, reason: o.reason || '' }); return res(false); }
+    if (Date.now() < gs().until) { ui.toast('Ask a grown-up to help, then try again in a moment.', { icon: 'hand' }); bus.emit('gate', { ok: false, reason: o.reason || '' }); return res(false); }
     let a = 0, b = 0, typed = '', tries = 0, done = false, out = null, msg = null;
     const ask = () => { a = 6 + Math.floor(Math.random() * 7); b = 6 + Math.floor(Math.random() * 4); typed = ''; };
     const finish = ok => { if (done) return; done = true; removeEventListener('keydown', onKey, true); bus.emit('gate', { ok, reason: o.reason || '' }); res(ok); };
     const paint = () => { if (out) out.textContent = typed || ' '; };
-    const check = h => { if (!typed) return; if (+typed === a * b) { finish(true); h.close(); return; } tries++; if (tries >= 3) { gateShut = performance.now() + 30000; finish(false); h.close(); ui.toast('That was not it. Ask a grown-up to help.', { icon: 'hand' }); return; } ask(); if (msg) msg.textContent = 'Not quite. Try this one.'; h.refresh(); };
+    const check = h => { if (!typed) return; if (+typed === a * b) { if (state.settings.gate) { state.settings.gate = null; game.save.save(); } finish(true); h.close(); return; } tries++; if (tries >= 3) { const g = gs(); state.settings.gate = { until: Date.now() + SHUT[Math.min(g.n, SHUT.length - 1)], n: g.n + 1 }; game.save.save(); finish(false); h.close(); ui.toast('That was not it. Ask a grown-up to help.', { icon: 'hand' }); return; } ask(); if (msg) msg.textContent = 'Not quite. Try this one.'; h.refresh(); };
     let handle = null;
     const onKey = e => { if (!ui.current || ui.current.id !== 'gate') return; if (/^[0-9]$/.test(e.key)) { if (typed.length < 4) typed += e.key; paint(); e.preventDefault(); } else if (e.key === 'Backspace') { typed = typed.slice(0, -1); paint(); e.preventDefault(); } else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); check(handle); } };
     ask(); addEventListener('keydown', onKey, true);
@@ -121,8 +123,10 @@ export function createUiKit(game, ui, env) {
     ui.openModal({ id: 'spend', title: short.length ? 'Not enough yet' : (o.title || 'Get this?'), wallet: true, className: 'spend', render: bd => {
       bd.appendChild(ui.item({ title: o.name || 'This', text: o.text, swatch: o.swatch, icon: o.icon, node: o.node, price }));
       if (short.length) bd.appendChild(ui.note(`KC needs ${short.join(' and ')}. Bones come from sniffing around, digging and helping out.`, 'warn'));
-      else { const chip = (c, n) => `<span class="pc ${c}">${icon(c === 'bones' ? 'bone' : 'gem', 16)}<b>${Math.max(0, n)}</b></span>`, p = el('p', { class: 'after' }); p.innerHTML = 'Afterwards KC will have ' + chip('bones', after.bones) + (w.gems || price.gems ? ' ' + chip('gems', after.gems) : ''); bd.appendChild(p); }
+      if (price.gems > 0 && game.economy.usd) bd.appendChild(ui.note(`${Math.round(price.gems)} gems is about ${game.economy.usd(Math.round(price.gems))} if the gems were bought.`, 'usd'));
+      if (!short.length) { const chip = (c, n) => `<span class="pc ${c}">${icon(c === 'bones' ? 'bone' : 'gem', 16)}<b>${Math.max(0, n)}</b></span>`, p = el('p', { class: 'after' }); p.innerHTML = 'Afterwards KC will have ' + chip('bones', after.bones) + (w.gems || price.gems ? ' ' + chip('gems', after.gems) : ''); bd.appendChild(p); }
     }, actions: short.length ? [{ label: 'OK', primary: true }] : [{ label: o.no || 'Not now' }, { label: o.yes || 'Yes, get it', primary: true, onClick: () => {
+      if (done) return;   /* one charge for one screen, however many click events arrive */
       if (!game.economy.spend(price, o.source || 'shop')) { ui.toast('Not enough yet.', { kind: 'warn' }); return fin(false); }
       game.audio.sfx('reward'); bus.emit('purchase', { name: o.name, id: o.id, price: { bones: Math.round(price.bones) || 0, gems: Math.round(price.gems) || 0 }, source: o.source || 'shop' }); fin(true); } }],
     onClose: () => fin(false) });
