@@ -105,9 +105,18 @@ contract between them and the core, and each module's public API, are in
   move and at most 30 times in 10 minutes, and a finished mission pays its
   job rate in full once in every 40 minutes of play (one extra run in
   between pays a tenth, more pay 1 bone; a nap or a new game day does not
-  bring it round sooner). These throttles have not been re-measured with
-  long bot runs or with children; if income is still off, raise
-  `ECON_SCALE` (prices) or the windows above, not single prices.
+  bring it round sooner). Re-measured with the same bots after the throttles (simulated time, a
+  bot that walks straight at its target, so an upper bound): one short job
+  replayed back to back pays about 290 to 370 bones an hour (it was 4,200
+  to 4,700); the 16 jobs in a loop about 1,300 an hour; dig spots alone
+  about 300 an hour on a fresh save and about 1,100 with the full late kit
+  and Lucky Jerky; fetch about 100 to 150 an hour from fetching itself.
+  Still above the spec's plan and left as it is: the first sweep of a new
+  map (770 loose bones, one-time finds, Trail Journal steps and the 1,800
+  bones of first-time mission pay) gave a bot 1,900 to 2,500 bones an hour
+  for its first 40 minutes. None of it has been measured with children; if
+  income is still off, raise `ECON_SCALE` (prices) or the windows above,
+  not single prices.
 - **Shop** (`shop.js` and the tabs other modules register): nine tabs on one
   screen: Upgrades, Wardrobe, Rides, Den & Buddies, Businesses, Town, Trail
   Journal, KC Gear, Store. It opens from the pause menu and from prompts at

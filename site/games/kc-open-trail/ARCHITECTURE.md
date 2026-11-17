@@ -429,8 +429,8 @@ Each file's header comment is the full reference; this is the map.
 - **The last story mission (Cart Runner) hands over the Biscuit Cart:** `missions.js` calls `economy.buyLevel('biz:cart', { free: true })` the
   first time it is won. Before that the cart can simply be bought for its 800 bones.
 - **The den's planning board** (River Cottage) calls `missions.open('board')`, the mission list under another title.
-- **Loose bones come back slowly:** `economy.js` sets `game.rewards.boneRespawn` to `BONE_RESPAWN` (600 to 780 s; the core's own default
-  is 100 to 140) so that sweeping one street over and over does not out-earn the jobs. The comment beside the constant has the measurements.
+- **Loose bones come back slowly:** `economy.js` sets `game.rewards.boneRespawn` to `BONE_RESPAWN` (3,000 to 3,600 s; the core's own default
+  is 100 to 140) so that sweeping the map over and over does not out-earn the jobs. Dig spots rest 30 minutes (`DIG_COOLDOWN`) and fetch pays for the first 6 fetches in any 10 minutes of play (`FETCH_PAID`, `FETCH_WINDOW`). The comment beside the constant has the measurements.
 - **Prices scale together:** `economy.ECON_SCALE` (1.0) multiplies every bones price (`economy.price(n)`); `merch.js` uses it for the twins. It is the price knob only: mission pay, weekly task pay, tills, digs and loose bones do not move with it (spec 3.3).
 - **Tills earn only while the game is played** (the `second` event). Nothing accrues while the game is closed; the spec asks for exactly that.
 - **Shop tabs, left to right:** upgrades 10, wardrobe 20, rides 30, den 40, businesses 60, funds ("Town") 70, journal 80, merch ("KC Gear") 90, store 100.

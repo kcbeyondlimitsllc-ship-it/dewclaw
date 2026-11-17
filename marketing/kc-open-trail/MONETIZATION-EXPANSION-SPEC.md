@@ -279,7 +279,7 @@ Not sold, with reasons: bones (pay-to-progress); any multiplier or boost (the ma
 Thirty lifetime milestones that every player works through free: zones found, golden balls, photos, digs, distance, missions.
 
 - Free column: bones on every step and 30 gems in total.
-- Pass column (`pass:trail`): 15 cosmetics and 300 gems (shown as "about $3.71"), one reward every step, alternating.
+- Pass column (`pass:trail`): 15 cosmetics and 300 gems (shown as "about $3.72": 300 x $0.99 / 80 = $3.7125, rounded up to the cent as rule 4.1(2) says), one reward every step, alternating.
 - Nothing resets and nothing expires. Buying the pass late pays out every step already reached, at once.
 - No later seasons are planned. If a second journal is ever made it gets its own SKU and the first stays on sale.
 

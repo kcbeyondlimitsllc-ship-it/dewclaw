@@ -34,6 +34,8 @@
 /* try-on: the shop fades away for a moment so KC can be seen wearing the thing; any tap brings it back */
 .modal.eco-peek { background:transparent; transition:background .2s; }
 .modal.eco-peek .card { opacity:.06; transition:opacity .2s; }
+/* a try-on is for looking at KC: the first-run coach panels step aside while the shop is faded */
+body:has(.modal.eco-peek) #coach div { opacity:0; }
 .modal .card { transition:opacity .2s; }
 @media (max-width:480px) {
   .eco-lads { grid-template-columns:1fr; }
