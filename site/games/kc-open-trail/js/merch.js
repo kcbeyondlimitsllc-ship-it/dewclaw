@@ -144,7 +144,7 @@ export function init(game) {
   /* ---------- the grown-up side ----------
      `unlocked` is true only while the real-gear list is open after a passed gate; closing the list locks it again. */
   let unlocked = false, focusShelf = null;
-  const SPEND_OFF = 'The real-money shop is off on this device. A grown-up can turn it on in Settings.';
+  const SPEND_OFF = game.grownUp.storeOff ? 'The grown-ups\' real gear shelf is off on this device. A grown-up can turn it on in Settings.' : 'The real-money shop is off on this device. A grown-up can turn it on in Settings.';
   const bigBtn = (label, onClick, cls = 'alt') => { const b = el('button', { type: 'button', class: 'btn ' + cls + ' mbig' }); b.textContent = label; b.addEventListener('click', () => { game.audio.sfx('ui'); onClick(); }); return b; };
 
   /* one gate for the real-gear side. With the real-money switch off nothing here opens and nothing here turns it on: a grown-up

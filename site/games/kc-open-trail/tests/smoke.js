@@ -608,9 +608,9 @@ async function runViewport(browser, name, vp, touch, quality, tourIdx, stub = fa
       ok('plays offline after the first visit (service worker shell)', !!swOk && off && (await st(page)).started && errors.length === 0, swOk ? `${swOk.names.join(',')}: ${swOk.n} files` : 'no cache'); await ctx.close(); }
   } catch (e) { failed++; console.log('FAIL  test run crashed: ' + (e && e.stack || e)); }
   await browser.close(); server.close();
-  /* ---------- the four module suites and the worker's own tests: each is a separate process with its own server and browser ---------- */
+  /* ---------- the five module suites and the worker's own tests: each is a separate process with its own server and browser ---------- */
   if (!process.env.SKIP_SUITES && !process.env.SEAMS_ONLY && !VIEWPORTS) {
-    const { spawnSync } = require('child_process'), suites = [['economy', 'tests/economy.test.js'], ['missions', 'tests/missions.test.js'], ['store', 'tests/store.test.js'], ['merch', 'tests/merch.test.js']];
+    const { spawnSync } = require('child_process'), suites = [['economy', 'tests/economy.test.js'], ['missions', 'tests/missions.test.js'], ['store', 'tests/store.test.js'], ['merch', 'tests/merch.test.js'], ['play', 'tests/play.test.js']];
     const worker = path.resolve(ROOT, '../../../worker/test.js'); if (fs.existsSync(worker)) suites.push(['worker', worker]);
     for (const [id, file] of suites) { console.log(`\n=== suite: ${id} ===`); const env = { ...process.env }; delete env.PORT;
       const r = spawnSync(process.execPath, id === 'worker' ? [file] : [file, path.join(OUT, id)], { cwd: id === 'worker' ? path.dirname(file) : ROOT, env, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 30 * 60 * 1000 });

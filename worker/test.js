@@ -19,6 +19,7 @@ const claude = { fail: false, calls: 0, lastBody: null, rejectSearch: false };
 const product = { state: 0, ack: 0, acks: 0, checks: 0, status: 200 };
 async function fetch(url, init = {}) {
   const u = String(url);
+  { const pf = otPlayFake(u, init); if (pf) return pf; }
   if (u.startsWith("https://oauth2.googleapis.com/token")) { google.tokenCalls++; return new Response(JSON.stringify({ access_token: "ya29.test", expires_in: 3600 }), { status: 200 }); }
   if (u.includes("/purchases/subscriptionsv2/tokens/")) {
     google.checks++;
@@ -744,6 +745,130 @@ await test("open trail: adding the game left Dewclaw Plus and Pocket Pup purchas
   assert.equal(j.kind, "plus"); assert.equal(j.active, true); assert.match(j.code, /^[A-Z2-9]{4}-[A-Z2-9]{4}$/);
   /* a Plus code is not accepted as a Trail Key */
   assert.equal((await handle(greq("/ot/restore", { key: j.code }), e, deps)).status, 404);
+});
+
+/* ------------------------------------------------------------------ KC: Open Trail on Google Play (/ot/play-claim) */
+/* the pretend Play Developer API for the game's own package. play.purchases[token] = { sku, state, ack, consumed }.
+   Like the real purchases.products.get it answers for the token even when the product in the address is a different one,
+   and says which product the purchase is really for; play.strict makes it answer 404 for a mismatch instead. */
+const OT_PKG = "com.example.opentrail";
+const play = { purchases: {}, gets: 0, acks: 0, consumes: 0, failSettle: 0, strict: false, status: 200, noProductId: false };
+function otPlayFake(u, init) {
+  const m = u.match(/\/androidpublisher\/v3\/applications\/([^/]+)\/purchases\/products\/([^/]+)\/tokens\/([^/:]+)(:acknowledge|:consume)?$/);
+  if (!m || !decodeURIComponent(m[1]).startsWith("com.example.")) return null;
+  const pkg = decodeURIComponent(m[1]), sku = decodeURIComponent(m[2]), token = decodeURIComponent(m[3]), p = play.purchases[token];
+  assert.equal((init.headers || {}).authorization, "Bearer ya29.test", "the Play API is called with the service account's token");
+  if (!p || pkg !== OT_PKG || (play.strict && p.sku !== sku)) return new Response(JSON.stringify({ error: { code: 404 } }), { status: 404 });
+  if (m[4]) { if (play.failSettle > 0) { play.failSettle--; return new Response("{}", { status: 500 }); } if (m[4] === ":consume") { play.consumes++; p.consumed = 1; } else { play.acks++; p.ack = 1; } return new Response("{}", { status: 200 }); }
+  play.gets++; if (play.status !== 200) return new Response("{}", { status: play.status });
+  return new Response(JSON.stringify({ kind: "androidpublisher#productPurchase", purchaseState: p.state, consumptionState: p.consumed, acknowledgementState: p.ack, orderId: "GPA.3300-0000-0000-00001", purchaseType: 0, ...(play.noProductId ? {} : { productId: p.sku }), quantity: 1, regionCode: "US" }), { status: 200 });
+}
+let playN = 0;
+const playBuy = (sku, over = {}) => { const token = "play-token-" + (++playN) + "." + "A".repeat(40); play.purchases[token] = { sku, state: 0, ack: 0, consumed: 0, ...over }; return token; };
+const playEnv = (extra = {}) => ({ ...env(), ALLOWED_ORIGIN: "https://dewclaw-app.netlify.app," + GAME, OT_PLAY_PACKAGE: OT_PKG, ...extra });
+const playClaim = async (e, sku, token, install = INSTALL, extra = {}) => { const r = await handle(greq("/ot/play-claim", { sku, token, install, ...extra }), e, deps); return { r, j: await r.json() }; };
+const playKeys = e => [...e.DEWCLAW.m.keys()].filter(k => k.startsWith("otplay:"));
+
+await test("open trail play: a valid token for each of the 16 SKUs grants exactly the catalogue contents, then is consumed or acknowledged", async () => {
+  for (const sku of OT_SKUS) {
+    const e = playEnv(), want = OT[sku], token = playBuy(sku), before = { a: play.acks, c: play.consumes };
+    const { r, j } = await playClaim(e, sku, token);
+    assert.equal(r.status, 200, sku + ": " + JSON.stringify(j));
+    assert.equal(j.kind, "grant"); assert.equal(j.sku, sku); assert.equal(j.already, false); assert.equal(j.channel, "play"); assert.equal(j.settled, true);
+    assert.deepEqual(j.grant, { bones: 0, gems: want.gems, items: want.items, flags: want.flags }, sku + " grant");
+    assert.equal(j.consumable, !want.permanent); assert.equal(j.install, undefined); assert.equal(j.order, undefined);
+    if (want.permanent) { assert.match(j.key, /^[A-Z2-9]{4}-[A-Z2-9]{4}$/); assert.equal(play.acks, before.a + 1, sku + " is acknowledged"); assert.equal(play.consumes, before.c, sku + " is not consumed"); assert.equal(play.purchases[token].ack, 1); }
+    else { assert.equal(j.key, undefined); assert.equal(play.consumes, before.c + 1, sku + " is consumed"); assert.equal(play.acks, before.a, sku + " is not acknowledged"); assert.equal(play.purchases[token].consumed, 1); }
+    assert.equal(playKeys(e).length, 1); assert.ok(!JSON.stringify([...e.DEWCLAW.m.entries()]).includes(token), "the purchase token itself is not kept, only its hash");
+    assert.equal(r.headers.get("access-control-allow-origin"), GAME);
+  }
+});
+await test("open trail play: replaying a token never grants twice", async () => {
+  for (const sku of ["ot_gems_7000", "ot_treat_10", "ot_tip_3", "ot_pack_forest", "ot_everything"]) {
+    const e = playEnv(), token = playBuy(sku), first = (await playClaim(e, sku, token)).j, gets = play.gets, settles = play.acks + play.consumes;
+    for (let i = 0; i < 3; i++) { const again = (await playClaim(e, sku, token)).j; assert.equal(again.already, true, sku); assert.deepEqual(again.grant, first.grant); assert.equal(again.key, first.key); }
+    assert.equal(play.gets, gets, "a settled replay does not ask Google again"); assert.equal(play.acks + play.consumes, settles); assert.equal(playKeys(e).length, 1);
+    /* a burst of the same token at once: one record, one first answer */
+    const e2 = playEnv(), t2 = playBuy(sku), all = await Promise.all(Array.from({ length: 8 }, () => playClaim(e2, sku, t2)));
+    assert.equal(all.filter(x => x.j.already === false).length, 1, sku + ": exactly one first grant in a burst"); assert.equal(playKeys(e2).length, 1);
+  }
+});
+await test("open trail play: a used-up item belongs to the device that claimed it; a permanent one comes back on another device without its gems", async () => {
+  const e = playEnv();
+  const gems = playBuy("ot_gems_500"); assert.equal((await playClaim(e, "ot_gems_500", gems)).r.status, 200);
+  const other = await playClaim(e, "ot_gems_500", gems, INSTALL2); assert.equal(other.r.status, 403); assert.equal(other.j.grant, undefined);
+  const sup = playBuy("ot_supporter"), first = (await playClaim(e, "ot_supporter", sup)).j; assert.equal(first.grant.gems, 600);
+  const back = await playClaim(e, "ot_supporter", sup, INSTALL2);
+  assert.equal(back.r.status, 200); assert.equal(back.j.restored, true); assert.equal(back.j.already, true); assert.equal(back.j.grant.gems, 0); assert.deepEqual(back.j.grant.items, OT.ot_supporter.items); assert.equal(back.j.key, first.key);
+  /* ... and the Trail Key from a Play purchase restores the permanent item anywhere, with no gems */
+  const viaKey = await (await handle(greq("/ot/restore", { key: first.key }), e, deps)).json(); assert.deepEqual(viaKey.skus, ["ot_supporter"]); assert.equal(viaKey.grants[0].grant.gems, 0);
+});
+await test("open trail play: a token from another package is refused, and so is a package the game did not ask for", async () => {
+  const token = playBuy("ot_gems_80");
+  let c = await playClaim(playEnv({ OT_PLAY_PACKAGE: "com.example.someotherapp" }), "ot_gems_80", token); assert.equal(c.r.status, 402); assert.equal(c.j.grant, undefined);
+  c = await playClaim(playEnv(), "ot_gems_80", token, INSTALL, { package: "com.kcbeyondlimits.dewclaw" }); assert.equal(c.r.status, 400);
+  /* the Dewclaw package is never used for the game, even though PLAY_PACKAGE is set */
+  for (const bad of [undefined, "", "not a package", "../x", "com.example.opentrail/../../x"]) { const e = playEnv({ OT_PLAY_PACKAGE: bad }); c = await playClaim(e, "ot_gems_80", token); assert.equal(c.r.status, 503, String(bad)); assert.equal(playKeys(e).length, 0); }
+  assert.equal(play.purchases[token].consumed, 0, "nothing was consumed along the way");
+  c = await playClaim(playEnv(), "ot_gems_80", token, INSTALL, { package: OT_PKG }); assert.equal(c.r.status, 200);
+});
+await test("open trail play: a token bought for one SKU cannot be claimed as another", async () => {
+  for (const strict of [false, true]) {
+    play.strict = strict; const e = playEnv(), token = playBuy("ot_gems_80");
+    const c = await playClaim(e, "ot_gems_7000", token); assert.equal(c.r.status, strict ? 402 : 409, "strict " + strict); assert.equal(c.j.grant, undefined); assert.equal(playKeys(e).length, 0);
+    assert.equal(play.purchases[token].consumed, 0);
+    /* claimed honestly, then tried again as the big pack */
+    assert.equal((await playClaim(e, "ot_gems_80", token)).j.grant.gems, 80);
+    const again = await playClaim(e, "ot_gems_7000", token); assert.equal(again.r.status, 409); assert.equal(again.j.grant, undefined);
+  }
+  play.strict = false;
+  for (const sku of ["ot_gems_99999", "ot_bones_500", "pp_bones_500", "dewclaw_plus_monthly", "__proto__", "constructor", "", null, 7]) assert.equal((await playClaim(playEnv(), sku, playBuy("ot_gems_80"))).r.status, 400, String(sku));
+});
+await test("open trail play: pending, cancelled and refunded purchases grant nothing", async () => {
+  for (const [state, what] of [[2, "pending"], [1, "cancelled or refunded"], [5, "unknown"], [undefined, "missing"]]) {
+    const e = playEnv(), token = playBuy("ot_pack_galaxy", { state });
+    const c = await playClaim(e, "ot_pack_galaxy", token); assert.equal(c.r.status, 402, what); assert.equal(c.j.grant, undefined); assert.equal(playKeys(e).length, 0); assert.equal(play.purchases[token].ack, 0, what + " is not acknowledged");
+  }
+  /* a pending payment that then goes through is granted */
+  const e = playEnv(), token = playBuy("ot_gems_80", { state: 2 }); assert.equal((await playClaim(e, "ot_gems_80", token)).r.status, 402); play.purchases[token].state = 0; assert.equal((await playClaim(e, "ot_gems_80", token)).j.grant.gems, 80);
+  /* refunded after it was claimed: another device asking for it (restore) gets nothing */
+  const sup = playBuy("ot_supporter"); assert.equal((await playClaim(e, "ot_supporter", sup)).r.status, 200); play.purchases[sup].state = 1;
+  const back = await playClaim(e, "ot_supporter", sup, INSTALL2); assert.equal(back.r.status, 402); assert.equal(back.j.grant, undefined);
+  /* a token Google has never heard of, and Google being down */
+  assert.equal((await playClaim(e, "ot_gems_80", "made-up-token-0123456789")).r.status, 402);
+  play.status = 500; const down = await playClaim(e, "ot_gems_80", playBuy("ot_gems_80")); play.status = 200; assert.equal(down.r.status, 502); assert.equal(down.j.grant, undefined);
+  /* a used-up item Google says was already consumed, with no record here */
+  const spent = await playClaim(playEnv(), "ot_gems_500", playBuy("ot_gems_500", { consumed: 1 })); assert.equal(spent.r.status, 409); assert.equal(spent.j.grant, undefined);
+});
+await test("open trail play: if Google does not take the acknowledge, the grant stands once and the next claim finishes the job", async () => {
+  const e = playEnv(), token = playBuy("ot_trail_pass"); play.failSettle = 2;
+  const first = (await playClaim(e, "ot_trail_pass", token)).j; assert.equal(first.already, false); assert.equal(first.settled, false); assert.equal(play.purchases[token].ack, 0);
+  const again = (await playClaim(e, "ot_trail_pass", token)).j; assert.equal(again.already, true); assert.equal(again.settled, true); assert.equal(play.purchases[token].ack, 1); assert.equal(playKeys(e).length, 1);
+});
+await test("open trail play: bad requests are refused before Google is asked; the body cannot change the grant", async () => {
+  const e = playEnv(), gets = play.gets;
+  for (const token of ["", "short", null, 12, "has spaces in the token 0123456789", "x".repeat(4001)]) assert.equal((await playClaim(e, "ot_gems_80", token)).r.status, 400, String(token).slice(0, 20));
+  for (const install of [null, "", "short", "x".repeat(65)]) assert.equal((await playClaim(e, "ot_gems_80", playBuy("ot_gems_80"), install)).r.status, 400);
+  assert.equal(play.gets, gets);
+  const c = await playClaim(e, "ot_gems_80", playBuy("ot_gems_80"), INSTALL, { gems: 99999, bones: 5000, grant: { gems: 99999, bones: 5000 }, items: ["up:forever"], consumable: false });
+  assert.deepEqual(c.j.grant, { bones: 0, gems: 80, items: [], flags: {} }); assert.equal(c.j.consumable, true);
+  assert.equal((await handle(greq("/ot/play-claim", null, "GET"), e, deps)).status, 404);
+  /* without the service account the route says so and grants nothing */
+  const bare = playEnv({ GOOGLE_SA_EMAIL: "", GOOGLE_SA_KEY: "" }); const r = await playClaim(bare, "ot_gems_80", playBuy("ot_gems_80")); assert.equal(r.r.status, 503); assert.equal(playKeys(bare).length, 0);
+});
+await test("open trail play: an older Google answer without productId is still checked by the address; health reports the game's Play setup", async () => {
+  play.noProductId = true; const c = await playClaim(playEnv(), "ot_gems_80", playBuy("ot_gems_80")); play.noProductId = false; assert.equal(c.j.grant.gems, 80);
+  assert.equal((await (await handle(req("/health", null, "GET"), playEnv(), deps)).json()).otPlay, true);
+  const h = await (await handle(req("/health", null, "GET"), env(), deps)).json(); assert.equal(h.otPlay, false); assert.equal(h.play, true);
+});
+await test("open trail play: Dewclaw's own Play routes still use PLAY_PACKAGE, and the Play channel cannot open a Stripe checkout", async () => {
+  const e = { ...otEnv(), OT_PLAY_PACKAGE: OT_PKG };
+  product.state = 0; product.ack = 0; const checks = product.checks, gets = play.gets;
+  const j = await (await handle(req("/redeem", { sku: "pp_bones_500", token: TOKEN + "-ot-play" }), e, deps)).json();
+  assert.deepEqual(j.grant, { bones: 500, items: [] }); assert.equal(product.checks, checks + 1, "Pocket Pup went to the Dewclaw package"); assert.equal(play.gets, gets);
+  const before = stripe.n, r = await handle(greq("/stripe/checkout", { sku: "ot_gems_80", install: INSTALL, channel: "play" }), e, deps);
+  assert.equal(r.status, 403); assert.equal(stripe.n, before, "no Stripe session is made for the Play channel");
+  assert.equal((await handle(greq("/stripe/checkout", { sku: "ot_gems_80", install: INSTALL, channel: "web" }), e, deps)).status, 200);
 });
 
 console.log(`\n${passed} passed${process.exitCode ? ", with failures" : ""}`);

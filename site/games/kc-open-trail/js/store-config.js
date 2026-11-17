@@ -9,7 +9,12 @@
    STRIPE_PRICE_IDS one Stripe price id ('price_...') per item. The same ids go into the worker's STRIPE_PRICES
                     setting; the worker, not this file, decides what is charged and what is granted. Leaving one
                     item as OWNER_FILLS_IN is also how to hold that item back.
-   SUPPORT_CONTACT  where a grown-up asks for a refund or help (a support email address or an https contact page). */
+   SUPPORT_CONTACT  where a grown-up asks for a refund or help (a support email address or an https contact page).
+   PLAY_BILLING     only matters inside the Google Play app (js/channel.js). 'off' (the default): the Play app has no
+                    real-money store at all, no prices and no checkout. 'on': the Play app sells the same 16 items through
+                    Google Play Billing. Turn it on only after (1) the 16 products exist and are active in Play Console
+                    with ids equal to the names below, (2) the worker has OT_PLAY_PACKAGE and the Google service account,
+                    and (3) WORKER_URL above is filled in. The Play app never uses Stripe, whatever is set here. */
 export const WORKER_URL = 'OWNER_FILLS_IN';
 
 export const STRIPE_PRICE_IDS = {
@@ -32,3 +37,5 @@ export const STRIPE_PRICE_IDS = {
 };
 
 export const SUPPORT_CONTACT = 'OWNER_FILLS_IN';
+
+export const PLAY_BILLING = 'off';

@@ -103,12 +103,15 @@ export function createUiKit(game, ui, env) {
      row appears once a store module sets game.grownUp.showSwitch = true. */
   game.grownUp = {
     showSwitch: false,
+    storeOff: false, switchLabel: '',
     gate: reason => ui.gate(typeof reason === 'string' ? { reason } : reason || {}),
     get spending() { return !!state.settings.spending; },
     async setSpending(on) {
       on = !!on; if (on === !!state.settings.spending) return true;
-      if (on && !(await ui.gate({ reason: 'Turning on the real-money shop lets this device buy things with real money. Bones and everything that changes how KC plays stay free.' }))) return false;
-      state.settings.spending = on; game.save.save(); bus.emit('spending', { on }); ui.toast(on ? 'Real-money shop is on for this device.' : 'Real-money shop is off.', { icon: 'gear' }); return true;
+      /* storeOff: this build sells nothing itself (the Play app while Google Play Billing is not switched on); the switch then only opens the real-gear shelf */
+      const off = !!game.grownUp.storeOff;
+      if (on && !(await ui.gate({ reason: off ? 'Turning this on lets a grown-up look at the real KC gear, which is sold on a separate shop website. Nothing is sold inside the game.' : 'Turning on the real-money shop lets this device buy things with real money. Bones and everything that changes how KC plays stay free.' }))) return false;
+      state.settings.spending = on; game.save.save(); bus.emit('spending', { on }); ui.toast(off ? (on ? 'The grown-ups\' real gear shelf is on for this device.' : 'The grown-ups\' real gear shelf is off.') : on ? 'Real-money shop is on for this device.' : 'Real-money shop is off.', { icon: 'gear' }); return true;
     }
   };
 
@@ -123,7 +126,7 @@ export function createUiKit(game, ui, env) {
     ui.openModal({ id: 'spend', title: short.length ? 'Not enough yet' : (o.title || 'Get this?'), wallet: true, className: 'spend', render: bd => {
       bd.appendChild(ui.item({ title: o.name || 'This', text: o.text, swatch: o.swatch, icon: o.icon, node: o.node, price }));
       if (short.length) bd.appendChild(ui.note(`KC needs ${short.join(' and ')}. Bones come from sniffing around, digging and helping out.`, 'warn'));
-      if (price.gems > 0 && game.economy.usd) bd.appendChild(ui.note(`${Math.round(price.gems)} gems is about ${game.economy.usd(Math.round(price.gems))} if the gems were bought.`, 'usd'));
+      if (price.gems > 0 && game.economy.usd && game.showUsd !== false) bd.appendChild(ui.note(`${Math.round(price.gems)} gems is about ${game.economy.usd(Math.round(price.gems))} if the gems were bought.`, 'usd'));
       if (!short.length) { const chip = (c, n) => `<span class="pc ${c}">${icon(c === 'bones' ? 'bone' : 'gem', 16)}<b>${Math.max(0, n)}</b></span>`, p = el('p', { class: 'after' }); p.innerHTML = 'Afterwards KC will have ' + chip('bones', after.bones) + (w.gems || price.gems ? ' ' + chip('gems', after.gems) : ''); bd.appendChild(p); }
     }, actions: short.length ? [{ label: 'OK', primary: true }] : [{ label: o.no || 'Not now' }, { label: o.yes || 'Yes, get it', primary: true, onClick: () => {
       if (done) return;   /* one charge for one screen, however many click events arrive */

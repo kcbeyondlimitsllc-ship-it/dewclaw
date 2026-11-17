@@ -53,7 +53,7 @@ export function init(game) {
   async function pickCurrency(it, p) {
     if (!p.either) return 'bones';
     return new Promise(res => { let out = null; ui.openModal({ id: 'eco-pay', title: 'Pay with bones or gems?', wallet: true, render: b => { b.appendChild(ui.item({ title: it.name, text: 'Gems are never needed: every gem price can be paid in bones instead.', ...swatch(it), price: p })); b.appendChild(ui.note(`${fmt(p.gems)} gems is about ${eco.usd(p.gems)} if the gems were bought.`, 'usd')); },
-      actions: [{ label: `${fmt(p.bones)} bones`, primary: true, onClick: () => { out = 'bones'; } }, { label: `${fmt(p.gems)} gems (about ${eco.usd(p.gems)})`, onClick: () => { out = 'gems'; } }], onClose: () => res(out) }); });
+      actions: [{ label: `${fmt(p.bones)} bones`, primary: true, onClick: () => { out = 'bones'; } }, { label: game.showUsd === false ? `${fmt(p.gems)} gems` : `${fmt(p.gems)} gems (about ${eco.usd(p.gems)})`, onClick: () => { out = 'gems'; } }], onClose: () => res(out) }); });
   }
   async function buyItem(it, after) {
     const p = eco.itemPrice(it.id), cur = await pickCurrency(it, p); if (!cur) return false; const c = eco.checkItem(it.id, cur);
@@ -65,7 +65,7 @@ export function init(game) {
   }
   function wearCard(d, it) {
     const owned = eco.owns(d.id) || !!d.free, on = game.cosmetics.equipped(d.slot) === d.id, p = it ? eco.itemPrice(it.id) : null, lock = it && !owned && it.req ? it.req(game) : null, und = eco.undoable(d.id), ride = String(d.slot).startsWith('skin:');
-    const text = it && it.gems && !owned ? `${fmt(it.gems)} gems is about ${eco.usd(it.gems)} if the gems were bought` : it && !owned ? it.where : '';
+    const text = it && it.gems && !owned && game.showUsd !== false ? `${fmt(it.gems)} gems is about ${eco.usd(it.gems)} if the gems were bought` : it && !owned ? it.where : '';
     const card = ui.item({ id: d.id, title: d.name, text, ...swatch(d), price: owned ? undefined : p, tag: on ? (ride ? 'Painted on' : 'Wearing') : owned ? 'Owned' : '', on, locked: lock || undefined, onPreview: () => { game.cosmetics.preview(d.id); peek(); },
       button: owned ? { label: on ? (ride ? 'Back to plain' : 'Take off') : ride ? 'Use this paint' : 'Wear', primary: !on, onClick: () => { if (on) game.cosmetics.unequip(d.slot); else game.cosmetics.equip(d.id); game.shop.refresh(); } } : it ? { label: 'Get', onClick: () => buyItem(it, () => { game.cosmetics.equip(d.id); done(`${d.name} is KC's now.`); }) } : undefined });
     if (und) { const b = btn(`Undo (${und.gems} gems back)`, async () => { if (await ui.confirm('Undo this?', `${d.name} goes back on the shelf and ${und.gems} gems come back.`, 'Undo', 'Keep it')) { eco.undo(d.id); done('Undone: the gems are back.'); } }, { alt: true, act: 'undo' }); card.querySelector('.side').appendChild(b); }
@@ -138,7 +138,7 @@ export function init(game) {
       for (const it of [...eco.items(i => i.cat === 'decor' && !i.premium), ...eco.items(i => i.cat === 'decor' && i.premium)]) { const on = U.decorOn(it.id), owned = eco.owns(it.id); if (it.grantOnly && !owned) continue;
         const p = eco.itemPrice(it.id) || {}, c = owned ? { ok: true } : eco.checkItem(it.id), fullUp = used >= slots;
         const place1 = () => { const r = U.placeDecor(it.id); if (r === true) done(`${it.name} is out by the den.`); else { game.toast(r, { kind: 'warn' }); game.shop.refresh(); } };
-        g.appendChild(ui.item({ id: it.id, title: it.name, icon: 'star', text: it.gems && !owned ? `${fmt(it.gems)} gems is about ${eco.usd(it.gems)} if the gems were bought` : '', price: owned ? undefined : p, tag: on ? 'Out by the den' : owned ? 'In storage' : '', on,
+        g.appendChild(ui.item({ id: it.id, title: it.name, icon: 'star', text: it.gems && !owned && game.showUsd !== false ? `${fmt(it.gems)} gems is about ${eco.usd(it.gems)} if the gems were bought` : '', price: owned ? undefined : p, tag: on ? 'Out by the den' : owned ? 'In storage' : '', on,
           locked: !owned && !on && fullUp ? 'No free decor spot' : undefined, button: on ? { label: 'Put away', primary: false, onClick: () => { const back = U.removeDecor(it.id); done(back && (back.bones || back.gems) ? `Put away: ${back.bones ? fmt(back.bones) + ' bones' : back.gems + ' gems'} back.` : 'Put away.'); } }
             : owned ? { label: 'Put out', disabled: fullUp, onClick: place1 } : { label: c.reason === 'bones' && !p.either ? 'Not enough bones' : 'Get', disabled: fullUp || (!c.ok && !p.either), onClick: () => buyItem(it, place1) } })); }
       pane.appendChild(g); }

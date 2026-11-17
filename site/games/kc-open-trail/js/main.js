@@ -16,6 +16,7 @@ import { createCollect } from './collect.js';
 import { createAudio } from './audio.js';
 import { SPAWN, HALF } from './data.js';
 import { createSeams } from './seams.js';
+import { detectChannel } from './channel.js';
 /* feature modules: each exports init(game) and never edits a core file (ARCHITECTURE.md, "Module seams") */
 import * as economy from './economy.js';
 import * as upgrades from './upgrades.js';
@@ -45,6 +46,8 @@ function boot() {
   const scene = new THREE.Scene();
   const bus = createBus();
   const game = { VERSION, THREE, renderer, scene, bus, on: bus.on, off: bus.off, emit: bus.emit, debug: DEBUG, time: 0, paused: false, modules: {} };
+  /* 'play' inside the Google Play app, 'web' anywhere else (js/channel.js). The store, the dollar hints and the Settings wording follow it. */
+  game.channel = detectChannel(window); game.showUsd = game.channel !== 'play';
   game.save = createSave(game); const had = game.save.load(); const state = game.state = game.save.state;
   if (!had) { const coarse = matchMedia('(pointer: coarse)').matches; state.settings.quality = coarse ? ((navigator.deviceMemory || 4) <= 2 ? 'low' : 'medium') : 'high'; }
   if (params.get('q') && QUALITY[params.get('q')]) state.settings.quality = params.get('q');
@@ -151,7 +154,7 @@ function boot() {
   if (DEBUG) {
     const log = []; bus.on('*', (d, type) => { if (type === 'tick' || type === 'second') return; log.push({ type, t: +game.time.toFixed(2), d: d && typeof d === 'object' ? Object.fromEntries(Object.entries(d).filter(([, v]) => typeof v !== 'object' && typeof v !== 'function')) : d }); if (log.length > 400) log.shift(); });
     window.__ot = {
-      game, ready: true, events: log,
+      game, ready: true, events: log, channel: game.channel,
       state: () => ({ version: VERSION, started: ui.started, paused: game.paused, modal: ui.current ? ui.current.id || true : null, photo: ui.photo, pos: { x: kc.pos.x, y: kc.pos.y, z: kc.pos.z, yaw: kc.yaw }, speed: kc.speed, onGround: kc.onGround, swimming: kc.swimming, sprinting: kc.sprinting, sit: kc.sit, stamina: kc.stamina, staminaMax: kc.staminaMax,
         run: game.run ? { id: game.run.id, time: game.run.time, left: game.run.left, index: game.run.index } : null, followers: npcs.followers.length, equipped: { ...state.equipped }, spending: !!state.settings.spending,
         ride: kc.ride ? kc.ride.id : null, rideSpeed: kc.ride ? kc.ride.speed : 0, carrying: kc.carried.map(i => i.id), zone: api.zone && api.zone.id, prompt: api.prompt && api.prompt.label, wallet: { ...state.wallet }, festival: world.festival, flags: { ...state.flags }, time: world.time, day: world.day, night: world.night, rain: world.rain,

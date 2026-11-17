@@ -21,3 +21,40 @@ STRIPE_PRICES = "{\"dewclaw_plus_monthly\":\"price_1Ua3dZ2Iw54GOjzDch4vZRQe\",\"
 PAYPAL_ENV = "sandbox"
 # Secrets (set in the Cloudflare dashboard, never in this file):
 #   STRIPE_SECRET_KEY, PAYPAL_CLIENT_ID, PAYPAL_SECRET
+
+# ---------------------------------------------------------------- KC: Open Trail
+# The game's 16 Stripe price ids (ot_...) are added to STRIPE_PRICES above by
+#   node tools/stripe-setup-open-trail.mjs --live --write
+# Steps: marketing/kc-open-trail/GO-LIVE-STRIPE.md. Nothing else above needs to change for the game:
+#   ALLOWED_ORIGIN already is the site the game is served from (scheme and host only, comma-separated for more),
+#   OT_RETURN_URL is left unset, so the buyer returns to APP_ORIGIN + /games/kc-open-trail/ .
+# Only for the Google Play app's own billing, which is off until the owner turns it on
+# (android/kc-open-trail/README.md); it is a [vars] line, shown here so it is not forgotten:
+#   OT_PLAY_PACKAGE = "com.kcbeyondlimits.kcopentrail"
+# About the signing secret TOKEN_SECRET (a secret, never in this file): when it is not set, the worker signs web
+# Plus tokens with the Stripe key itself. So on the LIVE worker, adding TOKEN_SECRET, changing it, or changing
+# STRIPE_SECRET_KEY all change the signature and can sign out people who bought Plus on the web. Leave both alone
+# for the game's launch; plan any change with a developer. The TEST worker gets its own TOKEN_SECRET from day one.
+
+# The game's TEST worker: its own name, its own storage and Stripe TEST price ids, so the live app is never
+# touched while testing. Deployed only by `npx wrangler deploy --env test`. The LIVE worker is deployed with
+# `npx wrangler deploy --env=""` (a plain `npx wrangler deploy` does the same but prints a warning that two
+# environments exist). Wrangler also warns that the test worker lacks PLAY_PACKAGE, PLAY_SKUS, PAYPAL_ENV and
+# "ai": that is on purpose, the test worker only serves the game's store.
+# Before the first test deploy, create its storage and paste the id it prints below:
+#   npx wrangler kv namespace create DEWCLAW --env test
+# Its secrets are separate too (a Stripe TEST key only):
+#   npx wrangler secret put STRIPE_SECRET_KEY --env test
+#   npx wrangler secret put TOKEN_SECRET --env test
+[env.test]
+name = "dewclaw-ot-test"
+
+[[env.test.kv_namespaces]]
+binding = "DEWCLAW"
+id = "OWNER_FILLS_IN_TEST_KV_ID"
+
+[env.test.vars]
+ALLOWED_ORIGIN = "https://dewclaw-app.netlify.app"
+APP_ORIGIN = "https://dewclaw-app.netlify.app"
+STRIPE_TAX = "auto"
+STRIPE_PRICES = "{}"

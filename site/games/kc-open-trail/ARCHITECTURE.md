@@ -360,6 +360,7 @@ if (await game.ui.gate({ reason: 'This opens the real-money shop.' })) { ... }  
 game.grownUp.spending                 // boolean, false by default (state.settings.spending, kept through "Start over")
 await game.grownUp.setSpending(true)  // gate, then on ; setSpending(false) needs no gate. Emits `spending` { on }
 game.grownUp.showSwitch = true        // store.init sets this: Settings then shows "Real-money shop (grown-ups only)"
+game.grownUp.storeOff, .switchLabel   // set by store.init in a Play app with no store: the switch then only opens the real-gear shelf, and says so
 await game.ui.openExternal({ url: 'https://kcbeyondlimits.com/product/34460072', name: 'the KC Beyond Limits shop', note: 'Printed to order; shipping is added at checkout.' })
 ```
 
@@ -371,6 +372,51 @@ await game.ui.openExternal({ url: 'https://kcbeyondlimits.com/product/34460072',
 - `openExternal` accepts `https:` only, runs the gate, shows "You are leaving KC: Open Trail for <name>, a separate website" with the host
   name and your note, and opens the page in a new tab with `rel="noopener noreferrer"`. The game requests nothing from that site. Never build
   an `<a target="_blank">` yourself.
+
+### Channels: the Google Play app and the open web (`js/channel.js`)
+
+The same files run in two places, and the store behaves differently in each. `main.js` calls `detectChannel(window)` once at boot
+and puts the answer in `game.channel`:
+
+| `game.channel` | Where | Real-money store |
+| --- | --- | --- |
+| `'web'` | any browser, and the web app added to a home screen | Stripe Checkout through the worker, as built |
+| `'play'` | the Android app from Google Play (a Trusted Web Activity) | never Stripe. `PLAY_BILLING = 'off'` in `js/store-config.js` (the default): no store at all. `'on'`: Google Play Billing |
+
+Why: Google Play's payments policy requires Google Play Billing for digital goods sold inside a Play app and forbids leading
+people to another way to pay (links, buttons, wording). The US programmes that allow an outside payment page need enrolment,
+native Android code that the Trusted Web Activity shell does not have, and still carry Google's fee, so they are not used.
+Physical goods are outside that rule, which is why the real-gear shelf (`merch.js`) is the same in both channels: behind the
+switch, the gate and the "You are leaving the game" screen.
+
+How the Play app is recognised (first match wins; details and the reasoning are at the top of `js/channel.js`):
+
+1. the address carries `?src=play`. **The Android shell's start URL must be `/games/kc-open-trail/?src=play`.**
+2. `document.referrer` starts with `android-app://` and the page is not in a browser tab (`display-mode` is not `browser`).
+3. `sessionStorage['kc-open-trail-channel'] === 'play'`: the same tab after a reload ("Start over", a lost GL context).
+4. `localStorage['kc-open-trail-channel'] === 'play'` and the page is not in a browser tab: a later launch of the installed app.
+   A Chrome tab on the same phone shares storage with the app and is still the web.
+
+What follows `game.channel === 'play'`:
+
+- `game.showUsd` is `false`: the "about $X" hints beside gem prices (`shop.js`, `uikit.js`, the Trail Journal) are not drawn,
+  because the only real price a Play app may show is the one Google Play gives.
+- `store.js` never calls `/stripe/checkout` or `/stripe/claim`, drops a `?cs=` return link without asking anyone, and shows no
+  dollar price from its own catalogue. The worker also refuses `/stripe/checkout` for an `ot_` SKU when the body says
+  `channel: 'play'` (a second lock; the worker cannot tell the app from a browser by itself).
+- With `PLAY_BILLING` off: no Store tab, no pass column or pass price in the Trail Journal, no limit / restore rows in Settings,
+  `game.grownUp.storeOff = true`, and the switch in Settings reads "Real KC gear shelf (grown-ups only)".
+- With `PLAY_BILLING` on: see `game.modules.store` below.
+
+Settings has a "Privacy policy" row in both channels: a plain link to `/kc-open-trail/privacy.html` on the same origin (so it
+stays inside the app with no address bar). In a browser tab it opens beside the game; in the app it takes the game's place and
+Back returns. It is the only link in the game that needs no gate, and it is not an outside website.
+
+For the Android shell (the recipe is in `android/`): start URL as above, the game's own package name, and that package's
+upload-key and Play app-signing SHA-256 fingerprints in `site/.well-known/assetlinks.json`. Without the second fingerprint the
+app shows a browser address bar. `manifest.webmanifest` has `name`, `short_name`, `start_url` and `scope` `./`, `display`
+`fullscreen`, `orientation` `any`, both colours, and 192 / 512 / maskable-512 PNG icons. The service worker serves the shell
+offline whatever the query string, so `?src=play` starts without a network.
 
 ### Saving (`js/save.js`)
 
@@ -480,7 +526,33 @@ in every 40 minutes of play (`JOB_WINDOW`, counted on the module's own clock: a 
 - `/stripe/checkout` answers `{ url, session }`; the game writes the session id into `pending` before leaving, so a payment whose return link opens in another browser or app can be finished from the Store ("Finish adding it") in the browser that started it.
 - "Start over" (`ui.resetNotes`, an array of `() => ({ text, gate }) | null`): the store says what is kept and, once real money has been spent on the device, puts the grown-up gate first. Kept: Store purchases, purchased gems not yet spent, and the things purchased gems bought (`modules.store.gemItems`).
 - `merch.js` never turns the real-money switch on: with it off, the KC Gear tab only offers a button that opens Settings.
-- The worker side is `worker/dewclaw-worker.js` (`OT_GRANTS`, `OT_PRICES`, `/stripe/checkout`, `/stripe/claim`, `/ot/restore`, `/ot/prices`);
+- Channel fields: `channel` (`'web'` / `'play'`), `hasStore` (false in a Play app with `PLAY_BILLING` off: then `open`, `buy`,
+  `restore`, `limitScreen` and `setLimit` all answer false and no tab or Settings row is registered), `playBilling`,
+  `playReady` (Google Play has answered with prices), `restorePlay()`. In the Play app `price(id)` is Google Play's price
+  string, or `''` when Google has not returned that item.
+- **Google Play Billing** (`PLAY_BILLING = 'on'`, Play channel only). Item ids in Play Console must equal the 16 `ot_` SKUs:
+  consumable (consumed after each purchase) for `ot_gems_*`, `ot_treat_*` and `ot_tip_3`; non-consumable for `ot_starter`,
+  `ot_trail_pass`, the four `ot_pack_*`, `ot_supporter` and `ot_everything`. Do not enable multi-quantity on any of them.
+  - After the gate that opens the store, `getDigitalGoodsService('https://play.google.com/billing')` then `getDetails(all 16)`.
+    A card shows the price Google returned (`Intl.NumberFormat` in the price's own currency). An item Google did not return,
+    or every item when the Digital Goods API or `PaymentRequest` is missing, says "Coming soon", shows no price and cannot
+    be bought.
+  - Buy: the same checks, gate and confirm screen as the web, then `new PaymentRequest([{ supportedMethods, data: { sku } }])`.
+    `response.details.purchaseToken` goes to the worker: `POST /ot/play-claim { sku, token, install, key? }`. The grant in the
+    answer goes through `grantProblem` and `game.economy.grant` exactly as a Stripe grant does. A consumable is then also
+    consumed on the device (`service.consume`) so it can be bought again at once.
+  - The worker (`handleOtPlayClaim`) asks `purchases.products.get` for `OT_PLAY_PACKAGE` (the game's package; Dewclaw's
+    `PLAY_PACKAGE` is untouched), refuses anything that is not purchased (`purchaseState` 0), not that SKU, or a consumable
+    already consumed, writes one record per token (`otplay:<hash>` in KV), then calls `:consume` or `:acknowledge`. A replay
+    answers `already: true` with the same grant. A permanent item claimed from another install is checked with Google again
+    and comes back with `gems: 0` and `restored: true`; a consumable claimed from another install is refused.
+  - Restore and repair: `listPurchases()` when the store opens and from "Restore from Google Play". Every token not yet in this
+    save is claimed, so a purchase whose answer was lost, or a permanent item bought on another device, is added then. The
+    purchase token is never saved; only a hash of it is kept (`applied`), on the device and in the worker.
+  - The device limit counts each purchase at its US list price (`cents`), whatever currency Google charged; the journal line
+    shows Google's price. Trail Keys are issued for permanent Play purchases too and work as on the web.
+  - Not built: a Voided Purchases check. A refund made in Play Console after a claim does not take the item back.
+- The worker side is `worker/dewclaw-worker.js` (`OT_GRANTS`, `OT_PRICES`, `/stripe/checkout`, `/stripe/claim`, `/ot/restore`, `/ot/prices`, `/ot/play-claim`);
   `worker/test.js` holds the game's `CATALOG` and the worker's table together.
 
 ### `game.modules.merch`
@@ -517,6 +589,7 @@ Modal ids `merch-real`, `merch-leaving`, `merch-claim`. Events: `merchClaim`, `e
 | `game.ui` | HUD + modal shell (below) |
 | `game.audio` | `sfx(name)`: pickup, gold, reward, bark, jump, splash, dig, honk, whistle, bell, pet, ui, door, eat, shutter; `applyVolume()` (honours `settings.muted`) |
 | `game.fx` | `burst(kind, x, y, z, n)` particles: dust, splash, dirt, heart, spark, leaf, water |
+| `game.channel`, `game.showUsd` | `'web'` or `'play'` (`js/channel.js`); whether "about $X" hints may be drawn (false in the Play app) |
 | `game.modules` | results of the seven `init` calls: `economy`, `upgrades`, `shop`, `missions`, `store`, `merch`, `guide` |
 
 ### Saved state (`js/save.js`, localStorage key `kc-open-trail-save-v2`)

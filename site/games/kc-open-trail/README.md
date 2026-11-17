@@ -145,6 +145,13 @@ contract between them and the core, and each module's public API, are in
 - Money never buys bones or anything that changes how KC plays. It buys gems
   (cosmetics only) and cosmetic sets. Everything that affects play is earned
   with bones. Nothing is random, nothing has a countdown.
+- **Two channels.** On the web the store sells through Stripe. Inside the
+  Google Play app (`?src=play`, see `js/channel.js`) Stripe is never used or
+  mentioned, because Google Play requires its own billing for digital goods.
+  There the store is absent (`PLAY_BILLING = 'off'`, the default) or sells
+  the same 16 items through Google Play Billing (`'on'`), with prices read
+  from Google Play. The real-gear shelf (physical products on a separate
+  shop) is the same in both, behind the switch and the gate.
 - **Nothing is live.** `js/store-config.js` holds placeholders, so every
   store item says "Coming soon" and no checkout can start. The owner's
   steps (Stripe products, worker settings, wording for a lawyer) are in
@@ -154,6 +161,34 @@ contract between them and the core, and each module's public API, are in
   trust; no order number is stored or sent.
 - Before each release and around each shop sale, refresh the product list:
   `node tools/sync-merch.js --live --accept` (`--check` verifies it).
+
+## The Google Play app
+
+The Play app is a Trusted Web Activity: an Android shell that opens this
+same folder full screen. What it needs from the game is already here:
+
+- Start URL `/games/kc-open-trail/?src=play`. That query is how the game
+  knows it is the Play app; without it the app would behave like the web
+  and offer Stripe, which Google Play does not allow.
+- `manifest.webmanifest` (name, icons including a maskable one, fullscreen,
+  any orientation, colours) and `sw.js` (the game starts with no network).
+- The game's own package name and its two SHA-256 fingerprints (upload key
+  and Play app signing key) in `site/.well-known/assetlinks.json`.
+- A privacy policy inside the app: Settings, "Privacy policy", which opens
+  `/kc-open-trail/privacy.html` on the same site.
+
+As shipped the Play app sells nothing (`PLAY_BILLING = 'off'`): no store, no
+prices, no ads, no accounts, no requests to anyone. To sell there later:
+create the 16 products in Play Console with ids equal to the `ot_` names in
+`js/store-config.js`, set `OT_PLAY_PACKAGE` and the Google service account on
+the worker, fill in `WORKER_URL`, then set `PLAY_BILLING = 'on'`. The details
+are in ARCHITECTURE.md, "Channels" and "`game.modules.store`".
+
+To see the Play channel on a computer: `http://localhost:8931/?src=play`
+(the store is absent). With `?src=play&debug=1&mock=1` the store is there,
+but an ordinary browser has no Google Play in it, so every item says
+"Coming soon"; `tests/play.test.js` puts a pretend Google Play in the page.
+Close the tab to go back to the web channel.
 
 ## Files
 
@@ -182,15 +217,16 @@ js/economy.js              price table: ladders, items, ECON_SCALE, free gems, d
 js/upgrades.js             what the ladders do: den, buddies, businesses, funds, trail markers
 js/shop.js                 six Shop tabs and the shop-door prompts
 js/missions.js, js/activities.js   story missions, festival activities, journal, weekly tasks, ferry
-js/store.js, js/store-config.js    real-money store, Trail Journal; the config is placeholders until the owner fills it in
+js/channel.js              'play' (the Google Play app) or 'web'; sets game.channel
+js/store.js, js/store-config.js    real-money store (Stripe on the web, Google Play Billing in the Play app), Trail Journal; the config is placeholders until the owner fills it in
 js/merch.js                KC shelves, twins, real products behind the gate, leaving screen, claim
 js/guide.js                first steps for a new player
 css/economy.css, css/missions.css, css/store.css, css/merch.css   the modules' styles (each injected by its module)
 merch.json, img/merch/     the 54 real products and their 240 px thumbnails (made by tools/sync-merch.js)
 tools/make-icons.js        regenerates icons/ (dev only, needs Playwright)
 tools/sync-merch.js        rebuilds merch.json and the thumbnails from the shop (owner tool, run by hand)
-tests/smoke.js             the single test entry point (Playwright); also runs the five suites below
-tests/economy.test.js, tests/missions.test.js, tests/store.test.js, tests/merch.test.js   the module suites
+tests/smoke.js             the single test entry point (Playwright); also runs the suites below
+tests/economy.test.js, tests/missions.test.js, tests/store.test.js, tests/merch.test.js, tests/play.test.js   the module suites
 ```
 
 When you change any shipped file, bump `VERSION` in `sw.js`
@@ -230,7 +266,8 @@ NODE_PATH=$(npm root -g) node tests/smoke.js /tmp/kc-shots
    and the gate, pause / settings / map, frame time, save and reload.
 4. A damaged save, "Start over", and the offline reload from the service worker.
 5. **The suites**, each as its own process: `tests/economy.test.js`,
-   `tests/missions.test.js`, `tests/store.test.js`, `tests/merch.test.js` and
+   `tests/missions.test.js`, `tests/store.test.js`, `tests/merch.test.js`,
+   `tests/play.test.js` (both channels, Google Play faked in the page) and
    `worker/test.js`. Each can also be run by itself the same way.
 
 It fails on any console error or off-origin request. Screenshots go to the

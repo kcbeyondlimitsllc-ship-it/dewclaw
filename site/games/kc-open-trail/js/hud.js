@@ -5,6 +5,8 @@ import { icon, el, clamp, angDiff, TAU } from './util.js';
 import { EXT, HALF, DISTRICT_LABELS, PHOTO_SPOTS, SIGNPOSTS } from './data.js';
 import { createUiKit } from './uikit.js';
 import { createPhotoKit } from './photo.js';
+/* the game's privacy policy: a page of the same website, outside the game's folder */
+const PRIVACY_URL = '/kc-open-trail/privacy.html';
 
 const $ = id => document.getElementById(id);
 
@@ -131,11 +133,17 @@ export function createHud(game) {
     check('Rain showers', 'rain');
     { const c = el('input', { type: 'checkbox', 'data-set': 'festival' }); c.checked = !!game.economy.getFlag('festival'); c.addEventListener('change', () => { game.economy.setFlag('festival', c.checked); game.save.save(); }); row('Fog Bell Festival dressing', c); }
     /* rows added by modules (ui.addSetting) and the grown-up switch for the real-money shop (shown once a store module asks for it) */
-    const extra = [...ui.settingRows]; if (game.grownUp.showSwitch) extra.push({ id: 'spending', label: 'Real-money shop (grown-ups only)', type: 'check', get: () => game.grownUp.spending, set: v => game.grownUp.setSpending(v), order: 90 });
+    const extra = [...ui.settingRows]; if (game.grownUp.showSwitch) extra.push({ id: 'spending', label: game.grownUp.switchLabel || 'Real-money shop (grown-ups only)', type: 'check', get: () => game.grownUp.spending, set: v => game.grownUp.setSpending(v), order: 90 });
     for (const r of extra.sort((a, c) => (a.order ?? 50) - (c.order ?? 50))) {
       if (r.type === 'button') { const x = el('button', { type: 'button', class: 'btn alt', 'data-set': r.id }); x.textContent = r.button || 'Open'; x.addEventListener('click', () => { sfx(); r.onClick && r.onClick(); }); row(r.label, x); }
       else { const c = el('input', { type: 'checkbox', 'data-set': r.id }); c.checked = !!(r.get && r.get()); c.addEventListener('change', async () => { const want = c.checked; let ok = true; try { ok = (await (r.set && r.set(want))) !== false; } catch (e) { console.error(e); ok = false; } const now = r.get ? !!r.get() : ok ? want : !want; const live = document.querySelector(`[data-set="${r.id}"]`); if (live) live.checked = now; game.save.save(); }); row(r.label, c); }
     }
+    /* the privacy policy: a page of this same website, so it stays inside the Play app with no address bar. No gate: it sells nothing.
+       In a browser tab it opens beside the game; in the installed app it takes the game's place and Back returns. */
+    { const a = el('a', { class: 'btn alt', href: PRIVACY_URL, 'data-set': 'privacy' }); a.textContent = 'Read';
+      let tab = true; try { tab = matchMedia('(display-mode: browser)').matches; } catch (e) { /* treated as a tab */ }
+      if (tab && game.channel !== 'play') { a.target = '_blank'; a.rel = 'noopener'; }
+      a.addEventListener('click', e => { sfx(); game.save.save(); if (navigator.onLine === false) { e.preventDefault(); ui.toast('The privacy policy needs an internet connection. Try again when this device is online.', { icon: 'hand', ms: 5000 }); } }); row('Privacy policy', a); }
     const reset = el('button', { type: 'button', class: 'btn danger', style: 'margin-top:12px;width:100%' }); reset.textContent = 'Start over (erase save)';
     reset.addEventListener('click', async () => {
       /* modules that keep something through a reset say so here (ui.resetNotes: [() => ({ text, gate }) | null]); anything bought with real money puts the grown-up gate first */
