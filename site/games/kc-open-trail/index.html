@@ -37,10 +37,8 @@
       <span class="w gems" title="Gems"><span data-ic="gem"></span><b id="wGems">0</b></span>
     </div>
     <div id="hudBtns">
-      <button id="btnMute" type="button" aria-label="Sound is on. Mute" aria-pressed="false"><span data-ic="bark"></span></button>
       <button id="btnMap" type="button" aria-label="Map"><span data-ic="map"></span></button>
-      <button id="btnPhoto" type="button" aria-label="Photo mode"><span data-ic="camera"></span></button>
-      <button id="btnPause" type="button" aria-label="Pause"><span data-ic="pause"></span></button>
+      <button id="btnPause" type="button" aria-label="Pause, photo mode, sound and settings"><span data-ic="pause"></span></button>
     </div>
   </div>
   <div id="banner" aria-hidden="true"></div>
@@ -49,16 +47,20 @@
     <div id="stamina" role="meter" aria-label="Stamina" aria-valuemin="0" aria-valuemax="100"><span data-ic="bolt"></span><div class="bar"><i></i></div></div>
   </div>
   <div id="touch" aria-hidden="true">
-    <div id="coach"><div class="cl">Drag here to move<small>the stick follows your thumb</small></div><div class="cr">Drag here to look<small>pinch to zoom</small></div></div>
+    <div id="coach"><div class="cl">Drag here to move<small>the stick follows your thumb</small></div><div class="cr">Drag here to look<small>pinch to zoom. Tap <b>&middot;&middot;&middot;</b> for Sit, Dig and Shake</small></div></div>
     <div id="stick"><i></i><em>Move</em></div>
+    <!-- always there: Jump, Run, Bark and the tricks button; Paw only shows up when there is something to use, and says what it will do -->
     <div id="pad">
-      <button data-btn="sit" class="sm" type="button"><span data-ic="sit"></span><em>Sit</em></button>
-      <button data-btn="dig" class="sm" type="button"><span data-ic="dig"></span><em>Dig</em></button>
-      <button data-btn="shake" class="sm" type="button"><span data-ic="shake"></span><em>Shake</em></button>
       <button data-btn="bark" class="lg b-bark" type="button"><span data-ic="bark"></span><em>Bark</em></button>
-      <button data-btn="interact" class="lg b-paw" type="button"><span data-ic="paw"></span><em>Paw</em></button>
-      <button data-btn="sprint" class="lg b-zoom" type="button"><span data-ic="bolt"></span><em>Zoom</em></button>
+      <button data-btn="interact" class="lg b-paw" type="button" hidden><span data-ic="paw"></span><em>Paw</em></button>
+      <button data-btn="sprint" class="lg b-run" type="button"><span data-ic="bolt"></span><em>Run</em></button>
       <button data-btn="jump" class="lg b-jump" type="button"><span data-ic="jump"></span><em>Jump</em></button>
+      <button id="btnMore" data-hint="more" class="sm b-more" type="button"><span data-ic="more"></span><em>Tricks</em></button>
+      <div id="tricks" hidden>
+        <button data-btn="sit" class="sm" type="button"><span data-ic="sit"></span><em>Sit</em></button>
+        <button data-btn="dig" class="sm" type="button"><span data-ic="dig"></span><em>Dig</em></button>
+        <button data-btn="shake" class="sm" type="button"><span data-ic="shake"></span><em>Shake</em></button>
+      </div>
     </div>
   </div>
 </div>

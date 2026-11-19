@@ -14,7 +14,9 @@ export function defaultState() {
     pos: null,            /* {x,z,yaw} */
     time: 9.5,
     day: 1,
-    settings: { quality: 'medium', autoQuality: true, sound: 0.8, music: 0.5, invertY: false, invertX: false, leftHanded: false, muted: false, rain: true, camDist: 6.5, spending: false, gate: null },   /* spending: real-money shop switch, off until a grown-up turns it on; gate: { until, n } while the grown-up gate is shut after wrong answers */
+    settings: { quality: 'medium', autoQuality: true, sound: 0.8, music: 0.5, invertY: false, invertX: false, leftHanded: false, muted: false, rain: true, camDist: 6.5, spending: false, gate: null,
+      hints: { move: 0, jump: 0, sprint: 0, bark: 0, more: 0, sit: 0, dig: 0, shake: 0 } },   /* hints: how often each touch control was used; its text label fades after 3 (the HUD counts);
+                      spending: real-money shop switch, off until a grown-up turns it on; gate: { until, n } while the grown-up gate is shut after wrong answers */
     rides: {},            /* rideId -> { x, z, yaw } for skateboards, canoes and vans left away from home */
     flags: {},            /* world flags set through game.economy.setFlag (e.g. festival: true) */
     modules: {}           /* moduleId -> any JSON, owned by that module */

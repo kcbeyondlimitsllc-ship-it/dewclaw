@@ -19,10 +19,10 @@ button:focus-visible { outline:3px solid #fff; outline-offset:2px; }
 #zone { font-weight:800; font-size:15px; line-height:1.15; text-shadow:0 1px 3px rgba(0,0,0,.8); padding-left:4px; max-width:190px; }
 #clock { font-size:13px; font-weight:700; text-shadow:0 1px 3px rgba(0,0,0,.7); padding-left:4px; }
 
-#tc { top:calc(8px + var(--st)); left:50%; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; gap:6px; width:min(46vw,300px); }
+#tc { top:calc(8px + var(--st)); left:50%; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; gap:6px; width:min(46vw,440px); }
 #compass { width:240px; max-width:100%; height:30px; background:var(--panel2); border-radius:13px; border:1px solid var(--line); }
-#objective { background:var(--panel); border-radius:12px; padding:5px 12px; font-size:13px; font-weight:700; border:1px solid var(--line); text-align:center; }
-#objective b { color:var(--accent); }
+#objective { background:var(--panel); border-radius:12px; padding:5px 12px; font-size:13px; font-weight:700; border:1px solid var(--line); text-align:center; max-width:100%; }
+#objective b { color:var(--accent); white-space:nowrap; }
 #toasts { display:flex; flex-direction:column; align-items:center; gap:6px; width:min(92vw,420px); }
 .toast { display:flex; align-items:center; gap:8px; background:var(--panel); border:1px solid var(--line); border-left:4px solid var(--accent); border-radius:12px; padding:8px 12px; font-size:14px; font-weight:700; line-height:1.25;
   box-shadow:0 4px 14px rgba(0,0,0,.35); animation:toastIn .25s ease-out; transition:opacity .35s, transform .35s; }
@@ -76,18 +76,33 @@ body.touch #coach.show { display:block; }
 /* a district or mission banner has the middle of the screen to itself: the coach panels step aside while it is up */
 #banner.on ~ #touch #coach div { opacity:0; }
 #stick i { position:absolute; left:50%; top:50%; width:52px; height:52px; margin:-26px; border-radius:50%; background:rgba(255,255,255,.75); }
-#pad { position:absolute; right:calc(10px + var(--sr)); bottom:calc(76px + var(--sb)); width:176px; height:222px; }
+/* the thumb pad (right side; mirrored for left-handed players). Always there: Jump, Run, Bark and the tricks button (...).
+   Paw appears only while there is something to use, with a tag above it saying what it will do (it stands in for the orange prompt on touch screens).
+   ... opens Sit, Dig and Shake in a short column above it. The word under each button fades once it has been used 3 times (settings.hints). */
+#pad { position:absolute; right:calc(10px + var(--sr)); bottom:calc(76px + var(--sb)); width:200px; height:148px; }
 body.lefty #pad { right:auto; left:calc(10px + var(--sl)); }
 #pad button { pointer-events:auto; position:absolute; border-radius:50%; border:2px solid rgba(255,255,255,.4); background:rgba(16,34,27,.6); display:grid; place-items:center; touch-action:none; padding:0; }
-#pad button em { position:absolute; bottom:-15px; left:50%; transform:translateX(-50%); font-style:normal; font-size:12px; font-weight:800; text-shadow:0 1px 2px #000; white-space:nowrap; }
-#pad button.lg { width:64px; height:64px; } #pad button.sm { width:46px; height:46px; }
+#pad button em { position:absolute; bottom:-15px; left:50%; transform:translateX(-50%); font-style:normal; font-size:12px; font-weight:800; text-shadow:0 1px 2px #000; white-space:nowrap; transition:opacity .6s; pointer-events:none; }
+#pad button.learned em, #stick.learned em { opacity:0; }
+#pad button.lg { width:64px; height:64px; } #pad button.sm { width:48px; height:48px; }
 #pad button.down { background:var(--accent); color:var(--accent-ink); transform:scale(.94); }
-#pad .b-jump { right:0; bottom:0; } #pad .b-zoom { right:76px; bottom:0; } #pad .b-paw { right:0; bottom:84px; } #pad .b-bark { right:76px; bottom:84px; }
-#pad [data-btn=sit] { right:124px; top:0; } #pad [data-btn=dig] { right:66px; top:0; } #pad [data-btn=shake] { right:8px; top:0; }
-body.lefty #pad .b-jump { right:auto; left:0; } body.lefty #pad .b-zoom { right:auto; left:76px; } body.lefty #pad .b-paw { right:auto; left:0; } body.lefty #pad .b-bark { right:auto; left:76px; }
+#pad .b-jump { right:0; bottom:0; } #pad .b-run { right:76px; bottom:0; } #pad .b-paw { right:0; bottom:84px; } #pad .b-bark { right:76px; bottom:84px; } #pad .b-more { right:152px; bottom:8px; }
+#pad .b-paw { background:var(--accent); color:var(--accent-ink); border-color:#fff; box-shadow:0 3px 12px rgba(0,0,0,.35); animation:pawIn .18s ease-out; }
+#pad .b-paw em { bottom:calc(100% + 6px); left:auto; right:-2px; transform:none; width:max-content; max-width:150px; white-space:normal; text-align:right; line-height:1.2; font-size:13px;
+  background:var(--accent); color:var(--accent-ink); text-shadow:none; border-radius:11px; padding:4px 9px; box-shadow:0 3px 10px rgba(0,0,0,.35); }
+#pad .b-paw.down em { background:#fff; }
+@keyframes pawIn { from { transform:scale(.6); opacity:0; } to { transform:scale(1); opacity:1; } }
+#pad.open .b-more { background:var(--accent); color:var(--accent-ink); }
+#tricks { position:absolute; right:152px; bottom:74px; width:48px; height:180px; }
+#tricks button { right:0; } #tricks [data-btn=sit] { bottom:0; } #tricks [data-btn=dig] { bottom:66px; } #tricks [data-btn=shake] { bottom:132px; }
+body.lefty #pad .b-jump, body.lefty #pad .b-paw { right:auto; left:0; } body.lefty #pad .b-run, body.lefty #pad .b-bark { right:auto; left:76px; } body.lefty #pad .b-more { right:auto; left:152px; }
+body.lefty #pad .b-paw em { right:auto; left:-2px; text-align:left; } body.lefty #tricks { right:auto; left:152px; }
 body.touch #bc { bottom:calc(10px + var(--sb)); }
-/* portrait phones: the pad sits higher so the action prompt has a row of its own between the stamina bar and the buttons */
-@media (orientation:portrait) { body.touch #pad { bottom:calc(128px + var(--sb)); } body.touch #bc { width:min(92vw,380px); } body.touch #stamina { width:min(60vw,340px); } body.touch #prompt { min-height:48px; } #stick { bottom:calc(150px + var(--sb)); } #coach div { top:45%; } }
+/* on a touch screen the Paw button carries the action words, so the orange prompt pill (for keyboard and gamepad) stays hidden */
+body.touch #bc #prompt { display:none; }
+/* portrait phones: the pad sits just above the stamina bar */
+@media (orientation:portrait) { body.touch #pad { bottom:calc(52px + var(--sb)); } body.touch #bc { width:min(92vw,380px); } body.touch #stamina { width:min(60vw,340px); } #stick { bottom:calc(84px + var(--sb)); } #coach div { top:45%; } }
+@media (prefers-reduced-motion:reduce) { #pad .b-paw { animation:none; } }
 
 /* photo mode: the frame and stickers sit over the 3D view; the tools row scrolls sideways on a narrow phone */
 #photoLayer { position:fixed; inset:0; pointer-events:none; overflow:hidden; }
@@ -148,6 +163,7 @@ body.touch #bc { bottom:calc(10px + var(--sb)); }
 .seg button { border:0; background:transparent; padding:9px 12px; min-height:44px; font-weight:800; font-size:14px; } .seg button.on { background:var(--accent); color:var(--accent-ink); }
 .keys { display:grid; grid-template-columns:auto 1fr; gap:6px 12px; font-size:14px; align-items:center; margin-bottom:10px; } .keys kbd { background:rgba(255,255,255,.14); border-radius:6px; padding:2px 7px; font:inherit; font-weight:800; white-space:nowrap; display:inline-flex; align-items:center; gap:5px; justify-self:start; }
 .helph { margin:12px 0 6px; font-size:13px; letter-spacing:1.5px; text-transform:uppercase; color:var(--accent); }
+.helpnote { font-size:13px; color:#dcebe2; margin:0 0 10px; }
 .signtext { font-size:16px; } .reward { color:var(--accent); font-weight:800; }
 /* world map: a square view that can be dragged, pinched and zoomed; in landscape the legend moves beside it */
 .maplay { display:flex; flex-direction:column; gap:10px; align-items:center; }
@@ -205,14 +221,18 @@ body.touch #bc { bottom:calc(10px + var(--sb)); }
 /* the compass sits between the minimap and the wallet (which grows with the balance); the objective and the run timer take a row each under the minimap column, toasts below them (--objh / --tmrh are set by the HUD) */
 @media (max-width:480px) and (orientation:portrait) {
   #tc { left:calc(110px + var(--sl)); transform:none; width:112px; } #compass { width:112px; }
+  #wallet .w { min-width:0; padding:4px 7px 4px 5px; gap:3px; } #wallet { gap:4px; }
+}
+/* portrait up to small-tablet width: the centre column is too narrow for the objective beside the wallet and buttons, so the chips get a row of their own */
+@media (max-width:640px) and (orientation:portrait) {
   #objective, #runTimer { position:fixed; left:50%; transform:translateX(-50%); width:max-content; max-width:92vw; }
   #objective { top:calc(var(--tlb, 168px) + 8px); } #runTimer { top:calc(var(--tlb, 168px) + 8px + var(--objh, 0px)); }
   #toasts { position:fixed; top:calc(var(--tlb, 168px) + 8px + var(--objh, 0px) + var(--tmrh, 0px)); left:50%; transform:translateX(-50%); } #banner { top:36%; }
-  #wallet .w { min-width:0; padding:4px 7px 4px 5px; gap:3px; } #wallet { gap:4px; }
 }
 @media (max-height:460px) {
   .maplay { flex-direction:row; align-items:flex-start; gap:14px; } .mapbox { width:calc(100vh - 138px - var(--st) - var(--sb)); } .legend { flex-direction:column; flex:1; gap:5px; }
   #pad { bottom:calc(20px + var(--sb)); } #stick { bottom:calc(34px + var(--sb)); left:calc(44px + var(--sl)); }
+  #tc { width:min(44vw,360px); }
   .modal { padding:calc(6px + var(--st)) 10px calc(6px + var(--sb)); } .modal .card { width:min(720px,100%); border-radius:18px; }
   .modal header h2 { font-size:18px; } #modalClose { width:44px; height:44px; }
   #modalActions { padding:6px 12px 8px; } #modalActions .btn { min-height:44px; padding:8px 16px; flex:0 1 220px; margin:0 auto; }
@@ -220,7 +240,7 @@ body.touch #bc { bottom:calc(10px + var(--sb)); }
   .menu.two { grid-template-columns:1fr 1fr 1fr; } .menu .btn { min-height:44px; padding:8px 12px; } .stats { grid-template-columns:1fr 1fr 1fr 1fr; margin-top:8px; }
   #bc { width:min(34vw,260px); }
   /* landscape: the coach panels sit below the place name, the clock and the district banner, above the stick and clear of the pad */
-  #coach div { top:46%; padding:6px 8px; } #coach .cl { width:30%; left:5%; } #coach .cr { right:24%; width:23%; } body.lefty #coach .cl { left:auto; right:5%; } body.lefty #coach .cr { right:auto; left:24%; }
+  #coach div { top:46%; padding:6px 8px; } #coach .cl { width:30%; left:5%; } #coach .cr { right:24%; width:23%; } body.lefty #coach .cl { left:auto; right:5%; } body.lefty #coach .cr { right:auto; left:28%; }
   #banner { top:27%; }
   .modal.shop #modalActions { display:none; }
   .keypad { grid-template-columns:repeat(6,1fr); max-width:420px; } .keypad .btn { min-height:44px; } .gateout { height:40px; margin-bottom:6px; } .modal.gate #modalBody p { margin-bottom:4px; }

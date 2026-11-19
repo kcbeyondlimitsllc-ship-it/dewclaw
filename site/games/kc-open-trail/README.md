@@ -40,15 +40,19 @@ store a pretend payment page for tests, but only when the game is served from
 | --- | --- | --- | --- |
 | Move | W A S D or arrows | left thumb stick (anywhere on the left half) | left stick |
 | Look | drag with the mouse, wheel to zoom, Q / E | drag on the other half; pinch with two fingers to zoom | right stick |
-| Zoomies (sprint, uses stamina) | Shift | Zoom (hold) | right trigger / bumper |
+| Zoomies (sprint, uses stamina) | Shift | Run (hold) | right trigger / bumper |
 | Jump (ollie on a skateboard) | Space | Jump | A |
-| Paw: sniff, pick up, talk, hop on / off | F or Enter | Paw, or tap the prompt | X |
-| Bark / Sit / Dig / Shake | B / C / G / X | buttons | B / Y / d-pad down / d-pad up |
-| Map / Photo mode / Pause | M / K / Esc or P | HUD buttons | Back / LB / Start |
+| Paw: sniff, pick up, talk, hop on / off | F or Enter | Paw (shows up only when there is something to use, with words saying what) | X |
+| Bark / Sit / Dig / Shake | B / C / G / X | Bark; Sit, Dig and Shake behind the ... (Tricks) button | B / Y / d-pad down / d-pad up |
+| Map / Photo mode / Pause | M / K / Esc or P | Map and Pause top right (or tap the minimap); Photo mode is on the pause menu's first row | Back / LB / Start |
 
 Settings: graphics quality (with automatic step-down), mute, sound and music
 volume, invert camera, left-handed touch layout, rain, and the Fog Bell
-Festival dressing. A mute button sits in the HUD.
+Festival dressing. Sound on / off is also on the pause menu.
+
+On touch screens the pad shows only Jump, Run, Bark and the ... button; Paw
+appears when KC can use something, and the word under each button fades once
+it has been used three times (counted in `settings.hints`, kept on the device).
 
 ## What is in the core
 

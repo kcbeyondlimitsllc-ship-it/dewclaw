@@ -4,9 +4,9 @@
    says digital things sold inside a Play app go through Google Play Billing, and the app may not send people to another
    way to pay. So the game needs to know which of the two it is:
 
-     'play'  no Stripe checkout, no Stripe prices and no word about buying anywhere else. The store is either hidden
-             (PLAY_BILLING is 'off' in js/store-config.js, the default) or sells through Google Play Billing.
-     'web'   the store works through Stripe, as built.
+     'play'  no word about buying anywhere else. The store is either hidden (PLAY_BILLING is 'off' in
+             js/store-config.js, the default) or sells through Google Play Billing.
+     'web'   no real-money store at all (owner decision: Google Play Billing only; Stripe is not used).
 
    How the Play app is recognised, strongest first:
      1. the address carries ?src=play. The Android shell's start URL is .../games/kc-open-trail/?src=play.
@@ -19,7 +19,7 @@
      5. it was the Play app on an earlier launch (localStorage) AND is not in a browser tab. On Android the shell and
         Chrome share storage, so a plain Chrome tab is deliberately not caught by this: Chrome is the web.
    When in doubt between the two the answer leans to 'play': the cost of a wrong 'play' is a hidden store, the cost of a
-   wrong 'web' is a Stripe page inside the Play app.
+   wrong 'web' is a purchase path inside the Play app that is not Google Play Billing.
 
    What is remembered for later launches (localStorage): only real evidence of the app, which is 2, 3, or 1 when the page
    is not in a browser tab. Someone who merely opens a ?src=play link in an ordinary browser is 'play' for that tab only,

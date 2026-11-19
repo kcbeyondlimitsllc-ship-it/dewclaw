@@ -81,6 +81,8 @@ A module may wrap or replace `game.economy.grant` (keep the signature and keep p
 
 Flags the core reacts to: `festival` (true switches on the Fog Bell Festival dressing layer and pulls the fog in; also a
 checkbox in Settings) and `coached` (set by the HUD once a touch player has moved and looked).
+`settings.hints` (core only) counts how often each touch control (move, jump, sprint, bark, more, sit, dig, shake) was
+used; its word under the button fades at 3. It sits in settings so Start over keeps it.
 
 Edge cases the seams guarantee (so modules need not re-check):
 
@@ -308,7 +310,7 @@ game.closeModal(id?)             // screens stack: closing one shows the one und
 game.toast('text', { icon, kind: 'good' | 'warn' | 'gold', ms }) ; game.banner('Mission complete', 'Paper round')   // the banner steps down below the toasts if the two would overlap
 await game.ui.confirm(title, text, yesLabel, noLabel)            // -> boolean
 game.ui.addMenuItem({ id, label, icon, order, onSelect })        // an entry in the pause menu (Missions, Den ...)
-game.ui.addHudButton({ id, icon, label, title, onClick })        // a button next to map / photo / pause: use sparingly, the phone HUD is full
+game.ui.addHudButton({ id, icon, label, title, onClick })        // a button next to Map / Pause (top right): use sparingly; prefer ui.addMenuItem (the pause menu)
 game.ui.addSetting({ id, label, type: 'check', get: () => on, set: async v => {} })   // or type: 'button', button: 'Restore', onClick
 ```
 

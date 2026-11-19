@@ -249,9 +249,9 @@ async function runMission(page, id, label, o = {}) {
     const lay2 = await p.evaluate(() => { const card = document.querySelector('.modal .card').getBoundingClientRect(), body = document.querySelector('#modalBody'); return { hscroll: body.scrollWidth > body.clientWidth + 1, wide: [...document.querySelectorAll('.tabpane *')].filter(e => e.getBoundingClientRect().right > card.right + 1).length, rows: document.querySelectorAll('.ms-task').length }; });
     ok(`${tag}: the trail tasks page fits`, !lay2.hscroll && lay2.wide === 0 && lay2.rows === 6, JSON.stringify(lay2));
     await p.screenshot({ path: path.join(OUT, `tasks-${tag}.png`) }); await p.evaluate(() => __ot.game.ui.closeAll());
-    /* the offer card, opened with a real tap on the prompt */
+    /* the offer card, opened with a real tap on the Paw button (on touch screens it carries the prompt's words) */
     await p.evaluate(() => { const d = __ot.game.modules.missions.list().find(x => x.id === 'carts'); __ot.teleport(d.x + 1.1, d.z + 1.1, 0); __ot.step(10); });
-    await p.tap('#prompt'); await p.evaluate(() => __ot.step(3)); await p.waitForSelector('.ms-offer'); await wait(p, 120);
+    await p.tap('#pad [data-btn="interact"]'); await p.evaluate(() => __ot.step(3)); await p.waitForSelector('.ms-offer'); await wait(p, 120);
     const off = await p.evaluate(() => { const card = document.querySelector('.modal .card').getBoundingClientRect(), bs = [...document.querySelectorAll('#modalActions .btn')].map(b => b.getBoundingClientRect()); return { fits: card.left >= 0 && card.right <= innerWidth && card.bottom <= innerHeight && card.top >= 0, btn: bs.every(r => r.height >= 44 && r.bottom <= innerHeight), title: document.querySelector('#modalTitle').textContent }; });
     ok(`${tag}: tapping the giver's prompt opens an offer card that fits, with 44 px buttons in reach`, off.fits && off.btn && off.title === 'Cart Runner', JSON.stringify(off));
     await p.screenshot({ path: path.join(OUT, `offer-${tag}.png`) });

@@ -402,8 +402,8 @@ async function runViewport(browser, name, vp, touch, quality, tourIdx, stub = fa
   ok(`${name}: Play starts the game, HUD shown, audio unlocked`, s0.started && await page.isVisible('#hud') && await page.evaluate(() => __ot.game.audio.ready));
   ok(`${name}: KC spawns on dry land in Columbia View Park`, s0.zone === 'cvpark' && s0.pos.y > 1, `${s0.zone} y=${s0.pos.y.toFixed(2)}`);
 
-  if (touch) { const co = await page.evaluate(() => { const rc = q => { const e = document.querySelector(q), b = e.getBoundingClientRect(); return { q, x: b.left, y: b.top, r: b.right, b: b.bottom, on: getComputedStyle(e).display !== 'none' && b.width > 0 }; }, panels = [rc('#coach .cl'), rc('#coach .cr')], others = ['#minimapBtn', '#zone', '#clock', '#banner span', '#compass', '#wallet', '#hudBtns', '#stick', '#bc', ...[...document.querySelectorAll('#pad button')].map((_, i) => `#pad button:nth-child(${i + 1})`)].map(rc);
-      const hits = []; for (const p of panels) for (const o of others) if (p.x < o.r - 1 && o.x < p.r - 1 && p.y < o.b - 1 && o.y < p.b - 1) hits.push(p.q + ' over ' + o.q); return { shown: panels.every(p => p.on), hits, inside: panels.every(p => p.x >= 0 && p.r <= innerWidth && p.b <= innerHeight) }; });
+  if (touch) { const co = await page.evaluate(() => { const vis = e => { for (let n = e; n && n.nodeType === 1; n = n.parentElement) if (+getComputedStyle(n).opacity === 0) return false; return true; }, rc = q => { const e = document.querySelector(q), b = e.getBoundingClientRect(); return { q, x: b.left, y: b.top, r: b.right, b: b.bottom, on: getComputedStyle(e).display !== 'none' && b.width > 0, seen: vis(e) }; }, panels = [rc('#coach .cl'), rc('#coach .cr')], others = ['#minimapBtn', '#zone', '#clock', '#banner span', '#compass', '#wallet', '#hudBtns', '#stick', '#bc'].map(rc).concat([...document.querySelectorAll('#pad button, #pad .b-paw em')].filter(e => e.getClientRects().length).map(e => { const b = e.getBoundingClientRect(); return { q: e.dataset.btn || e.id || 'paw tag', x: b.left, y: b.top, r: b.right, b: b.bottom }; }));
+      const hits = []; for (const p of panels) for (const o of others) if (p.seen && o.seen !== false && p.x < o.r - 1 && o.x < p.r - 1 && p.y < o.b - 1 && o.y < p.b - 1) hits.push(p.q + ' over ' + o.q); return { shown: panels.every(p => p.on), hits, inside: panels.every(p => p.x >= 0 && p.r <= innerWidth && p.b <= innerHeight) }; });
     ok(`${name}: first-run coach panels are shown and cover nothing (place name, clock, Discovered banner, stick, buttons)`, co.shown && co.inside && co.hits.length === 0, co.hits.join('; ')); }
   if (!stub) { await page.waitForFunction(() => __ot.game.modules.guide && __ot.game.modules.guide.step() === 1, null, { timeout: 8000 }).catch(() => {}); const g1 = await page.evaluate(() => { const o = __ot.game.api.objective, e = document.getElementById('objective'), b = e.getBoundingClientRect(), bell = __ot.game.modules.missions.list().find(m => m.id === 'bell'); return { step: __ot.game.modules.guide.step(), label: o && o.label, at: o ? Math.hypot(o.x - bell.x, o.z - bell.z) : -1, chip: !e.hidden && b.left >= 0 && b.right <= innerWidth, toasts: [...document.querySelectorAll('#toasts .toast')].map(t => t.textContent).join(' | ') }; });
     ok(`${name}: a new player is pointed at the first job: the compass, map and HUD chip lead to Clockkeeper Odile on the plaza`, g1.step === 1 && /Odile/.test(g1.label || '') && g1.at < 1 && g1.chip, JSON.stringify(g1)); await shot(page, `${name}-01-first-steps`); }
@@ -411,14 +411,43 @@ async function runViewport(browser, name, vp, touch, quality, tourIdx, stub = fa
     const ext = requests.filter(u => !u.startsWith(BASE) && !u.startsWith('data:') && !u.startsWith('blob:')); ok(`${name}: no console errors or page errors`, errors.length === 0, errors.slice(0, 3).join(' | ')); ok(`${name}: nothing was requested from outside the game folder`, ext.length === 0, ext.slice(0, 3).join(' ')); await ctx.close(); return; }
 
   /* HUD fits and the thumb controls do not overlap */
-  const boxes = await page.evaluate(() => { const r = q => [...document.querySelectorAll(q)].filter(e => e.offsetParent !== null).map(e => { const b = e.getBoundingClientRect(); return { id: e.id || e.dataset.btn || e.className, x: b.left, y: b.top, r: b.right, b: b.bottom, w: b.width, h: b.height }; }); return { vw: innerWidth, vh: innerHeight, hud: r('#minimapBtn, #wallet, #hudBtns button, #stamina, #zone'), pad: r('#pad button') }; });
+  const boxes = await page.evaluate(() => { const r = q => [...document.querySelectorAll(q)].filter(e => e.offsetParent !== null).map(e => { const b = e.getBoundingClientRect(); return { id: e.id || e.dataset.btn || e.className, x: b.left, y: b.top, r: b.right, b: b.bottom, w: b.width, h: b.height }; }); return { vw: innerWidth, vh: innerHeight, hud: r('#minimapBtn, #wallet, #hudBtns button, #stamina, #zone'), hudBtns: [...document.querySelectorAll('#hudBtns button')].map(b => b.id), pad: r('#pad button') }; });
   const inside = b => b.x >= -1 && b.y >= -1 && b.r <= boxes.vw + 1 && b.b <= boxes.vh + 1, hit = (a, b) => a.x < b.r - 1 && b.x < a.r - 1 && a.y < b.b - 1 && b.y < a.b - 1;
-  ok(`${name}: HUD (minimap, wallet, buttons, stamina) is inside the screen`, boxes.hud.length >= 7 && boxes.hud.every(inside), boxes.hud.filter(b => !inside(b)).map(b => b.id).join(','));
+  ok(`${name}: HUD (minimap, wallet, buttons, stamina) is inside the screen`, boxes.hud.length >= 5 && boxes.hud.every(inside), boxes.hud.filter(b => !inside(b)).map(b => b.id).join(','));
+  ok(`${name}: the top-right buttons are just Map and Pause (sound and photo mode live in the pause menu)`, boxes.hudBtns.join() === 'btnMap,btnPause', boxes.hudBtns.join());
   if (touch) {
-    let overlap = ''; for (let i = 0; i < boxes.pad.length; i++) for (let j = i + 1; j < boxes.pad.length; j++) if (hit(boxes.pad[i], boxes.pad[j])) overlap += boxes.pad[i].id + '/' + boxes.pad[j].id + ' ';
-    for (const p of boxes.pad) for (const h of boxes.hud) if (hit(p, h)) overlap += p.id + '/' + h.id + ' ';
-    ok(`${name}: all 7 touch buttons on screen, at least 44px, none overlapping`, boxes.pad.length === 7 && boxes.pad.every(inside) && boxes.pad.every(b => b.w >= 44 && b.h >= 44) && !overlap, overlap || boxes.pad.map(b => Math.round(b.w)).join(','));
-    ok(`${name}: touch buttons sit in the lower part of the screen, within thumb reach of an edge`, boxes.pad.every(b => b.y > boxes.vh * 0.35 && (b.r > boxes.vw - 260 || b.x < 260)));
+    /* the pad in three states: nothing near KC, something to use (Paw shows with its words), and the tricks fan open */
+    const padState = () => page.evaluate(() => { const r = e => { const b = e.getBoundingClientRect(); return { id: e.dataset.btn || e.id || 'paw tag', x: b.left, y: b.top, r: b.right, b: b.bottom, w: b.width, h: b.height }; };
+      const vis = [...document.querySelectorAll('#pad button')].filter(e => e.getClientRects().length), paw = document.querySelector('#pad .b-paw'), tag = paw.getClientRects().length ? r(paw.lastChild) : null;
+      return { vw: innerWidth, vh: innerHeight, pad: vis.map(r), names: vis.map(e => e.dataset.btn || e.id), tag, tagText: paw.hidden ? '' : paw.lastChild.textContent, prompt: __ot.state().prompt, pill: getComputedStyle(document.getElementById('prompt')).display,
+        hud: ['minimapBtn', 'zone', 'clock', 'compass', 'objective', 'wallet', 'hudBtns', 'stamina', 'stick'].map(id => document.getElementById(id)).filter(e => e && !e.hidden && e.getClientRects().length).map(r), labels: vis.map(e => e.querySelector('em') ? e.querySelector('em').textContent : '') }; });
+    const layout = (d, label) => { let overlap = ''; const all = d.tag ? [...d.pad, d.tag] : d.pad;
+      for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++) { const pair = all[i].id + '/' + all[j].id; if (pair !== 'interact/paw tag' && hit(all[i], all[j])) overlap += pair + ' '; }
+      for (const p of all) for (const h of d.hud) if (hit(p, h)) overlap += p.id + '/' + h.id + ' ';
+      ok(`${name}: ${label}: every touch button on screen, at least 44 px, nothing overlapping each other or the HUD`, all.every(inside) && d.pad.every(b => b.w >= 44 && b.h >= 44) && !overlap, overlap || d.names.join(',')); };
+    await page.evaluate(() => { __ot.exit(); __ot.teleport(-120, -40, 0); __ot.step(10); }); await wait(page, 80);
+    const p0 = await padState(); layout(p0, 'open ground');
+    ok(`${name}: on open ground the pad is just Bark, Run, Jump and the tricks button (Paw hidden, no orange prompt pill on touch)`, p0.names.join() === 'bark,sprint,jump,btnMore' && p0.labels.join() === 'Bark,Run,Jump,Tricks' && !p0.prompt && p0.pill === 'none', p0.names.join() + ' / ' + p0.labels.join() + ' / ' + p0.prompt);
+    ok(`${name}: touch buttons sit in the lower part of the screen, within thumb reach of an edge`, p0.pad.every(b => b.y > p0.vh * 0.35 && (b.r > p0.vw - 260 || b.x < 260)));
+    const ride = await page.evaluate(() => { const r = __ot.game.vehicles.byId('board-park'); __ot.game.vehicles.reset('board-park'); __ot.teleport(r.x + 1.6, r.z + 1.2, 0); __ot.step(8); return __ot.state().prompt; });
+    /* Paw pops in with a short scale animation (slow under software rendering): measure once it has settled */
+    await page.waitForFunction(() => { const p = document.querySelector('#pad .b-paw'); return !p.hidden && p.getAnimations().every(a => a.playState === 'finished'); }, null, { timeout: 5000 }).catch(() => {}); await wait(page, 100);
+    const p1 = await padState(); layout(p1, 'beside a skateboard');
+    ok(`${name}: beside a ride the Paw button appears and says what it will do (the same words as the prompt)`, p1.names.includes('interact') && /skateboard/i.test(p1.tagText) && p1.tagText === ride && p1.pill === 'none', `"${p1.tagText}" / "${ride}"`);
+    await page.tap('#pad [data-btn="interact"]'); await wait(page, 120); const rodeOn = await page.evaluate(() => __ot.state().ride); await page.evaluate(() => { __ot.exit(); __ot.step(2); __ot.game.vehicles.reset('board-park'); __ot.teleport(-120, -40, 0); __ot.step(10); });
+    ok(`${name}: tapping Paw does it (hops on the skateboard)`, rodeOn === 'board-park', String(rodeOn));
+    await page.tap('#btnMore'); await wait(page, 120); const p2 = await padState(); layout(p2, 'tricks open'); await shot(page, `${name}-02-tricks`);
+    ok(`${name}: the tricks button opens Sit, Dig and Shake`, ['sit', 'dig', 'shake'].every(n => p2.names.includes(n)), p2.names.join());
+    const d0 = await page.evaluate(() => __ot.game.state.stats.digs); await page.tap('#pad [data-btn="dig"]'); await page.evaluate(() => __ot.step(60)); await wait(page, 80);
+    const t1 = await page.evaluate(() => ({ open: !document.getElementById('tricks').hidden, digs: __ot.game.state.stats.digs, dug: __ot.events.some(e => e.type === 'digStart' || e.type === 'dig') }));
+    await page.tap('#btnMore'); await wait(page, 80); const reopened = await page.evaluate(() => !document.getElementById('tricks').hidden);
+    await page.touchscreen.tap(Math.round(boxes.vw * 0.5), Math.round(boxes.vh * 0.45)); await wait(page, 80); const t2 = await page.evaluate(() => !document.getElementById('tricks').hidden);
+    ok(`${name}: a trick runs and the fan folds away after it; a tap anywhere else also folds it`, (t1.digs > d0 || t1.dug) && !t1.open && reopened && !t2, JSON.stringify({ ...t1, d0, reopened, stillOpen: t2 }));
+    /* the words under the buttons fade once each has been used 3 times, and that is remembered in the save */
+    const ln = await page.evaluate(() => { const h = __ot.game.state.settings.hints, b = document.querySelector('#pad [data-btn="bark"]'); return { bark: h.bark, learned: b.classList.contains('learned'), op: getComputedStyle(b.querySelector('em')).opacity }; });
+    for (let i = ln.bark; i < 3; i++) { await page.tap('#pad [data-btn="bark"]'); await wait(page, 40); }
+    await wait(page, 700); const ln2 = await page.evaluate(() => { const b = document.querySelector('#pad [data-btn="bark"]'), j = document.querySelector('#pad [data-btn="jump"]'); let saved = null; try { saved = JSON.parse(localStorage.getItem('kc-open-trail-save-v2')).settings.hints.bark; } catch (e) { /* none */ } return { bark: __ot.game.state.settings.hints.bark, learned: b.classList.contains('learned'), op: +getComputedStyle(b.querySelector('em')).opacity, jumpOp: +getComputedStyle(j.querySelector('em')).opacity, jump: __ot.game.state.settings.hints.jump, saved }; });
+    ok(`${name}: a button's word fades after 3 uses (Bark), others keep theirs until used, and the count is saved`, !ln.learned && ln.bark < 3 && ln2.bark === 3 && ln2.learned && ln2.op === 0 && (ln2.jump >= 3 || ln2.jumpOp === 1) && ln2.saved === 3, JSON.stringify({ ln, ln2 }));
     /* real touches: left thumb stick moves KC, right-hand drag turns the camera, Jump button jumps */
     const cdp = await ctx.newCDPSession(page), tp = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map(([x, y, id]) => ({ x, y, id, radiusX: 8, radiusY: 8, force: 1 })) });
     const a = await st(page), sx = vp.width * 0.2, sy = vp.height * 0.7;
@@ -524,15 +553,20 @@ async function runViewport(browser, name, vp, touch, quality, tourIdx, stub = fa
   /* pause, settings, mute, map */
   await page.evaluate(() => { __ot.teleport(-168, -166, Math.PI / 2); __ot.setCam(Math.PI / 2, 0.3, 9); __ot.step(5); });
   if (touch) await page.tap('#btnPause'); else await page.keyboard.press('Escape');
-  await page.waitForSelector('#modal:not([hidden])'); const paused = (await st(page)).paused; await shot(page, `${name}-50-pause`);
+  await page.waitForSelector('#modal:not([hidden])'); await page.waitForFunction(() => __ot.state().paused, null, { timeout: 5000 }).catch(() => {}); const paused = (await st(page)).paused;   /* game.paused follows on the next frame */ await shot(page, `${name}-50-pause`);
   const menuFits = await page.evaluate(() => { const b = document.querySelector('#modal .card').getBoundingClientRect(); return b.left >= 0 && b.top >= 0 && b.right <= innerWidth + 1 && b.bottom <= innerHeight + 1; });
   await page.evaluate(() => __ot.game.ui.settings()); await page.waitForSelector('[data-set="muted"]'); await shot(page, `${name}-51-settings`);
   const setOk = await page.evaluate(() => ['muted', 'sound', 'music', 'festival', 'invertY'].every(k => document.querySelector(`[data-set="${k}"]`)) && document.querySelectorAll('.seg [data-q]').length === 3);
   await page.evaluate(() => { __ot.game.ui.closeAll(); __ot.game.ui.help(); }); const helpOk = await page.evaluate(() => /Move/.test(document.getElementById('modalBody').textContent)); await page.evaluate(() => __ot.game.ui.closeAll()); await page.waitForFunction(() => !__ot.state().paused, null, { timeout: 5000 }).catch(() => {});
   ok(`${name}: pause stops the game; menu fits; settings has sound, quality and controls help`, paused && menuFits && setOk && helpOk && !(await st(page)).paused, JSON.stringify({ paused, menuFits, setOk, helpOk }));
-  if (touch) await page.tap('#btnMute'); else await page.click('#btnMute');
-  const muted = await page.evaluate(() => __ot.game.state.settings.muted); if (touch) await page.tap('#btnMute'); else await page.click('#btnMute');
-  ok(`${name}: mute switch toggles`, muted === true && await page.evaluate(() => __ot.game.state.settings.muted === false));
+  /* sound and photo mode are in the pause menu now: photo mode on its first row */
+  if (touch) await page.tap('#btnPause'); else await page.keyboard.press('Escape'); await page.waitForSelector('#modal:not([hidden]) [data-menu="sound"]');
+  const row1 = await page.evaluate(() => { const bs = [...document.querySelectorAll('#modalBody .menu .btn')], top = bs[0].getBoundingClientRect().top, ph = document.querySelector('[data-menu="photo"]'); return { first: bs.filter(b => Math.abs(b.getBoundingClientRect().top - top) < 2).map(b => b.textContent.trim()), photoH: ph.getBoundingClientRect().height }; });
+  await tapSel(page, touch, '[data-menu="sound"]'); const muted = await page.evaluate(() => ({ m: __ot.game.state.settings.muted, label: document.querySelector('[data-menu="sound"]').textContent.trim() }));
+  await tapSel(page, touch, '[data-menu="sound"]'); const unmuted = await page.evaluate(() => __ot.game.state.settings.muted === false && /on/.test(document.querySelector('[data-menu="sound"]').textContent));
+  ok(`${name}: the pause menu's sound switch toggles, and Photo mode sits on its first row`, muted.m === true && /off/.test(muted.label) && unmuted && row1.first.includes('Photo mode') && row1.photoH >= 44, JSON.stringify({ muted, unmuted, row1 }));
+  await tapSel(page, touch, '[data-menu="photo"]'); await page.waitForSelector('#photobar:not([hidden])'); const inPhoto = await page.evaluate(() => __ot.game.ui.photo && !__ot.state().modal && document.getElementById('hud').hidden); await tapSel(page, touch, '#photoExit'); const outPhoto = await page.evaluate(() => !__ot.game.ui.photo && !document.getElementById('hud').hidden);
+  ok(`${name}: Photo mode opens from the pause menu and Done brings the HUD back`, inPhoto && outPhoto);
   await page.evaluate(() => __ot.game.ui.map()); await page.waitForSelector('#mapCanvas'); await shot(page, `${name}-52-map`);
   const mapFits = await page.evaluate(() => { const b = document.getElementById('mapCanvas').getBoundingClientRect(); return b.width > 150 && b.right <= innerWidth + 1 && b.left >= -1; }); await page.evaluate(() => __ot.game.ui.closeAll());
   ok(`${name}: world map opens and fits`, mapFits);
@@ -594,6 +628,24 @@ async function runViewport(browser, name, vp, touch, quality, tourIdx, stub = fa
     /* pass 2: the whole game, every module live */
     if (!process.env.SEAMS_ONLY) { for (const v of VPS) await runViewport(browser, ...v, false);
       if (!VIEWPORTS) ok('every district on the tour was reached in some viewport', report.districts.size === TOUR.length, `${report.districts.size}/${TOUR.length}`); }
+
+    /* ---------- two more screen sizes for the HUD only: a small tablet held upright and a 1280 x 800 tablet ---------- */
+    for (const [w, h] of process.env.LIVE_ONLY || process.env.SEAMS_ONLY || VIEWPORTS ? [] : [[540, 960], [1280, 800]]) {
+      const tag = `tablet ${w}x${h}`, { ctx, page, errors } = await open(browser, { viewport: { width: w, height: h }, hasTouch: true, isMobile: true, deviceScaleFactor: 1 }, '?debug=1&nosw=1&q=low');
+      await page.tap('#playBtn'); await page.waitForFunction(() => __ot.state().started, null, { timeout: 10000 });
+      await page.waitForFunction(() => __ot.game.api.objective && !document.getElementById('objective').hidden, null, { timeout: 8000 }).catch(() => {});
+      const lay = async () => page.evaluate(() => { const r = e => { const b = e.getBoundingClientRect(); return { id: e.dataset.btn || e.id || 'paw tag', x: b.left, y: b.top, r: b.right, b: b.bottom, w: b.width, h: b.height }; }, on = e => e && !e.hidden && e.getClientRects().length;
+        const paw = document.querySelector('#pad .b-paw'), pad = [...document.querySelectorAll('#pad button')].filter(on).map(r); if (on(paw)) pad.push(r(paw.lastChild));
+        return { vw: innerWidth, vh: innerHeight, pad, hud: ['minimapBtn', 'zone', 'clock', 'compass', 'objective', 'wallet', 'hudBtns', 'stamina', 'stick'].map(id => document.getElementById(id)).filter(on).map(r), obj: on(document.getElementById('objective')) ? r(document.getElementById('objective')) : null, lineH: parseFloat(getComputedStyle(document.getElementById('objective')).lineHeight) || 17 }; });
+      const check = (d, label) => { const inside = b => b.x >= -1 && b.y >= -1 && b.r <= d.vw + 1 && b.b <= d.vh + 1, hit = (a, b) => a.x < b.r - 1 && b.x < a.r - 1 && a.y < b.b - 1 && b.y < a.b - 1, all = [...d.hud, ...d.pad]; let clash = '';
+        for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++) { const pair = all[i].id + '/' + all[j].id; if (pair !== 'interact/paw tag' && hit(all[i], all[j])) clash += pair + ' '; }
+        ok(`${tag}: ${label}: HUD and touch buttons inside the screen, at least 44 px, nothing overlapping`, all.every(inside) && d.pad.filter(b => b.id !== 'paw tag').every(b => b.w >= 44 && b.h >= 44) && !clash, clash || all.map(b => b.id).join(',')); };
+      const d0 = await lay(); check(d0, 'first steps (objective chip up)');
+      ok(`${tag}: the objective chip is on screen${w >= 1000 ? ' on one line' : ''}, clear of the wallet and the Map / Pause buttons`, d0.obj && (w < 1000 || d0.obj.h < d0.lineH * 2), JSON.stringify(d0.obj));
+      await page.evaluate(() => { const r = __ot.game.vehicles.byId('board-park'); __ot.game.vehicles.reset('board-park'); __ot.teleport(r.x + 1.6, r.z + 1.2, 0); __ot.step(8); }); await wait(page, 300); await page.tap('#btnMore'); await wait(page, 150);
+      check(await lay(), 'Paw shown beside a ride and the tricks open'); await page.screenshot({ path: path.join(OUT, `tablet-${w}x${h}.png`) });
+      ok(`${tag}: no console errors or page errors`, errors.length === 0, errors.slice(0, 3).join(' | ')); await ctx.close();
+    }
 
     /* ---------- a damaged save must not break the game ---------- */
     { const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 }, serviceWorkers: 'block' }); const page = await ctx.newPage(), errs = []; page.on('pageerror', e => errs.push(e.message)); page.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
