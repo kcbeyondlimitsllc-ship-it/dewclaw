@@ -1,5 +1,7 @@
 # KC: Open Trail: turning Stripe on, step by step
 
+> **NOT USED FOR KC: OPEN TRAIL (owner decision, 2026-11-19).** The game takes payments through **Google Play Billing only**. Stripe is not used for it anywhere: the website version of the game sells nothing, the game ignores the Stripe price ids, and the worker refuses a Stripe checkout for the game unless `OT_STRIPE` is "on" (it is not set; do not set it). **Do not follow the steps below.** They are kept only for the record. To get the game live and to turn purchases on, follow `marketing/kc-open-trail/PLAY-STORE-LAUNCH.md`.
+
 Written 2026-11-17 for the owner. Read it on a phone; do the typing on a computer.
 
 **Where things stand.** Nothing is live. No Stripe product exists for the game, no real Stripe or Cloudflare command has been run by the people who wrote this, and the store in the game says "Coming soon". Each step below is yours to do.

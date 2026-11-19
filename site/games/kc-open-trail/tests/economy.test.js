@@ -327,7 +327,7 @@ const clean = (name, o) => { const ext = o.requests.filter(u => !u.startsWith(BA
     eq(`${name}: a 40-bone bandana bought by touch is owned and worn`, await p.evaluate(() => { const e = __ot.game.economy; return [e.owns('bandana:river'), __ot.game.cosmetics.equipped('bandana'), (document.querySelector('.item[data-item="bandana:river"] .tag2') || {}).textContent]; }), [true, 'bandana:river', 'Wearing']);
     /* a gem item: the choice of bones or gems, then Undo on the card */
     await openTab('wardrobe', 'premium'); const gemText = await p.evaluate(() => document.querySelector('.item[data-item="bandana:fern"] .mid').textContent);
-    ok(`${name}: a gem price says what it is in dollars at the smallest pack's rate`, /80 gems is about \$0\.99/.test(gemText), gemText);
+    ok(`${name}: a gem price shows no dollar hint (the web sells nothing: Google Play Billing only, owner decision 2026-11-19)`, !/\$|gems is about/.test(gemText), gemText);
     await p.tap('.item[data-item="bandana:fern"] .side .btn'); await p.waitForFunction(() => __ot.state().modal === 'eco-pay'); await p.tap('#modalActions .btn.alt'); await p.waitForSelector('#modal.spend'); await p.tap('#modalActions .btn.go'); await p.waitForTimeout(200);
     await openTab('wardrobe', 'bandana');
     const gemBuy = await p.evaluate(() => ({ owns: __ot.game.economy.owns('bandana:fern'), gems: __ot.game.wallet.get('gems'), undo: !!document.querySelector('.item[data-item="bandana:fern"] [data-act="undo"]') }));

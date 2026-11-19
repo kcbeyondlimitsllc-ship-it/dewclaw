@@ -1,5 +1,7 @@
 #!/usr/bin/env node
-/* Serves the site folder on THIS computer only, so the game's store can be tried with Stripe's test side
+/* (Its Stripe test use is NOT USED for KC: Open Trail: no Stripe for the game, owner decision 2026-11-19. It is still
+   a handy way to look at the site on your own computer.)
+   Serves the site folder on THIS computer only, so the game's store can be tried with Stripe's test side
    without publishing anything. Node 18 or newer, no packages to install.
 
      node tools/serve-site.mjs            then open http://localhost:8788/games/kc-open-trail/

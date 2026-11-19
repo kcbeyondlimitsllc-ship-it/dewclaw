@@ -26,7 +26,7 @@
 </head>
 <body>
 <main>
-  <p class="meta">KC: Open Trail · Privacy policy · Last updated November 17, 2026</p>
+  <p class="meta">KC: Open Trail · Privacy policy · Last updated November 19, 2026</p>
   <h1>Privacy policy</h1>
   <p>KC: Open Trail is a game made by KC Beyond Limits LLC, an Oregon company. It is made for families, and children play it. The short version: the game has no accounts, keeps your save on your own device, shows no adverts, uses no analytics or tracking, and never sells data. The rest of this page says exactly what leaves your device, when, and why.</p>
 
@@ -43,8 +43,8 @@
   <h2>What leaves your device, and to whom</h2>
   <ul>
     <li><b>Loading the game.</b> The game's files come from our website, which is hosted by Netlify. Like any website, the host sees your device's internet (IP) address while it sends the files.</li>
-    <li><b>Buying something on the web (Stripe).</b> The real-money shop is off until a grown-up turns it on. When a grown-up buys something, the game sends our server three things: which item was chosen, the random install number, and the Trail Key if there is one. Payment then happens on Stripe's own page. The card details, name, email address and billing address go to Stripe, not to the game, and are handled under Stripe's privacy policy (stripe.com/privacy). The game never sees them. Our server also gives Stripe the name of the item and a scrambled (hashed) form of the install number, as a label on the payment, so that the payment can be matched to the device that made it. Stripe makes a customer record for each payment from what the buyer types on its page.</li>
-    <li><b>Buying something in the Google Play app.</b> If the app from Google Play offers purchases, they are sold and billed by Google Play under Google's own terms. We never see your payment details. To confirm a purchase the game sends our server the item, the random install number, the Trail Key if there is one, and the purchase token Google gave it, and our server checks that token with Google Play.</li>
+    <li><b>The website version sells nothing.</b> Playing the game in a web browser involves no payment of any kind.</li>
+    <li><b>Buying something in the Google Play app.</b> Purchases are only ever offered in the app from Google Play, and only once we switch them on; until then the app has nothing to buy. When it does, purchases are sold and billed by Google Play under Google's own terms. The real-money shop is off on each device until a grown-up turns it on. We never see your payment details. To confirm a purchase the game sends our server the item, the random install number, the Trail Key if there is one, and the purchase token Google gave it, and our server checks that token with Google Play.</li>
     <li><b>Restoring purchases.</b> When a grown-up types a Trail Key to restore permanent items, the game sends that key and the install number to our server.</li>
     <li><b>The real-gear shelf.</b> The website version of the game shows some real KC Beyond Limits products to grown-ups. The app from Google Play does not. Their pictures and prices are part of the game's own files. Nothing is sent to the shop unless a grown-up chooses "See it on the shop", which opens the shop's website. That is a separate website with its own privacy policy, and it may use cookies or tracking of its own.</li>
   </ul>
@@ -53,11 +53,11 @@
   <h2>What our server keeps</h2>
   <p>Our server runs on Cloudflare. It keeps only what it needs to hand over what was paid for, and to stop a purchase being used twice:</p>
   <ul>
-    <li>For each purchase: the item, the time, and a scrambled (hashed) form of the install number, filed under a scrambled form of the payment's reference. A Google Play purchase record also holds Google's order number for that purchase. Web purchase records are kept for about 400 days. Google Play purchase records are kept until you ask us to delete them.</li>
+    <li>For each purchase: the item, the time, and a scrambled (hashed) form of the install number, filed under a scrambled form of Google Play's purchase token, together with Google's order number for that purchase. Purchase records are kept until you ask us to delete them.</li>
     <li>For each Trail Key: the list of permanent items bought with it. Kept until you ask us to delete it.</li>
     <li>For restore attempts: a counter for the day, filed under a scrambled form of the internet address the attempt came from, so that nobody can guess keys. Kept for two days.</li>
   </ul>
-  <p>Stripe and Google Play keep their own records of payments under their own policies. We can see those payment records (for example the email address typed on Stripe's page) in order to give refunds and answer questions.</p>
+  <p>Google Play keeps its own records of payments under Google's own privacy policy. We can see the order records Google shares with app makers (for example the order number, item, date and amount) in order to give refunds and answer questions.</p>
 
   <div class="box"><b>We do not</b> show adverts, use analytics or advertising identifiers, fingerprint devices, build profiles, sell or rent data, or share anything with data brokers.</div>
 

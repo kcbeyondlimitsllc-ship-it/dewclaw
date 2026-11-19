@@ -20,22 +20,25 @@ STRIPE_TAX = "auto"
 STRIPE_PRICES = "{\"dewclaw_plus_monthly\":\"price_1Ua3dZ2Iw54GOjzDch4vZRQe\",\"dewclaw_plus_yearly\":\"price_1Ua3dE2Iw54GOjzDG5TBLfK1\",\"dewclaw_plus_lifetime\":\"price_1Ua3d12Iw54GOjzDc5DhZp5e\",\"dewclaw_plus_gift_year\":\"price_1Ua3co2Iw54GOjzDSWnbmoYL\",\"pp_bones_500\":\"price_1Ua3ah2Iw54GOjzDm6GXiz3O\",\"pp_bones_1300\":\"price_1Ua3aU2Iw54GOjzDTmHFRo9n\",\"pp_bones_3600\":\"price_1Ua3aH2Iw54GOjzDTzYo8Cps\",\"pp_bones_8000\":\"price_1Ua3Zg2Iw54GOjzDeWtMotg6\",\"pp_starter\":\"price_1Ua3ZT2Iw54GOjzDlfATAW8t\",\"pp_forever\":\"price_1Ua3Yl2Iw54GOjzD5BeXkuwF\",\"pp_slot2\":\"price_1Ua3XW2Iw54GOjzDfAwDXf6I\",\"pp_kc_pack\":\"price_1Ua3VZ2Iw54GOjzD8Yswhqpj\",\"pp_halloween\":\"price_1Ua3fU2Iw54GOjzDgAfjX93r\",\"pp_palettes\":\"price_1Ua3Rz2Iw54GOjzDlZ4iZDqZ\",\"pp_boost7\":\"price_1Ua3OT2Iw54GOjzDV1LEDpEg\",\"pp_revive\":\"price_1Ua3M92Iw54GOjzDV0nQSpnU\"}"
 PAYPAL_ENV = "sandbox"
 # Secrets (set in the Cloudflare dashboard, never in this file):
-#   STRIPE_SECRET_KEY, PAYPAL_CLIENT_ID, PAYPAL_SECRET
+#   STRIPE_SECRET_KEY, PAYPAL_CLIENT_ID, PAYPAL_SECRET, GOOGLE_SA_EMAIL, GOOGLE_SA_KEY (Google Play checks)
 
 # ---------------------------------------------------------------- KC: Open Trail
-# The game's 16 Stripe price ids (ot_...) are added to STRIPE_PRICES above by
-#   node tools/stripe-setup-open-trail.mjs --live --write
-# Steps: marketing/kc-open-trail/GO-LIVE-STRIPE.md. Nothing else above needs to change for the game:
-#   ALLOWED_ORIGIN already is the site the game is served from (scheme and host only, comma-separated for more),
-#   OT_RETURN_URL is left unset, so the buyer returns to APP_ORIGIN + /games/kc-open-trail/ .
-# Only for the Google Play app's own billing, which is off until the owner turns it on
-# (android/kc-open-trail/README.md); it is a [vars] line, shown here so it is not forgotten:
+# OWNER DECISION (2026-11-19): the game is sold through Google Play Billing ONLY. No Stripe for it anywhere:
+#   do NOT add ot_ price ids to STRIPE_PRICES and do NOT set OT_STRIPE. Without OT_STRIPE = "on" the worker refuses
+#   every Stripe checkout for an ot_ item before Stripe is called. (tools/stripe-setup-open-trail.mjs and
+#   marketing/kc-open-trail/GO-LIVE-STRIPE.md are kept in the repo but are NOT USED.)
+# To turn on Google Play purchases (marketing/kc-open-trail/PLAY-STORE-LAUNCH.md, "Turn on purchases"), add this
+# line to [vars] above, after the 16 products exist in Play Console:
 #   OT_PLAY_PACKAGE = "com.kcbeyondlimits.kcopentrail"
+# and make sure the secrets GOOGLE_SA_EMAIL and GOOGLE_SA_KEY are set (Dewclaw's own Play checks use the same two;
+# if they are already set, do not change them, just give that service account access to the game in Play Console).
+# ALLOWED_ORIGIN already is the site the game is served from (scheme and host only, comma-separated for more).
 # About the signing secret TOKEN_SECRET (a secret, never in this file): when it is not set, the worker signs web
 # Plus tokens with the Stripe key itself. So on the LIVE worker, adding TOKEN_SECRET, changing it, or changing
 # STRIPE_SECRET_KEY all change the signature and can sign out people who bought Plus on the web. Leave both alone
 # for the game's launch; plan any change with a developer. The TEST worker gets its own TOKEN_SECRET from day one.
 
+# NOT USED for KC: Open Trail (no Stripe, owner decision 2026-11-19); kept only so the old recipe still parses.
 # The game's TEST worker: its own name, its own storage and Stripe TEST price ids, so the live app is never
 # touched while testing. Deployed only by `npx wrangler deploy --env test`. The LIVE worker is deployed with
 # `npx wrangler deploy --env=""` (a plain `npx wrangler deploy` does the same but prints a warning that two

@@ -1,8 +1,8 @@
 # KC: Open Trail: Google Play store listing
 
-Written 2026-11-17. Everything here is ready to paste into Play Console. The order to do things in, and the answers for the declaration forms, are in `PLAY-STORE-LAUNCH.md` next to this file.
+Written 2026-11-17, updated 2026-11-19. Everything here is ready to paste into Play Console. The order to do things in, and the answers for the declaration forms, are in `PLAY-STORE-LAUNCH.md` next to this file.
 
-This listing describes **version 1.0 of the Play app, which sells nothing**: no gems, no sets, no prices. That is the build the repo ships (`PLAY_BILLING = 'off'`). When purchases are added through Google Play Billing, use the wording under "When purchases are switched on" near the end.
+This listing describes **the first release as it behaves: nothing to buy**. The uploaded app file has Google Play Billing built in, but the game keeps its store switched off (`PLAY_BILLING = 'off'`): no Store tab, no prices, no buy wording. Payments for this game are Google Play Billing only (owner decision 2026-11-19); Stripe is not used anywhere. When you turn purchases on (`PLAY-STORE-LAUNCH.md`, Part 2), use the wording under "When purchases are switched on" near the end.
 
 Anything marked `OWNER_FILLS_IN` is yours to type. No address, phone number or key is stored in this file on purpose.
 
@@ -67,7 +67,7 @@ MADE WITH FAMILIES IN MIND
 • No accounts, no chat, no tracking.
 • The save stays on your device.
 • This version has nothing to buy with real money. Bones and gems are earned by playing.
-• For grown-ups: the KC Gear shelf can show real KC merchandise sold on a separate website. That part is off until a grown-up switches it on in Settings, and a grown-up question comes before any link leaves the game.
+• No links out of the game.
 
 PLAY YOUR WAY
 • Touch, keyboard and mouse, or a gamepad.
@@ -81,7 +81,7 @@ Questions or a problem? Write to us at the address under Developer contact.
 
 Before pasting, check three lines against the build you are submitting:
 
-- "nothing to buy with real money" is only true while `PLAY_BILLING` is `'off'`.
+- "nothing to buy with real money" is only true while `PLAY_BILLING` is `'off'`. "No links out of the game" is only true while `PLAY_REAL_GEAR` is `'off'` (both are the shipped settings in `site/games/kc-open-trail/js/store-config.js`).
 - "Ten Trail Buddies", "16 story jobs", "8 festival activities", "42 named districts" are from `site/games/kc-open-trail/README.md` as of today.
 - The description does not promise offline play. The game has an offline shell, but nobody has tested it inside the installed Play app yet (see the launch checklist). Add a line such as "After the first launch it also starts without a connection." only after you have seen that work on a phone.
 
@@ -140,7 +140,7 @@ Play Console: Grow users > Store presence > Store settings.
 | Tags (up to 5) | Pick from Play's own list the ones closest to: Adventure, Casual, Simulation, Single player, Stylized. The exact tag names in the Console list were not checked; choose only tags that are true of the game. Do not pick "Educational" or "Racing". |
 | Email | `OWNER_FILLS_IN` (a support address you read; it is shown publicly) |
 | Phone | `OWNER_FILLS_IN` or leave empty (optional on the listing; shown publicly if given) |
-| Website | `OWNER_FILLS_IN` (suggested: the game's own page, `https://dewclaw-app.netlify.app/games/kc-open-trail/`) |
+| Website | Optional. Safest: leave it empty. If you fill it, use a plain page about the game. The web version of the game (`https://dewclaw-app.netlify.app/games/kc-open-trail/`) sells no digital items, so it does not lead to another way to pay, but its grown-ups' shelf links to the merchandise shop website; leaving the field empty avoids any question. |
 | Privacy policy | `https://dewclaw-app.netlify.app/kc-open-trail/privacy.html` (must be live before you submit; the page itself has owner blanks to fill first) |
 | External marketing | Your choice; it only controls whether Google may advertise the app outside Play |
 
@@ -150,7 +150,7 @@ On an organization account Google also shows the developer's legal name and addr
 
 ## 4. Google Play Billing products (for the later update, not for version 1.0)
 
-Version 1.0 needs **none** of these. Create them only when you are ready to switch purchases on (`PLAY-STORE-LAUNCH.md`, Part F). Creating them early does no harm as long as they stay inactive or the app keeps `PLAY_BILLING = 'off'`.
+The first release needs **none** of these. Create them when you are ready to switch purchases on (`PLAY-STORE-LAUNCH.md`, Part 2, step B). Creating them early does no harm while the game keeps `PLAY_BILLING = 'off'`: the game never shows or sells them until that switch is set to `'on'`.
 
 Play Console: Monetize with Play > Products > One-time products. All 16 are one-time products; none is a subscription.
 
@@ -200,5 +200,5 @@ Change these together, in the same update:
    • Optional in-app purchases for grown-ups: gems and cosmetic sets. They change how KC looks, never how she plays. The shop is off until a grown-up switches it on.
    ```
 
-2. Data safety, content rating and the "contains in-app purchases" label: see `PLAY-STORE-LAUNCH.md`, Part F.
-3. Do not mention the website shop, Stripe, or any other way to pay anywhere in the listing or the app. Google's Payments policy forbids pointing Play users to another way to pay for digital items.
+2. Data safety, content rating and the reviewer notes: see `PLAY-STORE-LAUNCH.md`, Part 2, step H.
+3. Do not mention the website, Stripe, or any other way to pay anywhere in the listing or the app. Google's Payments policy forbids pointing Play users to another way to pay for digital items (and the game is not sold anywhere else: the website version sells nothing).

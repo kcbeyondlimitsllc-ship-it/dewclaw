@@ -95,10 +95,11 @@ failed check for a while.
 
 ## Things to know
 
-- **Purchases.** Google Play does not allow the web checkout for gems or cosmetics
-  inside a Play app. The game must hide the real-money shop when opened with
-  `?src=play` until purchases are wired to Google Play Billing. The shell is ready
-  for that (Digital Goods API); the game and the worker are not yet.
+- **Purchases.** Payments for this game are Google Play Billing only (owner
+  decision 2026-11-19; no Stripe anywhere). The shell has Play Billing on (Digital
+  Goods API). The game keeps its store hidden while `PLAY_BILLING = 'off'` in
+  `site/games/kc-open-trail/js/store-config.js`; turning it on is a website change,
+  not a new app build (`marketing/kc-open-trail/PLAY-STORE-LAUNCH.md`, Part 2).
 - **Billing needs the delegation service.** The tool that writes the project only
   switches that service on together with notifications. `generate.js` switches it
   on by itself, so billing can work without the app asking for notifications.

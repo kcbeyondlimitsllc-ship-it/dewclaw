@@ -315,6 +315,9 @@ async function handleStripeCheckout(env, deps, req) {
     /* the Play app never sells through Stripe (Google Play's payments policy); it uses /ot/play-claim. The game does not call this
        route on that channel at all: this is a second lock in case a build ever did. */
     if (channel === "play") throw new HttpError(403, "The Google Play version of the game doesn't use this payment page.");
+    /* owner decision (2026-11-19): KC: Open Trail is sold through Google Play Billing only. No Stripe checkout is made for an
+       ot_ SKU unless OT_STRIPE is "on", and it is not set in wrangler.toml. Checked before any Stripe call. */
+    if (String(env.OT_STRIPE || "").trim() !== "on") throw new HttpError(403, "KC: Open Trail is sold through Google Play only.");
     return otCheckout(env, deps, sku, price, install);
   }
   const w = own(WEB_PRODUCTS, sku), g = own(PP_GRANTS, sku);

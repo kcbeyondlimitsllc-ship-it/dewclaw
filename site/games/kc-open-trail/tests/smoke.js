@@ -283,14 +283,15 @@ async function seamChecksAfterReload(page, name, touch) {
 
 
 /* ---------- the integrated game: all seven modules live (economy, upgrades, shop, missions, store, merch, guide) ---------- */
-const TABS = ['upgrades', 'wardrobe', 'rides', 'den', 'businesses', 'funds', 'journal', 'merch', 'store'];
+/* no Store tab on the web: the game is sold through Google Play Billing only (owner decision 2026-11-19) */
+const TABS = ['upgrades', 'wardrobe', 'rides', 'den', 'businesses', 'funds', 'journal', 'merch'];
 async function liveChecks(page, name, touch, vp) {
   const T = name + ': live: ';
   await page.evaluate(() => { window.__ext = []; document.addEventListener('click', e => { const a = e.target && e.target.closest && e.target.closest('a[target="_blank"]'); if (a) { e.preventDefault(); window.__ext.push({ href: a.href, rel: a.rel }); } }, true); __ot.game.ui.closeAll(); __ot.setTime(11); });
   const mods = await page.evaluate(() => { const m = __ot.game.modules, need = { economy: ['buyLevel', 'level', 'nextCost', 'buyItem', 'daily'], upgrades: ['collect', 'till', 'rate', 'placeDecor'], shop: ['open'], missions: ['start', 'list', 'complete', 'showWay', 'open'], store: ['buy', 'open', 'restore', 'gate'], merch: ['buyTwin', 'openReal', 'openProduct', 'openClaim'], guide: ['step'] };
     return { names: __ot.modules(), missing: Object.entries(need).flatMap(([k, fns]) => fns.filter(f => !m[k] || typeof m[k][f] !== 'function').map(f => k + '.' + f)), tabs: [...__ot.game.shop.tabs].sort((a, b) => (a.order ?? 50) - (b.order ?? 50)).map(t => t.id), css: ['eco-css', 'merch-css'].filter(id => !document.getElementById(id)).concat([...document.querySelectorAll('link[rel="stylesheet"]')].filter(l => !l.sheet).map(l => l.getAttribute('href'))) }; });
   ok(T + 'all seven modules booted with their public API, and their stylesheets loaded', mods.missing.length === 0 && mods.css.length === 0 && mods.names.length === 7, mods.missing.concat(mods.css).join(' ') || mods.names.join(','));
-  ok(T + 'the Shop has nine tabs in order: upgrades, wardrobe, rides, den, businesses, town, journal, KC Gear, store', mods.tabs.join() === TABS.join(), mods.tabs.join());
+  ok(T + 'the Shop has eight tabs in order (no Store on the web): upgrades, wardrobe, rides, den, businesses, town, journal, KC Gear', mods.tabs.join() === TABS.join(), mods.tabs.join());
 
   /* a new player is led: first job -> its bones land in the real wallet -> the shop -> the first upgrade */
   const lead = await page.evaluate(() => { const g = __ot.game, M = g.modules.missions, G = g.modules.guide, bell = M.list().find(m => m.id === 'bell'), b0 = g.state.wallet.bones; let grants = 0; const off = g.on('grant', e => { if (/^mission:bell/.test(e.source)) grants += e.bones; });
@@ -303,7 +304,7 @@ async function liveChecks(page, name, touch, vp) {
   await page.waitForSelector('#modal:not([hidden]) [data-tab="upgrades"]'); await wait(page, 200); await shot(page, `${name}-70-shop-upgrades`);
   const fit = await page.evaluate(() => { const rc = e => e.getBoundingClientRect(), card = rc(document.querySelector('#modal .card')), tabs = [...document.querySelectorAll('#modal [role="tab"]')], body = document.getElementById('modalBody'), close = rc(document.getElementById('modalClose')), btns = [...body.querySelectorAll('button')].filter(b => b.offsetParent !== null && b.getAttribute('role') !== 'tab');
     return { card: card.left >= -1 && card.top >= -1 && card.right <= innerWidth + 1 && card.bottom <= innerHeight + 1, tabs: tabs.length, tabMin: Math.min(...tabs.map(t => rc(t).height)), close: Math.min(close.width, close.height), side: body.scrollWidth - body.clientWidth, btnMin: btns.length ? Math.min(...btns.map(b => rc(b).height)) : 0, btns: btns.length, text: body.textContent.slice(0, 2000) }; });
-  ok(T + 'the pet supply door opens the Shop on Upgrades: fits the screen, nine 44 px tabs, 44 px buttons and close, no sideways scroll', /pet supply/i.test(buy.prompt || '') && buy.modal === 'shop' && buy.tab === 'upgrades' && fit.card && fit.tabs === 9 && fit.tabMin >= 44 && fit.close >= 44 && fit.side <= 1 && fit.btns > 5 && fit.btnMin >= 44 && /Super Sniffer/.test(fit.text), `${buy.prompt}; tabs ${fit.tabs} x ${fit.tabMin}px, close ${fit.close}px, buttons ${fit.btns} min ${fit.btnMin}px, side ${fit.side}`);
+  ok(T + 'the pet supply door opens the Shop on Upgrades: fits the screen, eight 44 px tabs, 44 px buttons and close, no sideways scroll', /pet supply/i.test(buy.prompt || '') && buy.modal === 'shop' && buy.tab === 'upgrades' && fit.card && fit.tabs === 8 && fit.tabMin >= 44 && fit.close >= 44 && fit.side <= 1 && fit.btns > 5 && fit.btnMin >= 44 && /Super Sniffer/.test(fit.text), `${buy.prompt}; tabs ${fit.tabs} x ${fit.tabMin}px, close ${fit.close}px, buttons ${fit.btns} min ${fit.btnMin}px, side ${fit.side}`);
   /* buy Super Sniffer through the screen: its button, then the confirm */
   const sel = await page.evaluate(() => { window.__paid = 0; __ot.game.on('purchase', e => { if (e && e.price && e.source !== 'debug') window.__paid += e.price.bones || 0; }); const items = [...document.querySelectorAll('#modalBody .item')], it = items.find(i => /Super Sniffer/.test(i.textContent)), b = it && it.querySelector('button:not([disabled])'); if (!b) return null; b.setAttribute('data-smoke', 'sniffer'); b.scrollIntoView({ block: 'center' }); return b.textContent; });
   if (sel) { await tapSel(page, touch, '[data-smoke="sniffer"]'); await page.waitForFunction(() => __ot.state().modal !== 'shop', null, { timeout: 4000 }).catch(() => {}); await wait(page, 150); await shot(page, `${name}-71-confirm-upgrade`); await tapSel(page, touch, '#modalActions .go'); await wait(page, 300); }
@@ -323,8 +324,8 @@ async function liveChecks(page, name, touch, vp) {
     if (['store', 'merch', 'journal', 'den', 'businesses', 'funds', 'wardrobe', 'rides'].includes(id)) await shot(page, `${name}-72-shop-${id}`);
   }
   const badTabs = Object.entries(tabs).filter(([id, t]) => t.cur !== id || t.len < 40 || t.side > 1 || !t.card || t.min < 44 || t.wide || !t.onIn).map(([id, t]) => id + JSON.stringify(t));
-  ok(T + 'pause menu has Shop and Missions; all nine tabs draw, fit, keep 44 px buttons, scroll only up and down, and the chosen tab is in view', menu.shop >= 42 && menu.missions >= 42 && badTabs.length === 0, badTabs.join(' ') || `Shop button ${menu.shop}px`);
-  ok(T + 'with real-money spending off the Store tab shows no price and asks for a grown-up; the KC Gear tab shows bones only', !tabs.store.money && !tabs.merch.money && await page.evaluate(() => { __ot.game.shop.open('store'); return /grown-up/i.test(document.getElementById('modalBody').textContent) && !__ot.game.grownUp.spending; }));
+  ok(T + 'pause menu has Shop and Missions; all eight tabs draw, fit, keep 44 px buttons, scroll only up and down, and the chosen tab is in view', menu.shop >= 42 && menu.missions >= 42 && badTabs.length === 0, badTabs.join(' ') || `Shop button ${menu.shop}px`);
+  ok(T + 'the web has no real-money store: no tab shows a dollar price, the KC Gear tab shows bones only, and store.open() refuses', Object.values(tabs).every(t => !t.money) && await page.evaluate(async () => !__ot.game.modules.store.hasStore && (await __ot.game.modules.store.open()) === false && !__ot.game.grownUp.spending));
   await page.evaluate(() => __ot.game.ui.closeAll());
 
   /* a mission in progress: objective and timer chips on the HUD, clear of the buttons */

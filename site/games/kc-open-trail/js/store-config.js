@@ -1,21 +1,21 @@
-/* KC: Open Trail store settings. THE OWNER FILLS THESE IN. Nothing here is secret: Stripe price ids and the
-   worker's address are public values. Never put a Stripe secret key, a password or a personal address in this file.
+/* KC: Open Trail store settings. THE OWNER FILLS THESE IN. Nothing here is secret: the worker's address is a public
+   value. Never put a key, a password or a personal address in this file.
 
-   While a value still says OWNER_FILLS_IN the store shows that item as "Coming soon" and can never start a checkout.
-   Steps are in marketing/kc-open-trail/MONETIZATION.md.
+   OWNER DECISION (2026-11-19): payments are Google Play Billing ONLY. Stripe is not used for this game anywhere, and
+   the website version of the game sells nothing, whatever is set here (js/store.js). STRIPE_PRICE_IDS below is left in
+   place only because tools/stripe-setup-open-trail.mjs (also not used) reads this file; the game ignores it.
+   Steps to turn purchases on: marketing/kc-open-trail/PLAY-STORE-LAUNCH.md, section "Turn on purchases".
 
    WORKER_URL       the https address of the deployed Dewclaw worker, with no slash at the end,
-                    e.g. 'https://dewclaw.your-account.workers.dev'
-   STRIPE_PRICE_IDS one Stripe price id ('price_...') per item. The same ids go into the worker's STRIPE_PRICES
-                    setting; the worker, not this file, decides what is charged and what is granted. Leaving one
-                    item as OWNER_FILLS_IN is also how to hold that item back.
+                    e.g. 'https://dewclaw.your-account.workers.dev'. Needed for Google Play purchases.
+   STRIPE_PRICE_IDS NOT USED (no Stripe for this game). Leave as it is.
    SUPPORT_CONTACT  where a grown-up asks for a refund or help (a support email address or an https contact page).
    PLAY_BILLING     only matters inside the Google Play app (js/channel.js). 'off' (the default): the Play app has no
-                    real-money store at all, no prices and no checkout. 'on': the Play app sells the same 16 items through
-                    Google Play Billing. Turn it on only after (1) the 16 products exist and are active in Play Console
-                    with ids equal to the names below, (2) the worker has OT_PLAY_PACKAGE and the Google service account,
-                    and (3) WORKER_URL above is filled in, and (4) the Android app was rebuilt with Play Billing in it
-                    (android/kc-open-trail/README.md). The Play app never uses Stripe, whatever is set here.
+                    real-money store at all, no prices, no buy prompts and no checkout. 'on': the Play app sells the
+                    16 items through Google Play Billing. Turn it on only after (1) the 16 products exist and are
+                    active in Play Console with ids equal to the names below, (2) the worker is deployed with
+                    OT_PLAY_PACKAGE and the Google service account (GOOGLE_SA_EMAIL, GOOGLE_SA_KEY), and (3) WORKER_URL
+                    above is filled in. The Android app already has Play Billing built in (twa-manifest.json).
    PLAY_REAL_GEAR   only matters inside the Google Play app. 'off' (the default): the Play app shows the bones-only KC gear
                     and nothing about the real products, the shop website or claiming a twin, and has no link out of the
                     game. 'on': the grown-ups' real-gear shelf, its link to the shop website and the claim screen work in
@@ -27,6 +27,7 @@
    reaches players the next time they open the game. No version number needs bumping for it. */
 export const WORKER_URL = 'OWNER_FILLS_IN';
 
+/* NOT USED: no Stripe for KC: Open Trail (owner decision 2026-11-19). The game ignores these. */
 export const STRIPE_PRICE_IDS = {
   ot_gems_80: 'OWNER_FILLS_IN',          /* $0.99  */
   ot_gems_500: 'OWNER_FILLS_IN',         /* $4.99  */

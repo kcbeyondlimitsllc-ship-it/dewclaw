@@ -115,7 +115,8 @@ function otPrice(id) {
   return OT[sku] ? { unit_amount: OT[sku].cents, currency: "usd", active: true } : null;
 }
 const GAME = "https://play.example.test";
-const otEnv = (extra = {}) => ({ ...stripeEnv(), ALLOWED_ORIGIN: "https://dewclaw-app.netlify.app," + GAME, OT_RETURN_URL: GAME + "/games/kc-open-trail/",
+/* OT_STRIPE "on" re-enables the (unused) Stripe path for these tests only; production leaves it unset (no Stripe for the game) */
+const otEnv = (extra = {}) => ({ ...stripeEnv(), OT_STRIPE: "on", ALLOWED_ORIGIN: "https://dewclaw-app.netlify.app," + GAME, OT_RETURN_URL: GAME + "/games/kc-open-trail/",
   STRIPE_PRICES: JSON.stringify({ ...JSON.parse(stripeEnv().STRIPE_PRICES), ...Object.fromEntries(OT_SKUS.map(k => [k, "price_" + k])) }), ...extra });
 const INSTALL = "inst_AAAAAAAAAAAAAAAAAAAAAAAA", INSTALL2 = "inst_BBBBBBBBBBBBBBBBBBBBBBBB";
 const greq = (path, body, method = "POST") => req(path, body, method, { origin: GAME });
@@ -876,6 +877,17 @@ await test("open trail play: Dewclaw's own Play routes still use PLAY_PACKAGE, a
   const before = stripe.n, r = await handle(greq("/stripe/checkout", { sku: "ot_gems_80", install: INSTALL, channel: "play" }), e, deps);
   assert.equal(r.status, 403); assert.equal(stripe.n, before, "no Stripe session is made for the Play channel");
   assert.equal((await handle(greq("/stripe/checkout", { sku: "ot_gems_80", install: INSTALL, channel: "web" }), e, deps)).status, 200);
+});
+
+await test("open trail: with OT_STRIPE unset (production) no Stripe checkout is ever made for the game, on any channel", async () => {
+  const e = otEnv(); delete e.OT_STRIPE;
+  for (const [sku, channel] of [["ot_gems_80", "web"], ["ot_everything", undefined], ["ot_gems_7000", "play"]]) {
+    const before = stripe.n, r = await handle(greq("/stripe/checkout", { sku, install: INSTALL, ...(channel ? { channel } : {}) }), e, deps);
+    assert.equal(r.status, 403, sku); assert.equal(stripe.n, before, "Stripe was not called for " + sku);
+  }
+  for (const v of ["off", "", "ON", "yes"]) { const r = await handle(greq("/stripe/checkout", { sku: "ot_gems_80", install: INSTALL }), { ...e, OT_STRIPE: v }, deps); assert.equal(r.status, 403, JSON.stringify(v)); }
+  /* Dewclaw's own web products are not affected */
+  const d = await handle(req("/stripe/checkout", { sku: "dewclaw_plus_monthly" }), stripeEnv(), deps); assert.equal(d.status, 200);
 });
 
 console.log(`\n${passed} passed${process.exitCode ? ", with failures" : ""}`);

@@ -1,5 +1,7 @@
 # KC: Open Trail store: what the owner has to do
 
+> **Owner decision, 2026-11-19: payments are Google Play Billing only. No Stripe for KC: Open Trail anywhere.** The website version of the game sells nothing. Wherever this file talks about Stripe, Stripe Checkout, Stripe price ids or the web store, that part is NOT USED. The steps that apply now are in `PLAY-STORE-LAUNCH.md` (get the app live, then "Turn on purchases").
+
 **Nothing is live.** No Stripe product exists for this game, the store settings in the game are placeholders, and the worker changes have not been deployed. In the game as it stands today every store item says "Coming soon", no payment can be started, and the game sends nothing to any server. Nothing in this folder turns that on by itself. Each step below is something only the owner can do.
 
 Written 2026-11-16, updated 2026-11-17. The design this follows is `MONETIZATION-EXPANSION-SPEC.md`, sections 4 and 6.

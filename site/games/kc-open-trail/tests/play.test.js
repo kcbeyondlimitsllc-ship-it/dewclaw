@@ -4,7 +4,8 @@
    It proves:
      1. channel detection (pure function): ?src=play, the Android referrer, the session, the installed app; a browser tab is the web
      2. the files a Trusted Web Activity needs: manifest fields and icons, the offline shell lists the new file, the config default
-     3. WEB channel: the Stripe store is there as before, Google Play is never asked, the privacy policy is one tap from Settings
+     3. WEB channel: no real-money store at all (owner decision: Google Play Billing only, no Stripe), even with a filled-in config;
+        Google Play is never asked, the privacy policy is one tap from Settings; the localhost test double still works for the tests
      4. PLAY channel as shipped (PLAY_BILLING 'off'): no store, no price, no Stripe, no request anywhere, a Stripe return link is ignored;
         the real-gear shelf, its link out and the claim are not in the build (PLAY_REAL_GEAR 'off'); with it 'on' they sit behind the switch and the gate
      5. PLAY channel with Google Play Billing on (pretend worker): prices come from Google Play, an item Google does not return
@@ -149,26 +150,44 @@ const MONEY = /[$€£¥]|\bUSD\b|\bdollars?\b/i, ELSEWHERE = /\bStripe\b|[Cc]he
     eq('store.js still makes exactly one kind of network call, to the worker', (src.match(/\bfetch\s*\(/g) || []).length, 1);
     ok('no analytics, adverts or tracking code anywhere in js/', fs.readdirSync(path.join(ROOT, 'js')).every(f => !/googletagmanager|google-analytics|gtag\(|doubleclick|admob|facebook\.net|sendBeacon/.test(read('js/' + f)))); }
 
-  /* ---------- 3. the web channel ---------- */
+  /* ---------- 3. the web channel: no store at all (owner decision 2026-11-19: Google Play Billing only, no Stripe) ---------- */
   { const o = await open(browser, { query: '?debug=1&nosw=1', play: {} }), { page } = o;
-    const a = await page.evaluate(() => { const g = __ot.game, st = g.modules.store; return { ch: g.channel, ot: __ot.channel, st: st.channel, has: st.hasStore, pb: st.playBilling, usd: g.showUsd, tabs: g.shop.tabs.map(t => t.id), off: g.grownUp.storeOff, label: g.grownUp.switchLabel }; });
-    eq('web: the channel is web, the store exists, Google Play Billing is not in play', [a.ch, a.ot, a.st, a.has, a.pb, a.usd, a.off, a.label], ['web', 'web', 'web', true, false, true, false, '']);
-    ok('web: the Store tab is registered', a.tabs.includes('store') && a.tabs.includes('journal'));
+    const a = await page.evaluate(() => { const g = __ot.game, st = g.modules.store; return { ch: g.channel, ot: __ot.channel, st: st.channel, has: st.hasStore, pb: st.playBilling, usd: g.showUsd, tabs: g.shop.tabs.map(t => t.id), off: g.grownUp.storeOff, label: g.grownUp.switchLabel, any: st.catalog.some(c => st.sellable(c.sku)), prices: st.catalog.map(c => st.price(c.sku)).join('') }; });
+    eq('web: the channel is web, there is no real-money store, nothing is sellable, Google Play Billing is not in play, no dollar hints', [a.ch, a.ot, a.st, a.has, a.pb, a.usd, a.off, a.label, a.any], ['web', 'web', 'web', false, false, false, true, 'Real KC gear shelf (grown-ups only)', false]);
+    ok('web: no Store tab; the Trail Journal and the KC Gear tab are there', !a.tabs.includes('store') && a.tabs.includes('journal') && a.tabs.includes('merch'), a.tabs.join(','));
     await page.evaluate(() => __ot.game.ui.settings());
     const set = await page.evaluate(() => { const a = document.querySelector('[data-set="privacy"]'), r = a && a.getBoundingClientRect(); return a ? { href: a.getAttribute('href'), same: new URL(a.href).origin === location.origin, tag: a.tagName, h: Math.round(r.height) >= 44, label: a.closest('.set').querySelector('span').textContent, rows: [...document.querySelectorAll('[data-set]')].map(e => e.getAttribute('data-set')) } : null; });
     ok('web: Settings has a "Privacy policy" link to /kc-open-trail/privacy.html on the same origin, 44 px tall', set && set.href === '/kc-open-trail/privacy.html' && set.same && set.tag === 'A' && set.h && set.label === 'Privacy policy', JSON.stringify(set));
-    ok('web: Settings keeps the real-money switch, the limit and restore rows', set && ['spending', 'store-limit', 'store-restore'].every(r => set.rows.includes(r)));
+    ok('web: Settings keeps the grown-ups switch (for the real-gear shelf) and has no limit or restore rows', set && set.rows.includes('spending') && !set.rows.includes('store-limit') && !set.rows.includes('store-restore'), set && set.rows.join(','));
     await page.screenshot({ path: path.join(OUT, 'web-settings-390.png') });
-    await page.evaluate(() => __ot.game.ui.closeAll()); await spendingOn(page); await openStore(page);
-    const card = await page.textContent('[data-item="ot_gems_80"]');
-    ok('web: the store shows the catalogue dollar price (placeholder config: "Coming soon")', /\$0\.99/.test(card) && /Coming soon/.test(card), card);
+    await page.evaluate(() => __ot.game.ui.closeAll());
+    eq('web: open(), buy(), restore(), the limit screen and setLimit all refuse, with no gate shown', await page.evaluate(async () => { const st = __ot.game.modules.store; return [await st.open(), await st.buy('ot_gems_80'), await st.restore(), await st.limitScreen(), await st.setLimit(1000), !!__ot.game.ui.current]; }), [false, false, false, false, false, false]);
+    for (const sw of [false, true]) { if (sw) await spendingOn(page);
+      const text = await allText(page), bad = Object.entries(text).filter(([k, t]) => k !== 'tab:merch' && (MONEY.test(t) || ELSEWHERE.test(t) || /can also buy|Real-money|Restore purchases/.test(t))).map(([k, t]) => k + ': ' + ((t.match(MONEY) || t.match(ELSEWHERE) || t.match(/can also buy|Real-money|Restore purchases/) || [''])[0]));
+      ok(`web, switch ${sw ? 'on' : 'off'}: no money sign, no Stripe, no "can also buy" and no store rows in any Shop tab or in Settings`, bad.length === 0, bad.join('; '));
+      ok(`web, switch ${sw ? 'on' : 'off'}: the Trail Journal has no pass column`, !/Pass/.test(text['tab:journal'])); }
+    eq('web: the Wardrobe note about gems does not say they can be bought', await page.evaluate(() => { __ot.game.shop.open('wardrobe'); const t = document.getElementById('modal').textContent, m = t.match(/Gems come free[^.]*\.[^.]*\./); __ot.game.ui.closeAll(); return m ? m[0] : 'no note'; }), 'Gems come free from golden balls, new places and the daily sniff-outs. Any gem price can be paid in bones instead, at 50 bones a gem.');
     eq('web: Google Play was never asked for anything', await page.evaluate(() => [__dg.service, __dg.details, __dg.lists, __dg.shown.length]), [0, 0, 0, 0]);
     eq('web: nothing was requested outside the game', o.outside(), []); eq('web: no console errors', o.errors, []);
-    await o.ctx.close();
-    /* the pretend Stripe path still works on the web with a Google Play service present */
+    await o.ctx.close(); }
+  { /* even with a worker address and Stripe price ids filled in, the web sells nothing, asks no server and ignores a Stripe return link */
+    const shipped = fs.readFileSync(path.join(ROOT, 'js/store-config.js'), 'utf8');
+    configOverride = shipped.replace("export const WORKER_URL = 'OWNER_FILLS_IN';", "export const WORKER_URL = 'https://worker.invalid';").replace(/'OWNER_FILLS_IN'(,?\s*\/\*)/g, (m, c) => "'price_TESTabcdef123456'" + c);
+    ok('the filled-in test config has a worker address and 16 price ids', configOverride.includes('worker.invalid') && (configOverride.match(/price_TESTabcdef123456/g) || []).length === 16);
+    const o = await open(browser, { query: '?debug=1&nosw=1', play: {} }), { page } = o;
+    await page.evaluate(() => { const S = __ot.game.state.modules.store; S.install = 'inst_AAAAAAAAAAAAAAAAAAAAAAAA'; S.pending = { sku: 'ot_gems_7000', t: Date.now() }; __ot.game.state.settings.spending = true; __ot.save(); });
+    const g0 = await page.evaluate(() => __ot.game.state.wallet.gems);
+    await o.boot('?debug=1&nosw=1&cs=cs_test_abcdefgh1234'); await page.waitForTimeout(600);
+    const r = await page.evaluate(g0 => { const g = __ot.game, st = g.modules.store; return [st.live, st.hasStore, st.catalog.some(c => st.sellable(c.sku)), g.shop.tabs.some(t => t.id === 'store'), new URLSearchParams(location.search).has('cs'), g.state.wallet.gems - g0 < 7000, st.journal().length]; }, g0);
+    eq('web, filled-in config: still no store, nothing sellable, the return link is dropped and grants nothing', r, [true, false, false, false, false, true, 0]);
+    eq('web, filled-in config: buy() refuses every item', await page.evaluate(async () => { const st = __ot.game.modules.store, out = []; for (const c of st.catalog) out.push(await st.buy(c.sku)); return out.every(v => v === false); }), true);
+    eq('web, filled-in config: nothing was requested outside the game (no worker, no Stripe)', o.outside(), []);
+    configOverride = null; await o.ctx.close(); }
+  {
+    /* the localhost-only test double (?debug=1&mock=1) still runs the old Stripe path, which the store tests use; the live site never can */
     const m = await open(browser, { query: '?debug=1&nosw=1&mock=1', play: {} });
     await spendingOn(m.page); const before = await snap(m.page);
-    ok('web (test mode): a pretend Stripe purchase is granted as before', await m.page.evaluate(() => __ot.game.modules.store.debug.buy('ot_gems_80')) === true && (await snap(m.page)).gems === before.gems + 80);
+    ok('web (localhost test double): a pretend purchase is granted as before', await m.page.evaluate(() => __ot.game.modules.store.debug.buy('ot_gems_80')) === true && (await snap(m.page)).gems === before.gems + 80);
     eq('web (test mode): the Play path refuses to run on the web', await m.page.evaluate(async () => { const d = __ot.game.modules.store.debug; return [await d.payPlay('ot_gems_80'), await d.claimPlay('ot_gems_80', 'mockplay.ot_gems_80.abc123'), await d.playSync(true), __dg.service, __dg.shown.length]; }), [false, 'failed', null, 0, 0]);
     await m.ctx.close(); }
 

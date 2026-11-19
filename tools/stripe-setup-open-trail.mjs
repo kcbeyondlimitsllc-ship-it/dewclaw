@@ -1,4 +1,10 @@
 #!/usr/bin/env node
+/* ====================================================================================================
+   NOT USED for KC: Open Trail, by owner decision (2026-11-19): the game takes payments through Google Play
+   Billing only, and Stripe is not used for it anywhere. Do not run this. It is kept in the repo only for the
+   record; the game ignores STRIPE_PRICE_IDS and the worker refuses Stripe checkouts for the game unless
+   OT_STRIPE is "on" (it is not set). See marketing/kc-open-trail/PLAY-STORE-LAUNCH.md instead.
+   ==================================================================================================== */
 /* KC: Open Trail: creates the game's 16 Stripe products and one-time USD prices, once.
 
    THE OWNER RUNS THIS ON THEIR OWN COMPUTER. It is never run by the website, the worker or a build.

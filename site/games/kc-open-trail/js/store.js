@@ -19,9 +19,17 @@
    Stripe. On any other host (the live site included) the query words do nothing: the mock code is never called and a
    made-up return link is ignored.
 
-   Two channels (js/channel.js). On the WEB the store sells through Stripe Checkout, as described above. Inside the
-   GOOGLE PLAY app (game.channel === 'play') Stripe is never used and never mentioned: no Stripe checkout, no Stripe price,
-   no return link is claimed, and nothing points at buying anywhere else. There the store is one of two things:
+   OWNER DECISION (2026-11-19): KC: Open Trail takes payments through Google Play Billing ONLY. Stripe is not used
+   anywhere. So on the WEB (any browser) there is no real-money store at all: no Store tab, no price, no pass column, no
+   Settings rows for the limit or restore, no "about $X" next to gem prices, and a Stripe return link (?cs=...) is
+   dropped unread. This holds whatever js/store-config.js says (WORKER_URL and STRIPE_PRICE_IDS are ignored on the web).
+   The Stripe code below is kept only for the localhost test double (MOCK, ?debug=1&mock=1 on localhost), which the
+   store tests use to exercise the gate, the two steps, the limit, the journal and the Trail Key; it can never run on
+   the live site, and the worker refuses an ot_ Stripe checkout unless OT_STRIPE is "on" (it is not set).
+
+   Two channels (js/channel.js). Inside the GOOGLE PLAY app (game.channel === 'play') Stripe is never used and never
+   mentioned: no Stripe checkout, no Stripe price, no return link is claimed, and nothing points at buying anywhere else.
+   There the store is one of two things:
    - PLAY_BILLING 'off' in js/store-config.js (the default): no store at all. No Store tab, no price, no pass column, no
      Settings rows for the limit or restore. The grown-up switch then only opens the real-gear shelf (js/merch.js).
    - PLAY_BILLING 'on': the same 16 items sold through Google Play Billing, by way of the Digital Goods API and the
@@ -38,7 +46,7 @@
    Public API (game.modules.store): see the object returned by init at the bottom of this file. */
 import * as CONFIG from './store-config.js';
 /* read this way so a store-config.js written before PLAY_BILLING existed still loads: a missing value means 'off' */
-const { WORKER_URL, STRIPE_PRICE_IDS, SUPPORT_CONTACT } = CONFIG, PLAY_BILLING = CONFIG.PLAY_BILLING === 'on' ? 'on' : 'off';
+const { WORKER_URL, SUPPORT_CONTACT } = CONFIG, PLAY_BILLING = CONFIG.PLAY_BILLING === 'on' ? 'on' : 'off';
 
 /* ------------------------------------------------------------------ the catalogue (spec 4.2)
    The worker's OT_GRANTS table is the authority on what a purchase is worth; this copy is what the screens show and what
@@ -155,13 +163,14 @@ export function init(game) {
   const workerBase = (() => { try { if (!WORKER_URL || WORKER_URL === PLACEHOLDER) return ''; const u = new URL(WORKER_URL);
     if (u.protocol === 'https:' || (DEBUG && u.protocol === 'http:' && (u.hostname === 'localhost' || u.hostname === '127.0.0.1'))) return u.origin + u.pathname.replace(/\/+$/, ''); } catch (e) { /* not an address */ } return ''; })();
   const LIVE = !!workerBase;
-  const priceSet = sku => /^price_[A-Za-z0-9]{6,}$/.test(String((STRIPE_PRICE_IDS || {})[sku] || ''));
   /* ---------- the Google Play app ----------
      PLAY: this is the Play app. PLAY_ON: it has a store (Google Play Billing switched on by the owner, or the test double).
      dg is Google's Digital Goods service once it has answered; playPrices holds what Google says each item costs. */
   const PLAY = game.channel === 'play';
   const PLAY_ON = PLAY && (MOCK ? query.get('billing') !== 'off' : LIVE && PLAY_BILLING === 'on');
-  const STORE = !PLAY || PLAY_ON;                       /* is there a real-money store in this build at all? */
+  /* is there a real-money store in this build at all? The Play app: only with Google Play Billing switched on. The web: never
+     (owner decision, no Stripe), except the localhost test double. */
+  const STORE = PLAY ? PLAY_ON : MOCK;
   let dg = null, dgAt = 0; const playPrices = new Map();
   const playMoney = p => { try { const v = Number(p.value); if (!Number.isFinite(v) || v < 0 || !/^[A-Z]{3}$/.test(String(p.currency))) return ''; return new Intl.NumberFormat(undefined, { style: 'currency', currency: p.currency }).format(v); } catch (e) { return ''; } };
   /* asks Google Play which of the 16 items exist and what they cost. Called only after the grown-up gate. Tried again later if it failed. */
@@ -176,7 +185,7 @@ export function init(game) {
     } catch (e) { dg = null; }
     return !!dg;
   }
-  const sellable = sku => bySku.has(sku) && (PLAY ? PLAY_ON && !!dg && playPrices.has(sku) : MOCK || (LIVE && priceSet(sku)));
+  const sellable = sku => STORE && bySku.has(sku) && (PLAY ? PLAY_ON && !!dg && playPrices.has(sku) : MOCK);
   /* the price a person is shown: on the web the catalogue's dollars, in the Play app only what Google Play said ('' when it said nothing) */
   const priceOf = c => (PLAY ? playPrices.get(c.sku) || '' : money(c.cents));
   const support = () => (typeof SUPPORT_CONTACT === 'string' && SUPPORT_CONTACT && SUPPORT_CONTACT !== PLACEHOLDER ? SUPPORT_CONTACT : '');
@@ -245,7 +254,7 @@ export function init(game) {
   bus.on('wallet', clampBank); bus.on('spend', clampBank);
 
   function journalTab(pane) {
-    const pass = hasPass(), showPass = pass || (game.grownUp.spending && (PLAY ? sellable('ot_trail_pass') : true)), done = STEPS.filter(s => have(s.kind) >= s.need).length;
+    const pass = hasPass(), showPass = pass || (STORE && game.grownUp.spending && (PLAY ? sellable('ot_trail_pass') : true)), done = STEPS.filter(s => have(s.kind) >= s.need).length;
     pane.appendChild(ui.heading('Trail Journal', 'Thirty steps for things KC does anyway. Nothing resets and nothing runs out.'));
     pane.appendChild(ui.progress(done, STEPS.length, `${done} of ${STEPS.length} steps reached`));
     const list = el('div', { class: 'tj' + (showPass ? ' two' : '') });
@@ -313,7 +322,7 @@ export function init(game) {
   async function call(path, body) {
     let status, data;
     if (MOCK) { const r = mockWorker(path, body); status = r.status; data = r.body; }
-    else { if (!LIVE) throw new Error('The store is not open yet.');
+    else { if (!LIVE || !STORE) throw new Error('The store is not open yet.');   /* the web has no store: never a request from it */
       let r; try { r = await fetch(workerBase + path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), credentials: 'omit', cache: 'no-store', referrerPolicy: 'no-referrer' }); }
       catch (e) { throw new Error('The payment server could not be reached. Check the connection and try again.'); }
       status = r.status; data = await r.json().catch(() => ({})); }
@@ -353,7 +362,7 @@ export function init(game) {
     confirmBuy(c); return true;
   }
   async function pay(c) {
-    if (PLAY) return;                                        /* the Play app never opens a Stripe page */
+    if (PLAY || !STORE) return;                              /* the Play app never opens a Stripe page; the web has no store (no Stripe) */
     if (busy) return; if (!game.grownUp.spending || !sellable(c.sku) || c.cents > room()) return; busy = true;
     try {
       if (!S.install) S.install = randomId(24);
@@ -470,7 +479,7 @@ export function init(game) {
     const cs = query.get('cs'), cancelled = query.get('cancelled');
     if (cs == null && cancelled == null) return;
     try { const u = new URL(location.href); u.searchParams.delete('cs'); u.searchParams.delete('cancelled'); history.replaceState(null, '', u.pathname + u.search + u.hash); } catch (e) { /* the address bar stays as it is */ }
-    if (PLAY) return;                                        /* the Play app never claims a Stripe payment */
+    if (PLAY || !STORE) return;                              /* the Play app never claims a Stripe payment; the web has no store (no Stripe) */
     if (cancelled != null && cs == null) { if (S.pending) { S.pending = null; save(); tell(() => game.toast('Payment cancelled. Nothing was charged.', { icon: 'hand', ms: 4200 })); } return; }
     if (!SESSION_RE.test(cs)) return;
     if (cs.startsWith('cs_mock_') && !MOCK) return;          /* a pretend session means nothing outside the test mode */
@@ -600,6 +609,9 @@ export function init(game) {
      also turned the real-gear shelf on for the Play app (PLAY_REAL_GEAR): js/merch.js then shows the switch, worded for what it does. */
   if (STORE) game.grownUp.showSwitch = true;
   else { game.grownUp.storeOff = true; game.grownUp.switchLabel = 'Real KC gear shelf (grown-ups only)'; }
+  /* "about $X" next to gem prices only where gems can be bought for dollars: the localhost test double. The web sells nothing
+     and the Play app shows Google's local prices in its store, so neither shows a dollar hint. */
+  game.showUsd = STORE && !PLAY;
   /* "Start over" keeps this module's record, so what was paid for comes back: permanent items, pass rewards, unspent purchased gems */
   { const back = []; for (const sku of S.perm) { const c = bySku.get(sku); for (const i of c.grant.items) if (!/^treat:/.test(i) && !eco.owns(i) && !back.includes(i)) back.push(i); for (const k of Object.keys(c.grant.flags)) if (eco.getFlag(k) !== c.grant.flags[k]) eco.setFlag(k, c.grant.flags[k]); }
     for (const n of S.passPaid) { const it = STEPS[n - 1].pass.item; if (it && !eco.owns(it) && !back.includes(it)) back.push(it); }

@@ -145,18 +145,23 @@ contract between them and the core, and each module's public API, are in
 - Money never buys bones or anything that changes how KC plays. It buys gems
   (cosmetics only) and cosmetic sets. Everything that affects play is earned
   with bones. Nothing is random, nothing has a countdown.
-- **Two channels.** On the web the store sells through Stripe. Inside the
-  Google Play app (`?src=play`, see `js/channel.js`) Stripe is never used or
-  mentioned, because Google Play requires its own billing for digital goods.
-  There the store is absent (`PLAY_BILLING = 'off'`, the default) or sells
-  the same 16 items through Google Play Billing (`'on'`), with prices read
-  from Google Play. The real-gear shelf (physical products on a separate
-  shop) is the same in both, behind the switch and the gate.
-- **Nothing is live.** `js/store-config.js` holds placeholders, so every
-  store item says "Coming soon" and no checkout can start. The owner's
-  steps (Stripe products, worker settings, wording for a lawyer) are in
-  `marketing/kc-open-trail/MONETIZATION.md`. The worker side is
-  `worker/dewclaw-worker.js`, tested by `worker/test.js`.
+- **Google Play Billing only (owner decision, 2026-11-19).** Stripe is not
+  used for this game anywhere. On the web (any browser) there is no
+  real-money store at all: no Store tab, no price, no "about $X" hints, and
+  a Stripe return link is ignored, whatever `js/store-config.js` says. Inside
+  the Google Play app (`?src=play`, see `js/channel.js`) the store is absent
+  while `PLAY_BILLING = 'off'` (the default) and sells the 16 items through
+  Google Play Billing once the owner sets it to `'on'`, with prices read from
+  Google Play. The worker refuses a Stripe checkout for the game unless
+  `OT_STRIPE` is "on" (not set). The Stripe code in `js/store.js` only runs
+  in the localhost test double used by `tests/store.test.js`.
+- The real-gear shelf (physical products on a separate shop website) is on
+  the web, behind the switch, the gate and a "leaving the game" screen. In
+  the Play app it is not shown at all while `PLAY_REAL_GEAR = 'off'` (the
+  default).
+- **Nothing is live.** Steps to publish the Play app and then to turn on
+  purchases are in `marketing/kc-open-trail/PLAY-STORE-LAUNCH.md`. The worker
+  side is `worker/dewclaw-worker.js`, tested by `worker/test.js`.
 - The merch claim ("bought the real one, get the twin") is local and on
   trust; no order number is stored or sent.
 - Before each release and around each shop sale, refresh the product list:
@@ -168,8 +173,8 @@ The Play app is a Trusted Web Activity: an Android shell that opens this
 same folder full screen. What it needs from the game is already here:
 
 - Start URL `/games/kc-open-trail/?src=play`. That query is how the game
-  knows it is the Play app; without it the app would behave like the web
-  and offer Stripe, which Google Play does not allow.
+  knows it is the Play app (the web sells nothing, so a mistake here shows
+  no store rather than a wrong one).
 - `manifest.webmanifest` (name, icons including a maskable one, fullscreen,
   any orientation, colours) and `sw.js` (the game starts with no network).
 - The game's own package name and its two SHA-256 fingerprints (upload key
@@ -218,7 +223,7 @@ js/upgrades.js             what the ladders do: den, buddies, businesses, funds,
 js/shop.js                 six Shop tabs and the shop-door prompts
 js/missions.js, js/activities.js   story missions, festival activities, journal, weekly tasks, ferry
 js/channel.js              'play' (the Google Play app) or 'web'; sets game.channel
-js/store.js, js/store-config.js    real-money store (Stripe on the web, Google Play Billing in the Play app), Trail Journal; the config is placeholders until the owner fills it in
+js/store.js, js/store-config.js    real-money store (Google Play Billing in the Play app only; none on the web), Trail Journal; the config is placeholders until the owner fills it in
 js/merch.js                KC shelves, twins, real products behind the gate, leaving screen, claim
 js/guide.js                first steps for a new player
 css/economy.css, css/missions.css, css/store.css, css/merch.css   the modules' styles (each injected by its module)

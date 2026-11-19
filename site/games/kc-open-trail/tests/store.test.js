@@ -1,8 +1,8 @@
 /* KC: Open Trail store test (Playwright + Chromium): js/store.js, js/store-config.js, css/store.css.
      NODE_PATH=$(npm root -g) node tests/store.test.js [screenshot-folder]
    Run from site/games/kc-open-trail. Serves this folder on its own port and proves, in the running game:
-     1. the shipped config is placeholders only, so every item says "Coming soon", nothing can be bought and nothing is
-        requested from anywhere; spending is off until a grown-up turns it on through the gate
+     1. the web as shipped has no real-money store at all (owner decision 2026-11-19: Google Play Billing only, no Stripe):
+        nothing can be bought and nothing is requested; spending is off until a grown-up turns it on through the gate
      2. mock mode cannot be reached in a normal session (no ?debug=1): a made-up return link grants nothing
      3. with ?debug=1&mock=1 the whole path works by touch: gate, two-step confirm with the dollar price and exact
         contents, the pretend payment page, the return, the grant (through game.economy.grant), the journal
@@ -10,7 +10,10 @@
         an unknown SKU, an unpaid or tampered payment and a tampered grant are refused
      5. the device limit, the hiding rules, restore with the Trail Key on a wiped device, "Start over" keeping what was paid for
      6. the Trail Journal: free column for everyone, pass column only with the pass, a late pass pays everything reached
-     7. the same game against the REAL worker code (worker/dewclaw-worker.js run locally with Stripe faked): buy, replay, restore
+     7. the same game against the REAL worker code (worker/dewclaw-worker.js run locally with Stripe faked): the web still sells
+        nothing and asks nothing, and the worker refuses a Stripe checkout for the game (no OT_STRIPE)
+     (3-6 and 8 run on the localhost-only test double, ?debug=1&mock=1, which still drives the old Stripe-shaped path to test the
+      shared rules: gate, two steps, limit, journal, Trail Key, "Start over". The live site can never reach it.)
      8. phone layouts at 390 x 844 and 844 x 390: 44 px targets, no sideways scroll, prices always on screen
    Exits non-zero if any check fails. */
 const http = require('http'), fs = require('fs'), path = require('path');
@@ -98,16 +101,12 @@ const layout = page => page.evaluate(() => { const m = document.getElementById('
     ok('no secret-looking strings in the store files', !/sk_(live|test)_[A-Za-z0-9]{8,}|whsec_[A-Za-z0-9]{8,}/.test(src + cfg));
     ok('no loot-box, countdown or urgency wording', !/loot|gacha|mystery box|limited time|only today|hurry|best value|most popular|\bbonus\b|% off|countdown/i.test(src.replace(/\/\*[\s\S]*?\*\//g, ''))); }
 
-  /* ---------- 1. the shipped (placeholder) config: nothing can be bought ---------- */
+  /* ---------- 1. the web as shipped: no real-money store at all (owner decision 2026-11-19: Google Play Billing only) ---------- */
   { const o = await open(browser, { query: '?debug=1&nosw=1' }), { page } = o;
-    const a = await page.evaluate(() => { const g = __ot.game, st = g.modules.store; return { live: st.live, mock: st.mock, debug: 'debug' in st, spending: g.grownUp.spending, sw: g.grownUp.showSwitch, n: st.catalog.length, any: st.catalog.some(c => st.sellable(c.sku)), tabs: g.shop.tabs.map(t => t.id) }; });
-    eq('placeholder config: the store is not live, mock is off and has no test hooks; 16 SKUs; none sellable', [a.live, a.mock, a.debug, a.n, a.any], [false, false, false, 16, false]);
-    ok('spending is OFF by default and the Settings switch is offered', a.spending === false && a.sw === true);
-    ok('the Store and Trail Journal tabs are registered', a.tabs.includes('store') && a.tabs.includes('journal'));
-    await page.evaluate(() => __ot.game.shop.open('store'));
-    const off = await page.evaluate(() => { const p = document.querySelector('.tabpane'); return { text: p.textContent.trim(), buttons: p.querySelectorAll('button').length, dollar: /\$/.test(p.textContent) }; });
-    eq('spending off: the Store tab shows only "Ask a grown-up to turn on the shop."', off, { text: 'Ask a grown-up to turn on the shop.', buttons: 0, dollar: false });
-    await page.screenshot({ path: path.join(OUT, 'store-off-390.png') });
+    const a = await page.evaluate(() => { const g = __ot.game, st = g.modules.store; return { live: st.live, mock: st.mock, debug: 'debug' in st, has: st.hasStore, spending: g.grownUp.spending, sw: g.grownUp.showSwitch, n: st.catalog.length, any: st.catalog.some(c => st.sellable(c.sku)), tabs: g.shop.tabs.map(t => t.id) }; });
+    eq('web: the store is not live, mock is off and has no test hooks, there is no store; 16 SKUs in the catalogue; none sellable', [a.live, a.mock, a.debug, a.has, a.n, a.any], [false, false, false, false, 16, false]);
+    ok('spending is OFF by default; the Settings switch is offered (for the real-gear shelf)', a.spending === false && a.sw === true);
+    ok('no Store tab; the Trail Journal tab is registered', !a.tabs.includes('store') && a.tabs.includes('journal'), a.tabs.join(','));
     eq('spending off: open(), buy() and restore() all refuse without showing a gate', await page.evaluate(async () => { const st = __ot.game.modules.store; const r = [await st.open(), await st.buy('ot_gems_80'), await st.restore()]; return [...r, !!(__ot.game.ui.current && __ot.game.ui.current.id === 'gate')]; }), [false, false, false, false]);
     await page.evaluate(() => __ot.game.shop.open('journal'));
     const j0 = await page.evaluate(() => ({ rows: document.querySelectorAll('.tj-row[data-step]').length, pass: document.querySelectorAll('.tj-pass').length, dollar: /\$/.test(document.querySelector('.tabpane').textContent) }));
@@ -116,21 +115,10 @@ const layout = page => page.evaluate(() => { const m = document.getElementById('
     { const p = page.evaluate(() => __ot.game.grownUp.setSpending(true)); await page.waitForSelector('.gateq b'); for (let i = 0; i < 3; i++) { await page.tap('.keypad [data-key="1"]'); await page.tap('.keypad [data-key="ok"]'); } eq('three wrong answers at the gate leave spending off', [await p, await page.evaluate(() => __ot.game.grownUp.spending)], [false, false]); }
     await page.evaluate(() => { __ot.game.ui.closeAll(); }); await o.boot();
     eq('the gate stays shut after a reload (the lock-out is kept with the settings)', await page.evaluate(async () => { const g = __ot.game, shut = await g.ui.gate({}); g.state.settings.gate = null; g.save.save(); return shut; }), false);
-    ok('a grown-up turns spending on through the gate', await spendingOn(page) === true && await page.evaluate(() => __ot.game.grownUp.spending));
-    await openStore(page);
-    const cards = await page.evaluate(() => [...document.querySelectorAll('.modal.store [data-item^="ot_"], #modal [data-item^="ot_"]')].map(c => ({ sku: c.dataset.item, price: (c.querySelector('.prices') || {}).textContent, btn: c.querySelector('button').textContent, disabled: c.querySelector('button').disabled })));
-    eq('all 16 SKUs are listed', cards.map(c => c.sku).sort(), [...SKUS].sort());
-    ok('every card shows its exact dollar price', cards.every(c => c.price === SPEC[c.sku][0]), cards.filter(c => c.price !== SPEC[c.sku][0]).map(c => c.sku + ' ' + c.price).join(' '));
-    ok('with placeholders every item says "Coming soon" and its button is disabled', cards.every(c => c.btn === 'Coming soon' && c.disabled));
-    ok('the screen says the store is not open yet', await page.evaluate(() => /not open yet/.test(document.getElementById('modalBody').textContent)));
-    await page.screenshot({ path: path.join(OUT, 'store-coming-soon-390.png') });
-    const tryBuy = await page.evaluate(async () => { const st = __ot.game.modules.store, out = []; for (const c of st.catalog) out.push(await st.buy(c.sku)); return { out, gate: !!(__ot.game.ui.current && __ot.game.ui.current.id === 'gate'), pending: st.pending, journal: st.journal().length }; });
-    ok('buy() refuses every SKU, opens no gate and records nothing', tryBuy.out.every(v => v === false) && !tryBuy.gate && tryBuy.pending === null && tryBuy.journal === 0);
-    /* restore with the placeholder config: the screen opens behind the gate and says there is nothing to restore; no request leaves */
-    await page.evaluate(() => { __ot.game.ui.closeAll(); }); const rp = page.evaluate(() => __ot.game.modules.store.restore()); await solveGate(page); await rp;
-    await page.fill('.st-input', 'ABCD-2345'); await page.evaluate(() => [...document.querySelectorAll('#modalActions button')].find(b => b.textContent === 'Restore').click());
-    ok('restore with placeholders says the store is not open and asks no server', await page.evaluate(() => /not open yet/.test(document.querySelector('.st-msg').textContent)));
-    /* a return link with a session id does nothing while the store is not live */
+    ok('a grown-up turns the switch on through the gate', await spendingOn(page) === true && await page.evaluate(() => __ot.game.grownUp.spending));
+    const on = await page.evaluate(async () => { const g = __ot.game, st = g.modules.store, out = []; for (const c of st.catalog) out.push(await st.buy(c.sku)); g.shop.open('journal'); const t = document.querySelector('.tabpane').textContent; g.ui.closeAll(); return { buys: out.every(v => v === false), gate: !!(g.ui.current && g.ui.current.id === 'gate'), pending: st.pending, journal: st.journal().length, pass: /Pass/.test(t), dollar: /\$/.test(t), store: g.shop.tabs.some(t => t.id === 'store') }; });
+    eq('switch on: still no Store tab, buy() refuses every SKU without a gate, nothing recorded, no pass column, no dollar sign', on, { buys: true, gate: false, pending: null, journal: 0, pass: false, dollar: false, store: false });
+    /* a return link with a session id does nothing on the web */
     const before = await snap(page);
     await o.boot('?debug=1&nosw=1&cs=cs_test_a1b2c3d4e5'); const after = await snap(page);
     ok('a ?cs= return link grants nothing while the store is not open, and is removed from the address', after.gems === before.gems && after.journal.length === 0 && !/cs=/.test(page.url()), page.url());
@@ -384,48 +372,18 @@ const layout = page => page.evaluate(() => { const m = document.getElementById('
       res.writeHead(r.status, Object.fromEntries(r.headers)); res.end(Buffer.from(await r.arrayBuffer())); });
     await new Promise(r => wsrv.listen(0, r)); const WURL = `http://localhost:${wsrv.address().port}`;
     configOverride = `export const WORKER_URL = '${WURL}';\nexport const STRIPE_PRICE_IDS = { ${SKUS.filter(s => s !== 'ot_tip_3').map(s => `${s}: '${PID(s)}'`).join(', ')}, ot_tip_3: 'OWNER_FILLS_IN' };\nexport const SUPPORT_CONTACT = 'OWNER_FILLS_IN';\n`;
+    /* owner decision (2026-11-19): no Stripe for this game. Even with a real worker address and Stripe price ids published, the web
+       sells nothing and asks no server; and the worker itself refuses an ot_ Stripe checkout without OT_STRIPE (unset in production). */
     const o = await open(browser, { query: '?debug=1&nosw=1' }), { page } = o;
-    /* stand in for Stripe's payment page: it sends the buyer back to the success_url with the session id */
-    await page.route('https://checkout.stripe.com/**', route => { const id = route.request().url().split('/').pop(); const s = fake.sessions[id]; route.fulfill({ status: 200, contentType: 'text/html', body: `<script>location.replace(${JSON.stringify(s.success_url.replace('{CHECKOUT_SESSION_ID}', id) + '&debug=1&nosw=1')})</script>` }); });
-    eq('with a worker address and price ids the store is live (not mock); the one SKU left as a placeholder is not sellable', await page.evaluate(() => { const st = __ot.game.modules.store; return [st.live, st.mock, st.sellable('ot_supporter'), st.sellable('ot_tip_3'), 'debug' in st]; }), [true, false, true, false, false]);
-    eq('nothing has been asked of the worker before a grown-up presses Pay', hits.length, 0);
-    await spendingOn(page); await openStore(page);
-    eq('the held-back SKU says "Coming soon"; the rest say Buy with the price', await page.evaluate(() => { const b = s => document.querySelector(`#modal [data-item="${s}"] button`); return [b('ot_tip_3').textContent, b('ot_tip_3').disabled, b('ot_supporter').textContent]; }), ['Coming soon', true, 'Buy $9.99']);
-    eq('still no request to the worker after opening the store', hits.length, 0);
-    const s0 = await snap(page);
-    await page.tap('[data-item="ot_supporter"] button'); await solveGate(page); await page.waitForSelector('.st-price'); eq('no request to the worker on the confirm screen', hits.length, 0);
-    await Promise.all([page.waitForURL(u => /[?&]cs=cs_test_e2e1/.test(String(u)), { timeout: 20000 }), page.evaluate(() => [...document.querySelectorAll('#modalActions button')].find(b => /^Pay /.test(b.textContent)).click())]);
-    await o.ready(); await page.waitForFunction(() => __ot.game.modules.store.journal().length === 1, null, { timeout: 10000 });
-    const s1 = await snap(page);
-    ok('real worker: the checkout carried the SKU, a hash of the install id (not the id) and the game return address', fake.forms.length === 1 && fake.forms[0]['metadata[sku]'] === 'ot_supporter' && fake.forms[0]['line_items[0][price]'] === PID('ot_supporter') && /^[0-9a-f]{40}$/.test(fake.forms[0]['metadata[install]']) && fake.forms[0].success_url === BASE + '?cs={CHECKOUT_SESSION_ID}', JSON.stringify(fake.forms[0]));
-    eq('real worker: back from the payment page the Supporter set is granted once: 600 gems, 4 items, 0 bones, a Trail Key, one journal line', [s1.gems - s0.gems, s1.bones - s0.bones, SUP.every(i => s1.owned[i]), s1.flags['store:supporter'], /^[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(s1.key), s1.journal.length, s1.journal[0].cents, s1.journal[0].test === undefined, s1.pending], [600, 0, true, true, true, 1, 999, true, null]);
-    eq('real worker: the requests were one checkout and one claim (plus their CORS preflights)', hits.filter(h => h.startsWith('POST')), ['POST /stripe/checkout', 'POST /stripe/claim']);
-    /* replay: the same return link again, and again with the pending mark forged back */
-    await o.boot('?debug=1&nosw=1&cs=cs_test_e2e1'); await page.waitForTimeout(400);
-    eq('real worker: reloading the return link grants nothing', [(await snap(page)).gems, (await snap(page)).journal.length], [s1.gems, 1]);
-    await page.evaluate(() => { __ot.game.state.modules.store.pending = { sku: 'ot_supporter', t: Date.now() }; __ot.save(); }); await o.boot('?debug=1&nosw=1&cs=cs_test_e2e1'); await page.waitForTimeout(600);
-    eq('real worker: a replay with the pending mark put back still grants nothing', [(await snap(page)).gems, (await snap(page)).journal.length], [s1.gems, 1]);
-    /* even a game that forgot it applied the session gets "already" from the worker and the same single grant: KV holds one claim */
-    eq('real worker: one claim record in KV', [...kv.keys()].filter(k => k.startsWith('claim:')).length, 1);
-    /* a consumable, then restore on a wiped device */
-    await spendingOn(page).catch(() => {}); await openStore(page); await page.tap('[data-item="ot_gems_80"] button'); await solveGate(page); await page.waitForSelector('.st-price');
-    await Promise.all([page.waitForURL(u => /[?&]cs=cs_test_e2e2/.test(String(u)), { timeout: 20000 }), page.evaluate(() => [...document.querySelectorAll('#modalActions button')].find(b => /^Pay /.test(b.textContent)).click())]);
-    await o.ready(); await page.waitForFunction(() => __ot.game.modules.store.journal().length === 2, null, { timeout: 10000 });
-    eq('real worker: 80 gems for $0.99, no new Trail Key', [(await snap(page)).gems - s1.gems, (await snap(page)).key], [80, s1.key]);
-    /* a copied link on a second device */
-    const o2 = await open(browser, { query: '?debug=1&nosw=1' }); await o2.page.evaluate(() => { const S = __ot.game.state.modules.store; S.install = 'inst_SECONDDEVICE0000000000000'; S.pending = { sku: 'ot_gems_80', t: Date.now() }; __ot.game.state.settings.spending = true; __ot.save(); });
-    await o2.boot('?debug=1&nosw=1&cs=cs_test_e2e2'); await o2.page.waitForTimeout(800);
-    eq('real worker: the return link opened on a second device grants nothing there (403)', [(await snap(o2.page)).gems < 10, (await snap(o2.page)).journal.length], [true, 0]);
-    /* restore on that second device, through the screen */
-    const rp = o2.page.evaluate(() => __ot.game.modules.store.restore()); await solveGate(o2.page); await rp; await o2.page.waitForSelector('.st-input'); await o2.page.fill('.st-input', s1.key);
-    await o2.page.evaluate(() => [...document.querySelectorAll('#modalActions button')].find(b => b.textContent === 'Restore').click()); await o2.page.waitForFunction(() => __ot.game.modules.store.key !== '', null, { timeout: 8000 });
-    const r2 = await snap(o2.page);
-    eq('real worker: the Trail Key restores the Supporter items on the second device, with no gems', [SUP.every(i => r2.owned[i]), r2.flags['store:supporter'], r2.gems < 10, r2.journal.map(j => j.kind), r2.key], [true, true, true, ['restore'], s1.key]);
-    const leaks = [...o.outside(), ...o2.outside()].filter(u => !u.startsWith(WURL) && !u.startsWith('https://checkout.stripe.com/'));
-    eq('real worker: the only outside addresses were the worker and the payment page', leaks, []);
-    ok('real worker: the fake secret key never reached the browser', !(await page.evaluate(() => JSON.stringify(localStorage))).includes('sk_test') );
-    ok('real worker: no page errors', o.errors.filter(e => /pageerror/.test(e)).length === 0 && o2.errors.filter(e => /pageerror/.test(e)).length === 0, [...o.errors, ...o2.errors].slice(0, 3).join(' | '));
-    configOverride = null; await o.ctx.close(); await o2.ctx.close(); wsrv.close(); }
+    eq('real worker on the web: no store, nothing sellable, no Store tab, no test hooks', await page.evaluate(() => { const g = __ot.game, st = g.modules.store; return [st.live, st.mock, st.hasStore, st.sellable('ot_supporter'), g.shop.tabs.some(t => t.id === 'store'), 'debug' in st]; }), [true, false, false, false, false, false]);
+    await page.evaluate(() => { const S = __ot.game.state.modules.store; S.install = 'inst_AAAAAAAAAAAAAAAAAAAAAAAA'; S.pending = { sku: 'ot_supporter', t: Date.now() }; __ot.game.state.settings.spending = true; __ot.save(); });
+    await o.boot('?debug=1&nosw=1&cs=cs_test_e2e1'); await page.waitForTimeout(600);
+    eq('real worker on the web: a Stripe return link is dropped, grants nothing and asks nothing', [await page.evaluate(() => [new URLSearchParams(location.search).has('cs'), __ot.game.state.wallet.gems < 600, __ot.game.modules.store.journal().length]), hits.length], [[false, true, 0], 0]);
+    eq('real worker on the web: buy(), open() and restore() refuse with spending on', await page.evaluate(async () => { const st = __ot.game.modules.store; return [await st.buy('ot_supporter'), await st.open(), await st.restore(), !!__ot.game.ui.current]; }), [false, false, false, false]);
+    eq('real worker on the web: nothing was asked of the worker or of Stripe', [hits.length, fake.calls, o.outside()], [0, 0, []]);
+    { const r = await fetch(WURL + '/stripe/checkout', { method: 'POST', headers: { 'content-type': 'application/json', origin: BASE.slice(0, -1) }, body: JSON.stringify({ sku: 'ot_supporter', install: 'inst_AAAAAAAAAAAAAAAAAAAAAAAA' }) });
+      eq('the worker itself refuses a Stripe checkout for the game (no OT_STRIPE) and never calls Stripe', [r.status, fake.calls], [403, 0]); }
+    configOverride = null; await o.ctx.close(); wsrv.close(); }
 
   /* ---------- 9. cross-review: purchased gems through Undo and "Start over", a payment that never came back, a replayed claim, the mock is local only ---------- */
   { const o = await open(browser), { page } = o; await spendingOn(page);
@@ -462,8 +420,9 @@ const layout = page => page.evaluate(() => { const m = document.getElementById('
     await o.ctx.close();
     /* the same address words on a host that is not localhost: no pretend store */
     const b2 = await chromium.launch({ args: ['--host-resolver-rules=MAP play.example.test 127.0.0.1'] }), p2 = await (await b2.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, serviceWorkers: 'block' })).newPage();
-    await p2.goto(BASE.replace('localhost', 'play.example.test') + '?debug=1&nosw=1&mock=1'); await p2.waitForFunction(() => window.__ot && window.__ot.ready, null, { timeout: 120000 });
-    eq('on a host other than localhost, ?debug=1&mock=1 gives no pretend store: nothing is sellable and there are no store test hooks', await p2.evaluate(() => { const st = __ot.game.modules.store; return [location.hostname, st.mock, 'debug' in st, st.sellable('ot_everything')]; }), ['play.example.test', false, false, false]);
+    await p2.goto(BASE.replace('localhost', 'play.example.test') + '?debug=1&nosw=1&mock=1'); await p2.waitForFunction(() => { const b = document.getElementById('playBtn'); return b && !b.disabled; }, null, { timeout: 120000 }); await p2.waitForTimeout(500);
+    /* on any host but localhost ?debug=1 exposes no hooks at all (js/main.js), so there is no store, no pretend store and no test hook to reach */
+    eq('on a host other than localhost, ?debug=1&mock=1 gives no debug hooks, no pretend store and no Store tab', await p2.evaluate(() => [location.hostname, typeof window.__ot, !!document.querySelector('[data-tab="store"]')]), ['play.example.test', 'undefined', false]);
     await b2.close(); }
 
   await browser.close(); server.close();

@@ -380,14 +380,15 @@ and puts the answer in `game.channel`:
 
 | `game.channel` | Where | Real-money store |
 | --- | --- | --- |
-| `'web'` | any browser, and the web app added to a home screen | Stripe Checkout through the worker, as built |
+| `'web'` | any browser, and the web app added to a home screen | none (owner decision 2026-11-19: no Stripe for this game). No Store tab, no price, no dollar hints; only the localhost test double (`?debug=1&mock=1`) still runs the old Stripe path for the tests |
 | `'play'` | the Android app from Google Play (a Trusted Web Activity) | never Stripe. `PLAY_BILLING = 'off'` in `js/store-config.js` (the default): no store at all. `'on'`: Google Play Billing |
 
 Why: Google Play's payments policy requires Google Play Billing for digital goods sold inside a Play app and forbids leading
 people to another way to pay (links, buttons, wording). The US programmes that allow an outside payment page need enrolment,
 native Android code that the Trusted Web Activity shell does not have, and still carry Google's fee, so they are not used.
-Physical goods are outside that rule, which is why the real-gear shelf (`merch.js`) is the same in both channels: behind the
-switch, the gate and the "You are leaving the game" screen.
+Physical goods are outside that rule. Even so the real-gear shelf (`merch.js`) is shown only on the web (behind the switch,
+the gate and the "You are leaving the game" screen); in the Play app it is off unless the owner sets `PLAY_REAL_GEAR = 'on'`
+(Google Play's Families policy on commercial content shown to children).
 
 How the Play app is recognised (first match wins; details and the reasoning are at the top of `js/channel.js`):
 
@@ -399,7 +400,7 @@ How the Play app is recognised (first match wins; details and the reasoning are 
 
 What follows `game.channel === 'play'`:
 
-- `game.showUsd` is `false`: the "about $X" hints beside gem prices (`shop.js`, `uikit.js`, the Trail Journal) are not drawn,
+- `game.showUsd` is `false` (in every shipped build now, the web included, since the web sells nothing): the "about $X" hints beside gem prices (`shop.js`, `uikit.js`, the Trail Journal) are not drawn,
   because the only real price a Play app may show is the one Google Play gives.
 - `store.js` never calls `/stripe/checkout` or `/stripe/claim`, drops a `?cs=` return link without asking anyone, and shows no
   dollar price from its own catalogue. The worker also refuses `/stripe/checkout` for an `ot_` SKU when the body says
