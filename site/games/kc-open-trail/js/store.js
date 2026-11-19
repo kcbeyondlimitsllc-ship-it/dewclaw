@@ -27,6 +27,8 @@
    store tests use to exercise the gate, the two steps, the limit, the journal and the Trail Key; it can never run on
    the live site, and the worker refuses an ot_ Stripe checkout unless OT_STRIPE is "on" (it is not set).
 
+   The iOS app (game.channel === 'ios') is handled as a Play app with PLAY_BILLING 'off', permanently: no store at all.
+
    Two channels (js/channel.js). Inside the GOOGLE PLAY app (game.channel === 'play') Stripe is never used and never
    mentioned: no Stripe checkout, no Stripe price, no return link is claimed, and nothing points at buying anywhere else.
    There the store is one of two things:
@@ -163,11 +165,15 @@ export function init(game) {
   const workerBase = (() => { try { if (!WORKER_URL || WORKER_URL === PLACEHOLDER) return ''; const u = new URL(WORKER_URL);
     if (u.protocol === 'https:' || (DEBUG && u.protocol === 'http:' && (u.hostname === 'localhost' || u.hostname === '127.0.0.1'))) return u.origin + u.pathname.replace(/\/+$/, ''); } catch (e) { /* not an address */ } return ''; })();
   const LIVE = !!workerBase;
-  /* ---------- the Google Play app ----------
-     PLAY: this is the Play app. PLAY_ON: it has a store (Google Play Billing switched on by the owner, or the test double).
+  /* ---------- the Google Play app (and the iOS app) ----------
+     PLAY: this is an app-store build: the Play app, or the iOS app (game.channel 'ios'), which is treated exactly like a
+     Play app with Google Play Billing switched off, whatever js/store-config.js says: there is no Apple in-app purchase in
+     this version, so the iOS app never has a store, never shows a price and never points at buying anywhere else.
+     PLAY_ON: it has a store (Google Play Billing switched on by the owner, or the test double; never in the iOS app).
      dg is Google's Digital Goods service once it has answered; playPrices holds what Google says each item costs. */
-  const PLAY = game.channel === 'play';
-  const PLAY_ON = PLAY && (MOCK ? query.get('billing') !== 'off' : LIVE && PLAY_BILLING === 'on');
+  const IOS = game.channel === 'ios';
+  const PLAY = game.channel === 'play' || IOS;
+  const PLAY_ON = PLAY && !IOS && (MOCK ? query.get('billing') !== 'off' : LIVE && PLAY_BILLING === 'on');
   /* is there a real-money store in this build at all? The Play app: only with Google Play Billing switched on. The web: never
      (owner decision, no Stripe), except the localhost test double. */
   const STORE = PLAY ? PLAY_ON : MOCK;
@@ -634,8 +640,8 @@ export function init(game) {
   const api = {
     catalog: CATALOG, steps: STEPS, passItems: PASS_ITEMS,
     live: LIVE, mock: MOCK,
-    /* channel: 'play' | 'web'. hasStore: false in a Play app with Google Play Billing switched off. playReady: Google Play has answered with prices. */
-    channel: PLAY ? 'play' : 'web', hasStore: STORE, playBilling: PLAY_ON, get playReady() { return !!dg; }, restorePlay: () => playSync(true),
+    /* channel: 'play' | 'ios' | 'web'. hasStore: false in a Play app with Google Play Billing switched off, and always in the iOS app. playReady: Google Play has answered with prices. */
+    channel: IOS ? 'ios' : PLAY ? 'play' : 'web', hasStore: STORE, playBilling: PLAY_ON, get playReady() { return !!dg; }, restorePlay: () => playSync(true),
     sku: id => bySku.get(id) || null, price: id => (bySku.has(id) ? priceOf(bySku.get(id)) : ''), contents: id => (bySku.has(id) ? lines(bySku.get(id)) : []),
     sellable, owns: ownsSku, hidden,
     open, buy, restore: restoreScreen, limitScreen: capScreen, setLimit: setCap,
