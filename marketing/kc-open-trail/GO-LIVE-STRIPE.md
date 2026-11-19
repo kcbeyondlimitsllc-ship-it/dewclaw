@@ -10,7 +10,7 @@ Written 2026-11-17 for the owner. Read it on a phone; do the typing on a compute
 - **Test first, with pretend money.** Stripe has a test side where no real card is charged. Parts A and B use it. Part D is real money.
 - **The secret key never goes in a file.** Not in this folder, not in an email, not in a chat. You type it at a hidden prompt. Price ids (`price_...`) are different: they are public and belong in the files.
 
-Time needed: about an hour for Parts A and B, 30 minutes for D.
+Time needed: about an hour for Parts A and B, 30 minutes for D. Part C (settings and one tax decision) can be done on any day before D; the test settings from Part B can sit in the folder as long as you like, provided the site is not published in between.
 
 You need: this project folder on a computer, Node 18 or newer (`node --version`), your Stripe login, your Cloudflare login.
 
@@ -67,6 +67,7 @@ The test worker is a separate copy of the server. Your live Dewclaw app is not t
     Paste the test key again when asked. This fills in `site/games/kc-open-trail/js/store-config.js` (`WORKER_URL`, `SUPPORT_CONTACT`, the 16 ids) and the test block of `worker/wrangler.toml`.
     - `SUPPORT_CONTACT` is shown to buyers. Use a support mailbox or a contact page, not a personal address.
     - To hold items back from sale, add for example `--hold=ot_treat_3,ot_treat_10,ot_everything,ot_tip_3`. See `MONETIZATION.md` 3.3 and section 6 (items 4 and 5) before selling the Supporter set and the four sets.
+    - **From now until step 25 is done, do not publish the site** (no deploy, and no push if Netlify publishes on push). `store-config.js` holds test settings. If they went public, anyone could "buy" gems with Stripe's well-known test card number and keep them.
 13. Deploy the test worker again so it has the ids:
     ```
     cd worker
@@ -75,18 +76,21 @@ The test worker is a separate copy of the server. Your live Dewclaw app is not t
     ```
 14. Check it. Open these two addresses in a browser:
     - `<test worker address>/health` should show `"stripe":true`.
-    - `<test worker address>/ot/prices` should show `"ok":true` for every item you are selling. It shows no secrets.
-15. Publish the site the way you normally do (Netlify publishes the `site` folder).
-    - For this short while the real game address has a **test** store. No real money can move, but do Part B and Part D in one sitting.
-    - If you would rather test on a Netlify preview address, that address must be added to `ALLOWED_ORIGIN` and set as `OT_RETURN_URL` in the `[env.test.vars]` block first. Ask a developer.
-16. Do the test purchases in `MONETIZATION.md` section 3.5, on a phone and on a computer. The short version:
+    - `<test worker address>/ot/prices` should show `"ok":true` for every item you are selling, and `"returnUrl"` should be `http://localhost:8788/games/kc-open-trail/`. It shows no secrets.
+15. Start the game **on this computer only**. Nothing is published.
+    ```
+    node tools/serve-site.mjs
+    ```
+    Leave that window open and go to `http://localhost:8788/games/kc-open-trail/` in a browser on the same computer. The test worker only answers that address, so the test store cannot be reached from the public game or from a phone. Stop it with Ctrl+C when step 16 is done.
+16. Do the test purchases in `MONETIZATION.md` section 3.5, in that browser. The short version:
     - Pause, Settings, turn on "Real-money shop", answer the question. Shop, Store.
     - Buy 80 gems with card `4242 4242 4242 4242`, any future date, any CVC. You come back with 80 more gems.
     - Reload. The gems are not added twice.
-    - Buy a set. Write down the **Trail Key**. Restore it in another browser.
+    - Buy a set. Write down the **Trail Key**. Restore it in a second browser on the same computer (for example Firefox next to Chrome).
     - Press Buy, then cancel on Stripe's page. Nothing is granted.
     - Test side sends no receipt emails by itself. That is normal.
     - If a checkout fails with a message about **tax**, see Part C step 17, and fill the same tax settings in on the test side.
+    - The phone test is the one real purchase in step 30. There is no test store on a phone, on purpose.
 
 **Do not go on until step 16 works.** If something fails, write down the exact message and stop.
 
@@ -135,14 +139,20 @@ The test worker is a separate copy of the server. Your live Dewclaw app is not t
 28. Check it:
     - `https://dewclaw.<your-account>.workers.dev/health` shows `"stripe":true`.
     - `.../ot/prices` shows `"ok":true` for every item on sale, and `"returnUrl"` ending in `/games/kc-open-trail/`.
-29. Publish the site. The game now holds live ids and the live worker address.
-30. **One real purchase, then refund it.** On your own phone, buy the 80 gems for $0.99 with your own card.
+29. Look before you publish. Open `site/games/kc-open-trail/js/store-config.js`:
+    - `WORKER_URL` must be the live worker (the same address as step 28). It must **not** contain `-test`.
+    - `SUPPORT_CONTACT` is filled in, and so is the contact line in `site/kc-open-trail/privacy.html` and `terms.html`.
+
+    Then publish the site. The game now holds live ids and the live worker address.
+    - **Who sees the store, and when.** The game asks the website for `store-config.js` afresh every time it starts, so a player sees the store the next time they open the game. Nothing needs "bumping" for this file.
+    - One exception, once: a browser that last opened the game before this update still runs the older offline copy. It picks the new one up in the background on its next visit and shows the store on the visit after that. So on a device that has had the game open before (your own phone, most likely), **open the game, close it fully, and open it again** before judging.
+30. **One real purchase, then refund it.** On your own phone, in the phone's browser (not the Google Play app, which has no store), buy the 80 gems for $0.99 with your own card. If the Store still says "Coming soon", close the game fully and open it again (step 29).
     - The gems arrive. A receipt email arrives. The product name on it reads well.
     - In the Stripe Dashboard (live side): Payments, open that payment, **Refund**. Stripe keeps its fee (about $0.33). Now you know where the button is.
     - Also open the Dewclaw app's Plus screen and check its prices still load.
 31. Delete the `rk_live_` key from step 23 (Developers, API keys). It has done its job.
 
-**Allowed origins, in one line.** The worker only answers the site named in `ALLOWED_ORIGIN`, and sends buyers back to `APP_ORIGIN` + `/games/kc-open-trail/`. Both are already `https://dewclaw-app.netlify.app`, which is where the game lives, so nothing changes. Only if the game moves to another domain: add that domain to `ALLOWED_ORIGIN` (comma-separated, `https://` and host only, no slash at the end) and set `OT_RETURN_URL` to the full game address.
+**Allowed origins, in one line.** The worker only answers the site named in `ALLOWED_ORIGIN`, and sends buyers back to `APP_ORIGIN` + `/games/kc-open-trail/`. On the live worker both are already `https://dewclaw-app.netlify.app`, which is where the game lives, so nothing changes. (On the test worker both are `http://localhost:8788`, the copy on your own computer.) Only if the game moves to another domain: add that domain to `ALLOWED_ORIGIN` (comma-separated, `https://` and host only, no slash at the end) and set `OT_RETURN_URL` to the full game address.
 
 ## Part E. What to look at in Stripe after launch
 
@@ -155,7 +165,9 @@ The test worker is a separate copy of the server. Your live Dewclaw app is not t
 
 ## Part F. Switching it all off again
 
-Fastest first. Each one alone stops new sales. People who already paid can still collect.
+Each one alone stops new sales. People who already paid can still collect.
+
+How fast each one works: 1 and 2 reach a player the next time they open or reload the game (the game fetches `store-config.js` afresh at every start; a game that is already open keeps what it loaded, and a phone with no connection keeps the last copy it saw). **3 is the one that is certain and immediate for everybody**, because the server refuses the sale whatever any copy of the game says. In an emergency do 3 first, then 1.
 
 1. **The whole store, in the game.** In `site/games/kc-open-trail/js/store-config.js` set `WORKER_URL` back to `'OWNER_FILLS_IN'`. Publish the site. Every item says "Coming soon" and no checkout can start.
 2. **One item.** In the same file set that item's id to `'OWNER_FILLS_IN'`. Publish.
@@ -169,8 +181,10 @@ Do **not** delete `STRIPE_SECRET_KEY` from the live worker to stop game sales. T
 
 ## What was checked, and what was not
 
+- How store settings reach players was tested in a real browser on the build machine: with the game already installed for offline use, a changed `store-config.js` showed on the very next load, stayed available offline, and a switch-off also arrived on the next load. Not tested: Netlify itself, and a real phone.
+- The local test in steps 15 and 16 (the game on `http://localhost:8788` talking to a deployed test worker and to Stripe's test side) has **not** been run by anyone: it needs your Stripe and Cloudflare accounts. The worker code accepts that address (its own tests cover a `localhost` return address); Stripe's test side accepting it as a return address is expected but unconfirmed.
 - The script was tested against a pretend Stripe on the build machine: creating, running twice, a wrong amount, the live-key guard and `--write`. Run it yourself with `node --test tools/stripe-setup-open-trail.test.mjs`. **It has never talked to the real Stripe.** The dry run in step 24 is there so the first real contact creates nothing.
 - `worker/wrangler.toml` was checked with `wrangler deploy --dry-run` for both the live and the test settings (wrangler 4.164). Nothing was deployed.
 - Stripe's fees, the tax code, the Dashboard menu names and the payment-method advice come from Stripe's public pages as read on 2026-11-17. Menus move; if a name differs, search the Dashboard for it.
 - Not built yet, and worth asking a developer for soon: a line naming the game on card statements, the refund sentence shown on Stripe's payment page, a server-side block on slow payment methods, and automatic handling of refunds and disputes. None of them stops a first sale.
-- The privacy policy and terms pages (`site/kc-open-trail/privacy.html`, `terms.html`) have a contact line that still says `OWNER_FILLS_IN`, and they have not been read by a lawyer. Fill in the contact before step 29.
+- The privacy policy and terms pages (`site/kc-open-trail/privacy.html`, `terms.html`) have a contact line that still says `OWNER_FILLS_IN`, and they have not been read by a lawyer. Fill in the contact before step 29. Three things were added to the privacy page on 2026-11-17 for the lawyer to read with the rest: the scrambled install number is attached to the Stripe payment as a label, Stripe makes a customer record for each payment, and a Google Play purchase record holds Google's order number.

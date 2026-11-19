@@ -43,17 +43,17 @@
   <h2>What leaves your device, and to whom</h2>
   <ul>
     <li><b>Loading the game.</b> The game's files come from our website, which is hosted by Netlify. Like any website, the host sees your device's internet (IP) address while it sends the files.</li>
-    <li><b>Buying something on the web (Stripe).</b> The real-money shop is off until a grown-up turns it on. When a grown-up buys something, the game sends our server three things: which item was chosen, the random install number, and the Trail Key if there is one. Payment then happens on Stripe's own page. The card details, name, email address and billing address go to Stripe, not to the game, and are handled under <a href="https://stripe.com/privacy" target="_blank" rel="noopener noreferrer">Stripe's privacy policy</a>. The game never sees them.</li>
+    <li><b>Buying something on the web (Stripe).</b> The real-money shop is off until a grown-up turns it on. When a grown-up buys something, the game sends our server three things: which item was chosen, the random install number, and the Trail Key if there is one. Payment then happens on Stripe's own page. The card details, name, email address and billing address go to Stripe, not to the game, and are handled under Stripe's privacy policy (stripe.com/privacy). The game never sees them. Our server also gives Stripe the name of the item and a scrambled (hashed) form of the install number, as a label on the payment, so that the payment can be matched to the device that made it. Stripe makes a customer record for each payment from what the buyer types on its page.</li>
     <li><b>Buying something in the Google Play app.</b> If the app from Google Play offers purchases, they are sold and billed by Google Play under Google's own terms. We never see your payment details. To confirm a purchase the game sends our server the item, the random install number, the Trail Key if there is one, and the purchase token Google gave it, and our server checks that token with Google Play.</li>
     <li><b>Restoring purchases.</b> When a grown-up types a Trail Key to restore permanent items, the game sends that key and the install number to our server.</li>
-    <li><b>The real-gear shelf.</b> The game shows some real KC Beyond Limits products. Their pictures and prices are part of the game's own files. Nothing is sent to the shop unless a grown-up chooses "See it on the shop", which opens the shop's website. That is a separate website with its own privacy policy, and it may use cookies or tracking of its own.</li>
+    <li><b>The real-gear shelf.</b> The website version of the game shows some real KC Beyond Limits products to grown-ups. The app from Google Play does not. Their pictures and prices are part of the game's own files. Nothing is sent to the shop unless a grown-up chooses "See it on the shop", which opens the shop's website. That is a separate website with its own privacy policy, and it may use cookies or tracking of its own.</li>
   </ul>
   <p>Nothing else is sent, and nothing is sent at any other time.</p>
 
   <h2>What our server keeps</h2>
   <p>Our server runs on Cloudflare. It keeps only what it needs to hand over what was paid for, and to stop a purchase being used twice:</p>
   <ul>
-    <li>For each purchase: the item, the time, and a scrambled (hashed) form of the install number, filed under a scrambled form of the payment's reference. Web purchase records are kept for about 400 days. Google Play purchase records are kept until you ask us to delete them.</li>
+    <li>For each purchase: the item, the time, and a scrambled (hashed) form of the install number, filed under a scrambled form of the payment's reference. A Google Play purchase record also holds Google's order number for that purchase. Web purchase records are kept for about 400 days. Google Play purchase records are kept until you ask us to delete them.</li>
     <li>For each Trail Key: the list of permanent items bought with it. Kept until you ask us to delete it.</li>
     <li>For restore attempts: a counter for the day, filed under a scrambled form of the internet address the attempt came from, so that nobody can guess keys. Kept for two days.</li>
   </ul>
@@ -64,7 +64,7 @@
   <h2>Children and grown-ups</h2>
   <ul>
     <li>We do not knowingly collect personal information from children. Playing the game sends us nothing about the player.</li>
-    <li>Buying is for grown-ups. The shop is off on every device until a grown-up turns it on, and the game asks a grown-up question before each purchase and before any link that leaves the game. That question is a speed bump for a child. It is not proof of age, and it is not a parental-consent check.</li>
+    <li>Buying is for grown-ups. The shop is off on every device until a grown-up turns it on, and the game asks a grown-up question before each purchase and before any link from the game to a shop website. That question is a speed bump for a child. It is not proof of age, and it is not a parental-consent check.</li>
     <li>If you believe a child has given us or a payment company personal information through the game, or bought something without permission, contact us and we will delete what we hold and sort out a refund.</li>
   </ul>
 

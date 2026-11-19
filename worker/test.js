@@ -856,8 +856,15 @@ await test("open trail play: bad requests are refused before Google is asked; th
   /* without the service account the route says so and grants nothing */
   const bare = playEnv({ GOOGLE_SA_EMAIL: "", GOOGLE_SA_KEY: "" }); const r = await playClaim(bare, "ot_gems_80", playBuy("ot_gems_80")); assert.equal(r.r.status, 503); assert.equal(playKeys(bare).length, 0);
 });
-await test("open trail play: an older Google answer without productId is still checked by the address; health reports the game's Play setup", async () => {
-  play.noProductId = true; const c = await playClaim(playEnv(), "ot_gems_80", playBuy("ot_gems_80")); play.noProductId = false; assert.equal(c.j.grant.gems, 80);
+await test("open trail play: a Google answer that does not name the product grants nothing (a cheap token cannot become the bundle); health reports the game's Play setup", async () => {
+  { const e = playEnv(); play.noProductId = true;
+    const c = await playClaim(e, "ot_gems_80", playBuy("ot_gems_80")); assert.equal(c.r.status, 502); assert.equal(c.j.grant, undefined);
+    /* the attack: a $0.99 token claimed as the $24.99 bundle and as the 7,000 gem pack */
+    const cheap = playBuy("ot_gems_80");
+    for (const sku of ["ot_everything", "ot_gems_7000"]) { const up = await playClaim(e, sku, cheap); assert.equal(up.r.status, 502, sku); assert.equal(up.j.grant, undefined); }
+    assert.equal(playKeys(e).length, 0, "nothing was written down"); play.noProductId = false;
+    /* once Google names it, the same token is good for its own item only */
+    assert.equal((await playClaim(e, "ot_everything", cheap)).r.status, 409); assert.equal((await playClaim(e, "ot_gems_80", cheap)).j.grant.gems, 80); }
   assert.equal((await (await handle(req("/health", null, "GET"), playEnv(), deps)).json()).otPlay, true);
   const h = await (await handle(req("/health", null, "GET"), env(), deps)).json(); assert.equal(h.otPlay, false); assert.equal(h.play, true);
 });

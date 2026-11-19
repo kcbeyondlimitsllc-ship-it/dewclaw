@@ -49,7 +49,14 @@ jarsigner -verify "$OUT/$NAME.aab" | grep -q "jar verified" || { echo "AAB signa
 BADGING="$("$BT/aapt2" dump badging "$OUT/$NAME-test.apk")"
 echo "$BADGING" | grep -E "^package:|^sdkVersion|^targetSdkVersion|^launchable-activity|^uses-permission"
 echo "$BADGING" | grep -q "name='$PACKAGE' versionCode='$CODE' versionName='$VERSION'" || { echo "package or version is wrong"; exit 1; }
-echo "$BADGING" | grep -q "com.android.vending.BILLING" || { echo "Play Billing permission is missing"; exit 1; }
+# the billing permission must be there exactly when twa-manifest.json switches Play Billing on (off for the purchase-free 1.0)
+BILLING="$(node -p "!!((require('$HERE/twa-manifest.json').features || {}).playBilling || {}).enabled")"
+if [ "$BILLING" = "true" ]; then
+  echo "$BADGING" | grep -q "com.android.vending.BILLING" || { echo "Play Billing is on in twa-manifest.json but the permission is missing"; exit 1; }
+else
+  if echo "$BADGING" | grep -q "com.android.vending.BILLING"; then echo "Play Billing is off in twa-manifest.json but the app asks for the billing permission"; exit 1; fi
+  echo "Play Billing: off (no billing permission, no billing library). This build sells nothing."
+fi
 echo "Upload key SHA-256 (must be in site/.well-known/assetlinks.json):"
 keytool -list -v -keystore "$KEYSTORE" -storepass:env KC_KEYSTORE_PASS -alias "$ALIAS" 2>/dev/null | grep "SHA256:"
 echo "Done:"; ls -l "$OUT/$NAME.aab" "$OUT/$NAME-test.apk"

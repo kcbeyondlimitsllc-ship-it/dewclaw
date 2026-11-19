@@ -551,7 +551,14 @@ async function handleOtRestore(env, deps, req) {
    permanent item can be claimed again on another device signed in to the same
    Google account (the game finds it with listPurchases): Google is asked
    again, and the items come back without the gems, like a Trail Key restore.
-   Refunds made after a claim are not watched for (no Voided Purchases poll). */
+   Refunds made after a claim are not watched for (no Voided Purchases poll).
+
+   Known limits, to close BEFORE PLAY_BILLING is switched on (none is reachable while OT_PLAY_PACKAGE is unset):
+   - serial() below is a lock inside one worker instance. Two instances handling the same used-up token at the same
+     instant can both grant it (KV has no atomic "write if absent"). The fix is a Durable Object per token, or granting
+     only to the request whose :consume call Google accepts.
+   - one paid permanent token restores its items (never its gems) on any number of devices: Google accounts cannot be told apart here.
+   - there is no rate limit on this route: each junk token costs one Google API call. */
 const OT_PACKAGE = /^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$/;
 const otPlayPackage = env => { const p = String(env.OT_PLAY_PACKAGE || "").trim(); return OT_PACKAGE.test(p) ? p : ""; };
 const otPlayOn = env => !!(env.GOOGLE_SA_EMAIL && env.GOOGLE_SA_KEY && otPlayPackage(env));
@@ -563,7 +570,12 @@ async function otPlayGet(env, deps, sku, token) {
   if (r.status === 404 || r.status === 400) throw new HttpError(402, "Google Play doesn't know that purchase.");
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new HttpError(502, "Google Play couldn't confirm the purchase yet. Try Restore purchases in a minute.");
-  if (j.productId != null && j.productId !== sku) throw new HttpError(409, "That purchase is for a different item, so nothing was granted.");
+  /* Google must NAME the product, and it must be this one. The address alone proves nothing: Google answers for a token
+     even when the address names another product, so an answer without productId could turn a $0.99 token into the $24.99
+     bundle. No name, no grant. (If real answers ever leave productId out, switch to purchases.productsv2, which is asked
+     by token only and always returns the product: see android/kc-open-trail/README.md.) */
+  if (typeof j.productId !== "string" || !j.productId) throw new HttpError(502, "Google Play didn't say which item that purchase is for, so nothing was granted. Try Restore purchases in a minute.");
+  if (j.productId !== sku) throw new HttpError(409, "That purchase is for a different item, so nothing was granted.");
   if (j.purchaseState === 2) throw new HttpError(402, "That purchase is still pending with Google Play. It will be added once the payment goes through.");
   if (j.purchaseState !== 0) throw new HttpError(402, "That purchase was cancelled or refunded.");
   return { j, bearer };

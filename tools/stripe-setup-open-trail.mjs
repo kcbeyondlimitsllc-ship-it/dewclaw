@@ -33,6 +33,9 @@
      --tax-code=txcd_…      the Stripe Tax product code for new products (default txcd_10201000, see TAX_CODE below)
      --store-config=PATH, --wrangler=PATH   edit other copies of the two files (used by the tests)
 
+   store-config.js is the one game file the game's service worker always fetches fresh (sw.js, FRESH), so a published
+   change to it reaches players on their next load; nothing else needs editing or bumping when it changes.
+
    Test and live are separate worlds in Stripe: ids made with a test key only work with a test key. A test-mode --write
    goes to the [env.test.vars] block of wrangler.toml (the separate test worker); a live one goes to [vars]. */
 import fs from "node:fs";
@@ -350,7 +353,7 @@ export async function main(argv, env, io) {
     } else out("\nNothing was written to any file. Paste the two blocks by hand, or run again with --write.");
     out(live
       ? "\nThese are LIVE ids. Next: deploy the worker, publish the site, then open <worker address>/ot/prices and check every item you sell says \"ok\": true."
-      : "\nThese are TEST ids: they only work with a test key on the test worker, and no real money can move. Before the real launch, run this again with the live key and --live --write so the game holds live ids.");
+      : "\nThese are TEST ids: they only work with a test key on the test worker, and no real money can move." + (o.write ? "\nDO NOT PUBLISH THE SITE NOW: store-config.js holds test settings. Try them on this computer only (node tools/serve-site.mjs)." : "") + "\nBefore the real launch, run this again with the live key and --live --write so the game holds live ids.");
     return 0;
   } catch (e) {
     if (e instanceof Stop) { err(e.message); return e.code; }

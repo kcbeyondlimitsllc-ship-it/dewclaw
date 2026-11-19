@@ -545,7 +545,7 @@ export function init(game) {
     for (const [gid, title, sub] of GROUPS) { const cards = [];
       for (const c of CATALOG.filter(x => x.group === gid)) { if (hidden(c.sku)) { if (ownsSku(c.sku)) owned.push(c.name); continue; }
         const can = sellable(c.sku), over = c.cents > room();
-        cards.push(ui.item({ id: c.sku, title: c.name, text: c.blurb, icon: gid === 'gems' ? 'gem' : gid === 'treats' ? 'paw' : gid === 'tip' ? 'hand' : 'star', priceLabel: priceOf(c), tag: c.type === 'consumable' ? '' : c.type === 'once' ? 'One per device' : 'Yours for good',
+        cards.push(ui.item({ id: c.sku, title: c.name, text: PLAY ? c.blurb.replace(/ Bought one by one these cost \$[\d.]+\./, '') : c.blurb /* Google shows local prices: no fixed dollar sum beside them */, icon: gid === 'gems' ? 'gem' : gid === 'treats' ? 'paw' : gid === 'tip' ? 'hand' : 'star', priceLabel: priceOf(c), tag: c.type === 'consumable' ? '' : c.type === 'once' ? 'One per device' : 'Yours for good',
           locked: can && over ? 'Over this device\'s 30-day limit' : '', button: can ? { label: `Buy ${priceOf(c)}`, onClick: () => buy(c.sku) } : { label: 'Coming soon', disabled: true, primary: false } })); }
       if (!cards.length) continue; bd.appendChild(ui.heading(title, sub)); bd.appendChild(ui.grid(cards)); }
     if (owned.length) bd.appendChild(ui.note('Already yours on this device: ' + owned.join(', ') + '.', 'good'));
@@ -596,9 +596,10 @@ export function init(game) {
 
   /* ------------------------------------------------------------------ boot */
   game.cosmetics.define(PASS_ITEMS.filter(p => !game.cosmetics.get(p.id)));
-  game.grownUp.showSwitch = true;
-  /* a Play app with no store: the switch stays (the real-gear shelf sits behind it) but says what it now does */
-  if (!STORE) { game.grownUp.storeOff = true; game.grownUp.switchLabel = 'Real KC gear shelf (grown-ups only)'; }
+  /* the Settings switch belongs to a build that sells something. A Play app with no store has none, unless the owner has
+     also turned the real-gear shelf on for the Play app (PLAY_REAL_GEAR): js/merch.js then shows the switch, worded for what it does. */
+  if (STORE) game.grownUp.showSwitch = true;
+  else { game.grownUp.storeOff = true; game.grownUp.switchLabel = 'Real KC gear shelf (grown-ups only)'; }
   /* "Start over" keeps this module's record, so what was paid for comes back: permanent items, pass rewards, unspent purchased gems */
   { const back = []; for (const sku of S.perm) { const c = bySku.get(sku); for (const i of c.grant.items) if (!/^treat:/.test(i) && !eco.owns(i) && !back.includes(i)) back.push(i); for (const k of Object.keys(c.grant.flags)) if (eco.getFlag(k) !== c.grant.flags[k]) eco.setFlag(k, c.grant.flags[k]); }
     for (const n of S.passPaid) { const it = STEPS[n - 1].pass.item; if (it && !eco.owns(it) && !back.includes(it)) back.push(it); }

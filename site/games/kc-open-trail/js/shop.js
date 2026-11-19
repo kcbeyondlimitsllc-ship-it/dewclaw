@@ -104,7 +104,8 @@ export function init(game) {
     const hop = (key, label) => { const b = btn(label, () => { const h = pane.querySelector(`[data-sec="${key}"]`); if (h) h.scrollIntoView({ block: 'start' }); }, { alt: true, act: 'jump' }); b.dataset.to = key; jump.appendChild(b); };
     for (const s of WEAR) { const list = forSale(s); if (!list.length) continue; hop(s, SLOT_NAMES[s].replace(' and costumes', '')); const first = eco.item(list[0].id); sec(pane, s, SLOT_NAMES[s], first ? first.where : ''); wearGrid(pane, list); }
     const prem = eco.items(i => i.premium && i.cat === 'cosmetic' && !eco.owns(i.id)).map(i => game.cosmetics.get(i.id)).filter(Boolean);
-    if (prem.length) { hop('premium', 'Special sets'); sec(pane, 'premium', 'Special sets', 'Whispering Firs, Night Sky, Open Road and Spooky Hollow, piece by piece. Gems or bones: your choice.'); wearGrid(pane, prem); pane.appendChild(ui.note(`Gems come free from golden balls, new places and the daily sniff-outs. A grown-up can also buy them. Any gem price can be paid in bones instead, at ${eco.BONES_PER_GEM} bones a gem.`)); }
+    if (prem.length) { hop('premium', 'Special sets'); sec(pane, 'premium', 'Special sets', 'Whispering Firs, Night Sky, Open Road and Spooky Hollow, piece by piece. Gems or bones: your choice.'); wearGrid(pane, prem); const st = game.modules && game.modules.store, sells = !st || st.hasStore !== false;   /* a build with no real-money store (the Play app with billing off) never says gems can be bought */
+      pane.appendChild(ui.note(`Gems come free from golden balls, new places and the daily sniff-outs. ${sells ? 'A grown-up can also buy them. ' : ''}Any gem price can be paid in bones instead, at ${eco.BONES_PER_GEM} bones a gem.`)); }
   }
 
   /* ================= Rides ================= */

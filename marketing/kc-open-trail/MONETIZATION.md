@@ -110,9 +110,9 @@ The worker changes add the game's items next to Dewclaw Plus and Pocket Pup. The
 
 ### 3.5 Test with Stripe test mode
 
-Do this on a phone and on a computer.
+Do this on a computer. The test store is never published: the test worker only answers a copy of the game served on your own computer, so nobody else can reach a store where Stripe's public test card works. The phone check is the one real purchase in `GO-LIVE-STRIPE.md` step 30.
 
-1. Publish the game with the test worker's address and the test price ids in `store-config.js`, to a preview address if you can.
+1. With the test worker's address and the test price ids in `store-config.js` (do not publish the site while they are there), run `node tools/serve-site.mjs` and open `http://localhost:8788/games/kc-open-trail/`.
 2. In the game: Pause, Settings, turn on "Real-money shop", answer the question. Open Shop, Store.
 3. Buy the 80-gem pack with Stripe's test card `4242 4242 4242 4242`, any future date, any CVC. You should come back to the game, see a thank-you screen, 80 more gems, and one line in the purchase journal.
 4. Reload the page. The gems must not be added twice.

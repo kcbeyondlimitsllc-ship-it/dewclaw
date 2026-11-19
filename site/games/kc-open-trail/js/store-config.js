@@ -14,7 +14,17 @@
                     real-money store at all, no prices and no checkout. 'on': the Play app sells the same 16 items through
                     Google Play Billing. Turn it on only after (1) the 16 products exist and are active in Play Console
                     with ids equal to the names below, (2) the worker has OT_PLAY_PACKAGE and the Google service account,
-                    and (3) WORKER_URL above is filled in. The Play app never uses Stripe, whatever is set here. */
+                    and (3) WORKER_URL above is filled in, and (4) the Android app was rebuilt with Play Billing in it
+                    (android/kc-open-trail/README.md). The Play app never uses Stripe, whatever is set here.
+   PLAY_REAL_GEAR   only matters inside the Google Play app. 'off' (the default): the Play app shows the bones-only KC gear
+                    and nothing about the real products, the shop website or claiming a twin, and has no link out of the
+                    game. 'on': the grown-ups' real-gear shelf, its link to the shop website and the claim screen work in
+                    the Play app as they do on the web (behind the Settings switch and the grown-up gate). Read
+                    marketing/kc-open-trail/PLAY-STORE-LAUNCH.md Part C before turning it on: Google Play's Families policy
+                    has rules about commercial content shown to children.
+
+   This file is the one game file the service worker always asks the network for first (sw.js, FRESH), so a change here
+   reaches players the next time they open the game. No version number needs bumping for it. */
 export const WORKER_URL = 'OWNER_FILLS_IN';
 
 export const STRIPE_PRICE_IDS = {
@@ -39,3 +49,5 @@ export const STRIPE_PRICE_IDS = {
 export const SUPPORT_CONTACT = 'OWNER_FILLS_IN';
 
 export const PLAY_BILLING = 'off';
+
+export const PLAY_REAL_GEAR = 'off';

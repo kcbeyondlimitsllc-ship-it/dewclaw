@@ -6,7 +6,7 @@
      2. the files a Trusted Web Activity needs: manifest fields and icons, the offline shell lists the new file, the config default
      3. WEB channel: the Stripe store is there as before, Google Play is never asked, the privacy policy is one tap from Settings
      4. PLAY channel as shipped (PLAY_BILLING 'off'): no store, no price, no Stripe, no request anywhere, a Stripe return link is ignored;
-        the real-gear shelf stays behind the switch and the gate
+        the real-gear shelf, its link out and the claim are not in the build (PLAY_REAL_GEAR 'off'); with it 'on' they sit behind the switch and the gate
      5. PLAY channel with Google Play Billing on (pretend worker): prices come from Google Play, an item Google does not return
         says "Coming soon", the gate and the two steps are kept, every SKU grants exactly its contents and never a bone, replays and
         wrong / pending / refunded / foreign tokens grant nothing, the device limit holds, restore works through listPurchases
@@ -118,7 +118,13 @@ const MONEY = /[$€£¥]|\bUSD\b|\bdollars?\b/i, ELSEWHERE = /\bStripe\b|[Cc]he
     const store = (init = {}) => { const m = new Map(Object.entries(init)); return { getItem: k => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), m }; };
     const win = (o = {}) => ({ location: { search: o.search || '' }, document: { referrer: o.referrer || '' }, sessionStorage: o.session || store(), localStorage: o.local || store(), matchMedia: q => ({ matches: q === '(display-mode: browser)' ? o.tab !== false : false }) });
     eq('a plain browser tab is the web', detectChannel(win()), 'web');
-    { const w = win({ search: '?src=play' }); eq('?src=play is the Play app, even in a tab', detectChannel(w), 'play'); eq('... and it is remembered for the session and for later launches', [w.sessionStorage.getItem(CHANNEL_KEY), w.localStorage.getItem(CHANNEL_KEY)], ['play', 'play']); }
+    { const w = win({ search: '?src=play', tab: false }); eq('?src=play in the installed app is the Play app', detectChannel(w), 'play'); eq('... and it is remembered for the session and for later launches', [w.sessionStorage.getItem(CHANNEL_KEY), w.localStorage.getItem(CHANNEL_KEY)], ['play', 'play']); }
+    { const local = store(), w = win({ search: '?src=play', local }); eq('?src=play is the Play app even in a browser tab', detectChannel(w), 'play'); eq('... remembered for that tab only, not for later launches', [w.sessionStorage.getItem(CHANNEL_KEY), local.getItem(CHANNEL_KEY)], ['play', null]);
+      eq('... so a web app installed later from that browser is still the web', detectChannel(win({ local, tab: false })), 'web'); }
+    { const OURS = 'android-app://com.kcbeyondlimits.kcopentrail', local = store(), w = win({ search: '?src=play', referrer: OURS + '/', local, tab: true });
+      eq('the Play app shown as a Custom Tab (link check not passed yet), start address: the Play app, remembered', [detectChannel(w), local.getItem(CHANNEL_KEY)], ['play', 'play']);
+      eq('the Play app shown as a Custom Tab, opened by a link with no ?src=play: still the Play app', [detectChannel(win({ referrer: OURS + '/', tab: true })), detectChannel(win({ referrer: OURS, tab: true }))], ['play', 'play']);
+      eq('another app whose package name only starts the same way is not ours', detectChannel(win({ referrer: OURS + 'x/', tab: true })), 'web'); }
     eq('?src=web, ?src= and other words are the web', ['?src=web', '?src=', '?src=PLAY', '?source=play', '?debug=1'].map(s => detectChannel(win({ search: s }))), ['web', 'web', 'web', 'web', 'web']);
     eq('opened by an Android app and not in a browser tab: the Play app', detectChannel(win({ referrer: 'android-app://com.example.opentrail/', tab: false })), 'play');
     { const w = win({ referrer: 'android-app://com.google.android.gm/', tab: true }); eq('a link tapped in another Android app that opens a browser tab is the web', detectChannel(w), 'web'); eq('... and nothing is remembered', [w.sessionStorage.getItem(CHANNEL_KEY), w.localStorage.getItem(CHANNEL_KEY)], [null, null]); }
@@ -168,24 +174,27 @@ const MONEY = /[$€£¥]|\bUSD\b|\bdollars?\b/i, ELSEWHERE = /\bStripe\b|[Cc]he
 
   /* ---------- 4. the Play channel as shipped: no store ---------- */
   { const o = await open(browser, { query: '?src=play&debug=1&nosw=1', play: {} }), { page } = o;
-    const a = await page.evaluate(() => { const g = __ot.game, st = g.modules.store; return { ch: g.channel, st: st.channel, has: st.hasStore, pb: st.playBilling, usd: g.showUsd, tabs: g.shop.tabs.map(t => t.id), off: g.grownUp.storeOff, sw: g.grownUp.showSwitch, spending: g.grownUp.spending, any: st.catalog.some(c => st.sellable(c.sku)), prices: st.catalog.map(c => st.price(c.sku)).join('') }; });
+    const a = await page.evaluate(() => { const g = __ot.game, st = g.modules.store; return { ch: g.channel, st: st.channel, has: st.hasStore, pb: st.playBilling, usd: g.showUsd, tabs: g.shop.tabs.map(t => t.id), off: g.grownUp.storeOff, sw: g.grownUp.showSwitch, real: g.modules.merch.realGear, spending: g.grownUp.spending, any: st.catalog.some(c => st.sellable(c.sku)), prices: st.catalog.map(c => st.price(c.sku)).join('') }; });
     eq('play (shipped): the channel is play and there is no store', [a.ch, a.st, a.has, a.pb, a.usd, a.off, a.any, a.prices], ['play', 'play', false, false, false, true, false, '']);
     ok('play (shipped): no Store tab; the Trail Journal and the KC Gear tab are still there', !a.tabs.includes('store') && a.tabs.includes('journal') && a.tabs.includes('merch'), a.tabs.join(','));
-    ok('play (shipped): spending is off by default', a.spending === false && a.sw === true);
+    ok('play (shipped): spending is off and Settings gets no real-money or real-gear switch', a.spending === false && a.sw === false && a.real === false);
     const gates = await gateCount(page);
     eq('play (shipped): open(), buy(), restore(), the limit screen and setLimit all refuse, with no gate shown', await page.evaluate(async () => { const st = __ot.game.modules.store; return [await st.open(), await st.buy('ot_gems_80'), await st.restore(), await st.limitScreen(), await st.setLimit(1000), !!__ot.game.ui.current]; }), [false, false, false, false, false, false]);
     let text = await allText(page);
     ok('play (shipped), switch off: no money sign and no word of Stripe, cards or buying elsewhere in any Shop tab', Object.entries(text).filter(([k]) => k !== 'settings').every(([, t]) => !MONEY.test(t) && !ELSEWHERE.test(t)), Object.entries(text).filter(([, t]) => MONEY.test(t) || ELSEWHERE.test(t)).map(([k, t]) => k + ': ' + ((t.match(MONEY) || t.match(ELSEWHERE) || [''])[0])).join('; '));
-    ok('play (shipped): Settings says what the switch does, has the privacy policy, and has no limit or restore rows', /Real KC gear shelf \(grown-ups only\)/.test(text.settings) && /Privacy policy/.test(text.settings) && !/Real-money|Restore purchases|limit/i.test(text.settings), text.settings.slice(0, 600));
+    ok('play (shipped): Settings has the privacy policy and no switch, limit or restore rows', /Privacy policy/.test(text.settings) && !/Real KC gear|Real-money|Restore purchases|limit|grown-up/i.test(text.settings), text.settings.slice(0, 600));
+    { const SELL = /grown-?up|\bcan also buy\b|real (KC )?gear|real thing|website|\bclaim|Beyond Limits|kcbeyondlimits|\btwins?\b/i, bad = Object.entries(text).filter(([, t]) => SELL.test(t)).map(([k, t]) => k + ': ' + t.match(SELL)[0]);
+      ok('play (shipped): no Shop tab or Settings line speaks of buying, grown-ups, real products, a website, a claim or a twin', bad.length === 0, bad.join('; ')); }
+    eq('play (shipped): the Wardrobe note about gems does not say they can be bought', await page.evaluate(() => { __ot.game.shop.open('wardrobe'); const t = document.getElementById('modal').textContent, m = t.match(/Gems come free[^.]*\.[^.]*\./); __ot.game.ui.closeAll(); return m ? m[0] : 'no note'; }), 'Gems come free from golden balls, new places and the daily sniff-outs. Any gem price can be paid in bones instead, at 50 bones a gem.');
+    eq('play (shipped): the KC Gear tab is the 14 bones-only items: no grown-ups box, no claim button, no link, no winter shelf', await page.evaluate(() => { __ot.game.modules.merch.open(); const b = document.getElementById('modalBody'); const r = [b.querySelectorAll('.item[data-item]').length, b.querySelectorAll('.mgrown, .mgrown button, a, iframe, img, .mreal').length, [...b.querySelectorAll('.sech')].some(h => h.dataset.shelf === 'winter' || h.dataset.shelf === 'grownups'), !!__ot.game.place.get('merch:shelf:winter')]; __ot.game.ui.closeAll(); return r; }), [14, 0, false, false]);
     await page.evaluate(() => __ot.game.ui.settings()); await page.screenshot({ path: path.join(OUT, 'play-off-settings-390.png') });
     eq('play (shipped): Settings buttons are 44 px and nothing scrolls sideways', await layout(page), { small: [], sideways: false });
     eq('play (shipped): the privacy link stays in this window (no new tab inside the app)', await page.evaluate(() => { const a = document.querySelector('[data-set="privacy"]'); return [a.getAttribute('href'), a.target]; }), ['/kc-open-trail/privacy.html', '']);
     await page.evaluate(() => __ot.game.ui.closeAll());
-    /* the real-gear shelf: behind the switch, then the gate */
-    eq('play (shipped): with the switch off the real-gear list does not open and no gate is shown', [await page.evaluate(() => __ot.game.modules.merch.openReal()), await gateCount(page) - gates], [false, 0]);
-    ok('play (shipped): a grown-up turns the switch on through the gate', await spendingOn(page) === true);
-    { const p = page.evaluate(() => __ot.game.modules.merch.openReal()); await solveGate(page); const opened = await p; const t = await page.evaluate(() => (__ot.game.ui.current ? __ot.game.ui.current.id : '') + '|' + document.getElementById('modal').textContent);
-      ok('play (shipped): the real-gear list opens only after the gate, and says it is a separate website and real money', opened === true && /^merch-real\|/.test(t) && /separate website/.test(t) && /real money/.test(t), t.slice(0, 200)); }
+    /* the real-gear side is not part of this build: nothing opens, with the switch off or (forced through the API) on, and no gate is ever shown */
+    eq('play (shipped): the real-gear list, a product page and the claim screen do not open and no gate is shown', [await page.evaluate(async () => { const m = __ot.game.modules.merch; return [await m.openReal(), await m.openProduct('34341309'), await m.openClaim(), !!__ot.game.ui.current]; }), await gateCount(page) - gates], [[false, false, false, false], 0]);
+    ok('play (shipped): even with the spending setting forced on, they still do not open', await spendingOn(page) === true);
+    eq('play (shipped): ... real-gear list, product page, claim', await page.evaluate(async () => { const m = __ot.game.modules.merch; return [await m.openReal(), await m.openProduct('34341309'), await m.openClaim(), __ot.game.ui.current ? __ot.game.ui.current.id : null]; }), [false, false, false, null]);
     await page.evaluate(() => __ot.game.ui.closeAll());
     text = await allText(page);
     ok('play (shipped), switch on: still no Store, no pass column and no price in the Trail Journal', !('tab:store' in text) && !/Pass/.test(text['tab:journal']) && !MONEY.test(text['tab:journal']));
@@ -199,6 +208,19 @@ const MONEY = /[$€£¥]|\bUSD\b|\bdollars?\b/i, ELSEWHERE = /\bStripe\b|[Cc]he
     await page.waitForTimeout(400);
     eq('play (shipped): still nothing requested outside the game, and no console errors', [o.outside(), o.errors], [[], []]);
     await o.ctx.close(); }
+  { /* the owner's choice PLAY_REAL_GEAR = 'on': the grown-ups' shelf comes back, behind the switch and then the gate */
+    const shipped = fs.readFileSync(path.join(ROOT, 'js/store-config.js'), 'utf8');
+    configOverride = shipped.replace("export const PLAY_REAL_GEAR = 'off';", "export const PLAY_REAL_GEAR = 'on';");
+    ok('store-config.js ships with the real-gear shelf off in the Play app', configOverride !== shipped);
+    const o = await open(browser, { query: '?src=play&debug=1&nosw=1', play: {} }), { page } = o, gates = await gateCount(page);
+    const a = await page.evaluate(() => { const g = __ot.game; g.ui.settings(); const t = document.getElementById('modal').textContent; g.ui.closeAll(); return [g.channel, g.modules.store.hasStore, g.modules.merch.realGear, g.grownUp.showSwitch, g.grownUp.storeOff, /Real KC gear shelf \(grown-ups only\)/.test(t), /Real-money|Restore purchases/.test(t)]; });
+    eq('play, real gear on: still no store; Settings has the one switch, worded for what it does', a, ['play', false, true, true, true, true, false]);
+    eq('play, real gear on: with the switch off the real-gear list does not open and no gate is shown', [await page.evaluate(() => __ot.game.modules.merch.openReal()), await gateCount(page) - gates], [false, 0]);
+    ok('play, real gear on: a grown-up turns the switch on through the gate', await spendingOn(page) === true);
+    { const p = page.evaluate(() => __ot.game.modules.merch.openReal()); await solveGate(page); const opened = await p; const t = await page.evaluate(() => (__ot.game.ui.current ? __ot.game.ui.current.id : '') + '|' + document.getElementById('modal').textContent);
+      ok('play, real gear on: the real-gear list opens only after the gate, and says it is a separate website and real money', opened === true && /^merch-real\|/.test(t) && /separate website/.test(t) && /real money/.test(t), t.slice(0, 200)); }
+    eq('play, real gear on: nothing left the game', o.outside().length, 0);
+    configOverride = null; await o.ctx.close(); }
   { /* the pretend-server mode cannot switch a store on by itself when billing is asked off, and a normal session has no test hooks */
     const o = await open(browser, { query: '?src=play&debug=1&nosw=1&mock=1&billing=off', play: {} });
     eq('play (test mode, billing off): no store', await o.page.evaluate(() => [__ot.game.modules.store.hasStore, __ot.game.shop.tabs.some(t => t.id === 'store')]), [false, false]); await o.ctx.close();

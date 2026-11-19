@@ -12,3 +12,4 @@ kids/*/android/local.properties
 kids/*/android/.gradle/
 kids/*/android/build/
 kids/*/android/app/build/
+/release-upload/

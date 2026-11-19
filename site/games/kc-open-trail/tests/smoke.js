@@ -17,14 +17,17 @@ let OUT = path.resolve(process.argv[2] || TMP_OUT);
 if (OUT === ROOT || OUT.startsWith(ROOT + path.sep)) { console.log(`NOTE  screenshots go to ${TMP_OUT}, not into the game folder`); OUT = TMP_OUT; }
 fs.mkdirSync(OUT, { recursive: true });
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.jpg': 'image/jpeg', '.webmanifest': 'application/manifest+json', '.json': 'application/json', '.txt': 'text/plain' };
+let configOverride = null;   /* when set, served in place of js/store-config.js (the owner publishing new store settings) */
 const server = http.createServer((req, res) => {
   let p = decodeURIComponent(req.url.split('?')[0]); if (p.endsWith('/')) p += 'index.html';
+  if (configOverride && p === '/js/store-config.js') { res.writeHead(200, { 'Content-Type': 'text/javascript' }); return res.end(configOverride); }
   const f = path.join(ROOT, p); if (!f.startsWith(ROOT)) { res.writeHead(403); return res.end(); }
   fs.readFile(f, (e, d) => { if (e) { res.writeHead(404); return res.end('not found'); } res.writeHead(200, { 'Content-Type': TYPES[path.extname(f)] || 'application/octet-stream', 'Cache-Control': 'no-store' }); res.end(d); });
 });
 let failed = 0; const report = { viewports: {}, districts: new Set() };
 const ok = (name, cond, extra = '') => { if (!cond) failed++; console.log((cond ? 'PASS  ' : 'FAIL  ') + name + (extra !== '' ? '  [' + extra + ']' : '')); return !!cond; };
 const st = page => page.evaluate(() => __ot.state());
+const eqHost = got => ok('on a host that is not localhost, ?debug=1 exposes no debug hooks (nothing can hand out gems or items)', got[0] === 'game.test' && got[1] === 'undefined', JSON.stringify(got));
 const shot = (page, name) => page.screenshot({ path: path.join(OUT, name + '.png') });
 
 /* the seam checks test the core's contract with the feature modules, so they run with the seven module files replaced by empty ones */
@@ -302,10 +305,10 @@ async function liveChecks(page, name, touch, vp) {
     return { card: card.left >= -1 && card.top >= -1 && card.right <= innerWidth + 1 && card.bottom <= innerHeight + 1, tabs: tabs.length, tabMin: Math.min(...tabs.map(t => rc(t).height)), close: Math.min(close.width, close.height), side: body.scrollWidth - body.clientWidth, btnMin: btns.length ? Math.min(...btns.map(b => rc(b).height)) : 0, btns: btns.length, text: body.textContent.slice(0, 2000) }; });
   ok(T + 'the pet supply door opens the Shop on Upgrades: fits the screen, nine 44 px tabs, 44 px buttons and close, no sideways scroll', /pet supply/i.test(buy.prompt || '') && buy.modal === 'shop' && buy.tab === 'upgrades' && fit.card && fit.tabs === 9 && fit.tabMin >= 44 && fit.close >= 44 && fit.side <= 1 && fit.btns > 5 && fit.btnMin >= 44 && /Super Sniffer/.test(fit.text), `${buy.prompt}; tabs ${fit.tabs} x ${fit.tabMin}px, close ${fit.close}px, buttons ${fit.btns} min ${fit.btnMin}px, side ${fit.side}`);
   /* buy Super Sniffer through the screen: its button, then the confirm */
-  const sel = await page.evaluate(() => { const items = [...document.querySelectorAll('#modalBody .item')], it = items.find(i => /Super Sniffer/.test(i.textContent)), b = it && it.querySelector('button:not([disabled])'); if (!b) return null; b.setAttribute('data-smoke', 'sniffer'); b.scrollIntoView({ block: 'center' }); return b.textContent; });
+  const sel = await page.evaluate(() => { window.__paid = 0; __ot.game.on('purchase', e => { if (e && e.price && e.source !== 'debug') window.__paid += e.price.bones || 0; }); const items = [...document.querySelectorAll('#modalBody .item')], it = items.find(i => /Super Sniffer/.test(i.textContent)), b = it && it.querySelector('button:not([disabled])'); if (!b) return null; b.setAttribute('data-smoke', 'sniffer'); b.scrollIntoView({ block: 'center' }); return b.textContent; });
   if (sel) { await tapSel(page, touch, '[data-smoke="sniffer"]'); await page.waitForFunction(() => __ot.state().modal !== 'shop', null, { timeout: 4000 }).catch(() => {}); await wait(page, 150); await shot(page, `${name}-71-confirm-upgrade`); await tapSel(page, touch, '#modalActions .go'); await wait(page, 300); }
-  const got = await page.evaluate(() => { const g = __ot.game, E = g.modules.economy; const r = { lv: E.level('sniffer'), magnet: g.getModifier('magnet'), bones: g.state.wallet.bones, step: g.modules.guide.step(), mk: !!g.place.get('guide:shop'), saved: g.state.upgrades.sniffer }; g.ui.closeAll(); return r; });
-  ok(T + 'the first upgrade is bought by tapping: bones leave the wallet, KC changes (pickup reach x1.25), the guide steps aside', !!sel && got.lv === 1 && got.saved === 1 && Math.abs(got.magnet / buy.m0 - 1.25) < 0.01 && got.bones === buy.b0 - buy.cost && got.step === 3 && !got.mk, JSON.stringify(got));
+  const got = await page.evaluate(() => { const g = __ot.game, E = g.modules.economy; const r = { lv: E.level('sniffer'), magnet: g.getModifier('magnet'), bones: g.state.wallet.bones, paid: window.__paid, step: g.modules.guide.step(), mk: !!g.place.get('guide:shop'), saved: g.state.upgrades.sniffer }; g.ui.closeAll(); return r; });
+  ok(T + 'the first upgrade is bought by tapping: bones leave the wallet, KC changes (pickup reach x1.25), the guide steps aside', !!sel && got.lv === 1 && got.saved === 1 && Math.abs(got.magnet / buy.m0 - 1.25) < 0.01 && got.bones >= buy.b0 - buy.cost && got.bones < buy.b0 && got.paid === buy.cost && got.step === 3 && !got.mk, JSON.stringify(got));
 
   /* the Shop is also one tap from the pause menu, and every tab draws and fits */
   await page.evaluate(() => { __ot.teleport(-168, -166, Math.PI / 2); __ot.step(5); });
@@ -606,6 +609,24 @@ async function runViewport(browser, name, vp, touch, quality, tourIdx, stub = fa
       await page.reload(); await page.waitForFunction(() => window.__ot && __ot.ready && navigator.serviceWorker.controller, null, { timeout: 120000 });
       await ctx.setOffline(true); await page.reload(); let off = true; try { await page.waitForFunction(() => window.__ot && __ot.ready, null, { timeout: 60000 }); await page.click('#playBtn'); await page.waitForTimeout(300); } catch (e) { off = false; }
       ok('plays offline after the first visit (service worker shell)', !!swOk && off && (await st(page)).started && errors.length === 0, swOk ? `${swOk.names.join(',')}: ${swOk.n} files` : 'no cache'); await ctx.close(); }
+
+    /* ---------- the owner's store settings reach a returning player on the next load, with no cache version bump ---------- */
+    { const { ctx, page, errors } = await open(browser, { serviceWorkers: 'allow' }, '?debug=1&q=low');
+      const boot = async () => { await page.reload(); await page.waitForFunction(() => window.__ot && __ot.ready, null, { timeout: 120000 }); return page.evaluate(() => ({ live: __ot.game.modules.store.live, sw: !!navigator.serviceWorker.controller })); };
+      await page.evaluate(() => navigator.serviceWorker.ready); await page.waitForTimeout(1500);
+      const before = await boot(), shippedCfg = read('js/store-config.js');
+      configOverride = shippedCfg.replace("export const WORKER_URL = 'OWNER_FILLS_IN';", "export const WORKER_URL = 'https://worker.invalid';");
+      const after = await boot();
+      await ctx.setOffline(true); const offline = await boot(); await ctx.setOffline(false);
+      configOverride = null; const back = await boot();
+      ok('store-config.js is network-first: a filled-in config shows on the very next load, is kept for offline, and a switch-off also arrives on the next load (sw.js unchanged throughout)',
+        configOverride === null && shippedCfg.includes("WORKER_URL = 'OWNER_FILLS_IN'") && before.sw && before.live === false && after.live === true && offline.live === true && back.live === false && errors.filter(e => !/Failed to load resource|ERR_INTERNET_DISCONNECTED/.test(e)).length === 0, JSON.stringify({ before, after, offline, back, errors }));
+      await ctx.close(); }
+
+    /* ---------- ?debug=1 does nothing on any host but the developer's own machine ---------- */
+    { const b2 = await chromium.launch({ args: ['--host-resolver-rules=MAP game.test 127.0.0.1'] }), ctx = await b2.newContext({ viewport: { width: 800, height: 600 }, serviceWorkers: 'block' }), page = await ctx.newPage();
+      await page.goto(`http://game.test:${PORT}/?debug=1&mock=1&nosw=1&q=low`); await page.waitForFunction(() => { const b = document.getElementById('playBtn'); return b && !b.disabled; }, null, { timeout: 120000 }); await page.waitForTimeout(500);
+      eqHost(await page.evaluate(() => [location.hostname, typeof window.__ot])); await b2.close(); }
   } catch (e) { failed++; console.log('FAIL  test run crashed: ' + (e && e.stack || e)); }
   await browser.close(); server.close();
   /* ---------- the five module suites and the worker's own tests: each is a separate process with its own server and browser ---------- */

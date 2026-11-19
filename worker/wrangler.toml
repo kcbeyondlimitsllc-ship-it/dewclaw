@@ -53,8 +53,11 @@ name = "dewclaw-ot-test"
 binding = "DEWCLAW"
 id = "OWNER_FILLS_IN_TEST_KV_ID"
 
+# The test worker answers ONLY a copy of the site served on the owner's own computer (node tools/serve-site.mjs,
+# http://localhost:8788), and sends the buyer back there. So the public game address never carries a test store:
+# a test store there would hand out gems to anyone who knows Stripe's public test card number.
 [env.test.vars]
-ALLOWED_ORIGIN = "https://dewclaw-app.netlify.app"
-APP_ORIGIN = "https://dewclaw-app.netlify.app"
+ALLOWED_ORIGIN = "http://localhost:8788"
+APP_ORIGIN = "http://localhost:8788"
 STRIPE_TAX = "auto"
 STRIPE_PRICES = "{}"
