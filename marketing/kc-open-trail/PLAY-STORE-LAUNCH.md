@@ -46,7 +46,7 @@ Play Console > ⚙ Settings > Developer account > Account details.
 ## Step 3. Upload the app file to internal testing (15 minutes)
 
 1. In the app: **Test and release** > **Testing** > **Internal testing**.
-2. **Testers** tab > create an email list > add your own Google account > Save. Copy the opt-in link.
+2. **Testers** tab > create an email list > add your own Google account > Save. (The opt-in link only appears once the release is **Published**; copy it after item 7.) Shortest phone-first version of this step: `PLAY-INTERNAL-TEST-TODAY.md`.
 3. **Create new release**.
 4. App integrity / Play App Signing: choose **Use Google-generated key** (the default).
 5. **Upload** > pick `kc-open-trail-1.0.0-1.aab`.
@@ -58,7 +58,7 @@ Play Console > ⚙ Settings > Developer account > Account details.
 
 Without this the installed app shows a browser address bar, and a reviewer sees "a website in a wrapper".
 
-1. **Test and release** > **App integrity** > **App signing**.
+1. **Protected with Play** > **Play Store protection** > **Manage Play app signing** (older layouts: **Test and release** > **App integrity** > **Play app signing**). Source: [answer 9842756](https://support.google.com/googleplay/android-developer/answer/9842756), read 2026-11-19.
 2. Under **App signing key certificate**, copy the **SHA-256 certificate fingerprint**.
 3. In `site/.well-known/assetlinks.json`, in the block for `com.kcbeyondlimits.kcopentrail`, add it as a second line. Keep the line already there (your upload key). Do not touch the Dewclaw block (it already has its two lines).
 

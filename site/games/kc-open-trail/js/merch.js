@@ -22,7 +22,8 @@
    owner sets PLAY_REAL_GEAR = 'on' in js/store-config.js. Off (the default) the Play app shows the bones-only items and
    nothing else: no word about real products, a shop, a website, a claim or asking a grown-up, no winter shelf, no Settings
    switch from this module, and openReal / openProduct / openClaim refuse without showing a gate. Reason: Google Play's
-   Families policy on commercial content shown to children. */
+   Families policy on commercial content shown to children. The iOS app (game.channel === 'ios') follows the same rule and
+   the same setting (Apple's guidelines 1.3 and 5.1.4 point the same way for an audience that includes children). */
 
 import * as CFG from './store-config.js';
 
@@ -78,8 +79,9 @@ export const looksLikeOrder = s => { const t = String(s || '').trim(); return t.
 
 export function init(game) {
   const ui = game.ui, el = ui.el, P = game.place, C = game.cosmetics, eco = game.economy;
-  /* is the real-gear side (real products, the outside link, the claim) part of this build? Always on the web; in the Play app only if the owner says so */
-  const REAL = game.channel !== 'play' || CFG.PLAY_REAL_GEAR === 'on';
+  /* is the real-gear side (real products, the outside link, the claim) part of this build? Always on the web; in the Play app
+     and the iOS app only if the owner says so (PLAY_REAL_GEAR covers both app builds), and then behind the switch and the gate */
+  const REAL = (game.channel !== 'play' && game.channel !== 'ios') || CFG.PLAY_REAL_GEAR === 'on';
   const DEBUG = game.debug === true;   /* ?debug=1 on localhost only (js/main.js) */
   const asset = rel => new URL('../' + rel, import.meta.url).href;
 

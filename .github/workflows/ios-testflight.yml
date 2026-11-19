@@ -1,11 +1,21 @@
-# Builds the Dewclaw iOS app (ios/dewclaw) on a GitHub-hosted Mac and sends it to TestFlight.
-# Start it by hand: GitHub > Actions > "iOS TestFlight" > Run workflow.
-# Setup instructions for the four secrets are in ios/dewclaw/README.md.
+# Builds one of the two iOS apps on a GitHub-hosted Mac and sends it to TestFlight:
+#   dewclaw        ios/dewclaw         (com.kcbeyondlimits.dewclaw)
+#   kc-open-trail  ios/kc-open-trail   (com.kcbeyondlimits.kcopentrail)
+# Start it by hand: GitHub > Actions > "iOS TestFlight" > Run workflow, then pick the app.
+# Both apps use the same four secrets (one Apple developer team holds both). Setup: ios/dewclaw/README.md.
 name: iOS TestFlight
 
 on:
   workflow_dispatch:
     inputs:
+      app:
+        description: "Which app to build and upload"
+        required: true
+        type: choice
+        options:
+          - dewclaw
+          - kc-open-trail
+        default: dewclaw
       version:
         description: "App version shown in TestFlight, e.g. 1.0.1. Leave empty to use the one in the Xcode project (1.0.0)."
         required: false
@@ -19,7 +29,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ios-testflight
+  group: ios-testflight-${{ inputs.app }}
   cancel-in-progress: false
 
 defaults:
@@ -28,7 +38,7 @@ defaults:
 
 jobs:
   testflight:
-    name: Archive and upload to TestFlight
+    name: Archive and upload ${{ inputs.app }} to TestFlight
     # macos-26 is the image "macos-latest" pointed at when this file was written (Nov 2026).
     # Apple requires App Store uploads to be built with Xcode 26 or later.
     runs-on: macos-26
@@ -38,8 +48,7 @@ jobs:
       ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
       ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-      PROJECT: ios/dewclaw/Dewclaw.xcodeproj
-      SCHEME: Dewclaw
+      APP: ${{ inputs.app }}
       INPUT_VERSION: ${{ inputs.version }}
       INPUT_BUILD_NUMBER: ${{ inputs.build_number }}
       RUN_NUMBER: ${{ github.run_number }}
@@ -47,6 +56,25 @@ jobs:
     steps:
       - name: Check out the repository
         uses: actions/checkout@v4
+
+      - name: Pick the app's project
+        run: |
+          case "$APP" in
+            dewclaw)
+              project=ios/dewclaw/Dewclaw.xcodeproj; scheme=Dewclaw; bundle_id=com.kcbeyondlimits.dewclaw ;;
+            kc-open-trail)
+              project=ios/kc-open-trail/KCOpenTrail.xcodeproj; scheme=KCOpenTrail; bundle_id=com.kcbeyondlimits.kcopentrail ;;
+            *)
+              echo "::error::Unknown app '$APP'. Choose dewclaw or kc-open-trail."; exit 1 ;;
+          esac
+          test -d "$project" || { echo "::error::$project is missing on this branch."; exit 1; }
+          {
+            echo "PROJECT=$project"
+            echo "SCHEME=$scheme"
+            echo "BUNDLE_ID=$bundle_id"
+            echo "ARCHIVE=$RUNNER_TEMP/$scheme.xcarchive"
+          } >> "$GITHUB_ENV"
+          echo "Building $APP: $project, scheme $scheme, bundle id $bundle_id"
 
       - name: Check that the four secrets are set
         run: |
@@ -105,7 +133,7 @@ jobs:
             -scheme "$SCHEME" \
             -configuration Release \
             -destination 'generic/platform=iOS' \
-            -archivePath "$RUNNER_TEMP/Dewclaw.xcarchive" \
+            -archivePath "$ARCHIVE" \
             -allowProvisioningUpdates \
             -authenticationKeyPath "$ASC_KEY_PATH" \
             -authenticationKeyID "$ASC_KEY_ID" \
@@ -115,6 +143,11 @@ jobs:
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
             "${extra[@]}" \
             | tee "$RUNNER_TEMP/archive.log"
+          built=$(/usr/libexec/PlistBuddy -c 'Print :ApplicationProperties:CFBundleIdentifier' "$ARCHIVE/Info.plist")
+          if [ "$built" != "$BUNDLE_ID" ]; then
+            echo "::error::The archive's bundle id is $built, expected $BUNDLE_ID."
+            exit 1
+          fi
 
       - name: Export the App Store IPA
         run: |
@@ -141,7 +174,7 @@ jobs:
           PLIST
           plutil -lint "$RUNNER_TEMP/ExportOptions.plist"
           xcodebuild -exportArchive \
-            -archivePath "$RUNNER_TEMP/Dewclaw.xcarchive" \
+            -archivePath "$ARCHIVE" \
             -exportPath "$RUNNER_TEMP/export" \
             -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
             -allowProvisioningUpdates \
@@ -173,7 +206,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ios-build-logs
+          name: ios-build-logs-${{ inputs.app }}
           path: |
             ${{ runner.temp }}/archive.log
             ${{ runner.temp }}/export.log

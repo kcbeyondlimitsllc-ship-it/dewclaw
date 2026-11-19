@@ -1,0 +1,141 @@
+# Proves both iOS apps compile, without any Apple account or secrets.
+# Builds ios/dewclaw and ios/kc-open-trail on a GitHub-hosted Mac, for the iOS Simulator and for real
+# iPhones (generic device), with code signing switched off. Nothing is signed or uploaded.
+# Runs by itself when files under ios/ (or this file) change; can also be started by hand from the Actions tab.
+name: iOS build check
+
+on:
+  push:
+    branches:
+      - ccr-85e5f805-cd3f9x
+      - main
+    paths:
+      - "ios/**"
+      - ".github/workflows/ios-build-check.yml"
+  pull_request:
+    paths:
+      - "ios/**"
+      - ".github/workflows/ios-build-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-build-check-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    name: Build ${{ matrix.app }}
+    # Same image as .github/workflows/ios-testflight.yml (Apple requires Xcode 26 or later for uploads).
+    runs-on: macos-26
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app: dewclaw
+            project: ios/dewclaw/Dewclaw.xcodeproj
+            scheme: Dewclaw
+            product: Dewclaw
+            bundle_id: com.kcbeyondlimits.dewclaw
+          - app: kc-open-trail
+            project: ios/kc-open-trail/KCOpenTrail.xcodeproj
+            scheme: KCOpenTrail
+            product: KCOpenTrail
+            bundle_id: com.kcbeyondlimits.kcopentrail
+    env:
+      PROJECT: ${{ matrix.project }}
+      SCHEME: ${{ matrix.scheme }}
+      PRODUCT: ${{ matrix.product }}
+      BUNDLE_ID: ${{ matrix.bundle_id }}
+      LOGS: ${{ github.workspace }}/ios-logs
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Select the newest Xcode on the runner
+        run: |
+          newest=$(ls -d /Applications/Xcode_*.app 2>/dev/null | grep -viE 'beta|release_candidate|_rc' | sort -V | tail -n 1 || true)
+          if [ -n "$newest" ]; then
+            sudo xcode-select -s "$newest/Contents/Developer"
+          else
+            echo "::warning::No /Applications/Xcode_*.app found, keeping the runner's default Xcode."
+          fi
+          xcodebuild -version
+          xcrun --sdk iphonesimulator --show-sdk-version
+          mkdir -p "$LOGS"
+
+      - name: Check the property lists
+        run: |
+          dir=$(dirname "$PROJECT")/$PRODUCT
+          for f in "$dir/Info.plist" "$dir/PrivacyInfo.xcprivacy" "$dir"/Entitlements/*.plist; do
+            [ -f "$f" ] || continue
+            plutil -lint "$f"
+          done
+
+      - name: Check the project settings (bundle id, version, iOS version, devices)
+        run: |
+          set -o pipefail
+          xcodebuild -project "$PROJECT" -scheme "$SCHEME" -configuration Release -showBuildSettings 2>/dev/null | tee "$LOGS/settings.txt" >/dev/null
+          get() { awk -v k="$1" '$1 == k && $2 == "=" { sub(/^[^=]*= /, ""); print; exit }' "$LOGS/settings.txt"; }
+          echo "PRODUCT_BUNDLE_IDENTIFIER=$(get PRODUCT_BUNDLE_IDENTIFIER)"
+          echo "MARKETING_VERSION=$(get MARKETING_VERSION)"
+          echo "IPHONEOS_DEPLOYMENT_TARGET=$(get IPHONEOS_DEPLOYMENT_TARGET)"
+          echo "TARGETED_DEVICE_FAMILY=$(get TARGETED_DEVICE_FAMILY)"
+          test "$(get PRODUCT_BUNDLE_IDENTIFIER)" = "$BUNDLE_ID" || { echo "::error::Bundle id is not $BUNDLE_ID"; exit 1; }
+
+      - name: Build for the iOS Simulator (no signing)
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project "$PROJECT" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/dd-sim" \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee "$LOGS/build-simulator.log"
+
+      - name: Build for iPhone and iPad hardware (no signing)
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project "$PROJECT" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/dd-device" \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee "$LOGS/build-device.log"
+
+      - name: Look inside the built app
+        run: |
+          app="$RUNNER_TEMP/dd-device/Build/Products/Release-iphoneos/$PRODUCT.app"
+          ls -la "$app"
+          id=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist")
+          name=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "$app/Info.plist")
+          version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Info.plist")
+          echo "Built $name ($id) version $version"
+          test "$id" = "$BUNDLE_ID" || { echo "::error::Built app has bundle id $id, expected $BUNDLE_ID"; exit 1; }
+          test -f "$app/PrivacyInfo.xcprivacy" || { echo "::error::PrivacyInfo.xcprivacy is not in the app"; exit 1; }
+          test -f "$app/Assets.car" || { echo "::error::The icons (Assets.car) are not in the app"; exit 1; }
+          lipo -info "$app/$PRODUCT"
+          grep -E 'warning:' "$LOGS/build-device.log" | sort -u | head -n 50 || true
+
+      - name: Keep the build logs if something failed
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-check-logs-${{ matrix.app }}
+          path: ${{ github.workspace }}/ios-logs
+          if-no-files-found: ignore
+          retention-days: 14

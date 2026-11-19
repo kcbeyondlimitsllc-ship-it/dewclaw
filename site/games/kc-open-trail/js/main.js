@@ -47,7 +47,7 @@ function boot() {
   const scene = new THREE.Scene();
   const bus = createBus();
   const game = { VERSION, THREE, renderer, scene, bus, on: bus.on, off: bus.off, emit: bus.emit, debug: DEBUG, time: 0, paused: false, modules: {} };
-  /* 'play' inside the Google Play app, 'web' anywhere else (js/channel.js). The store, the dollar hints and the Settings wording follow it. */
+  /* 'play' inside the Google Play app, 'ios' inside the iPhone/iPad app, 'web' anywhere else (js/channel.js). The store, the dollar hints and the Settings wording follow it. */
   game.channel = detectChannel(window); game.showUsd = false;   /* js/store.js turns this on only where gems are sold for dollars (no such build ships: the web sells nothing) */
   game.save = createSave(game); const had = game.save.load(); const state = game.state = game.save.state;
   if (!had) { const coarse = matchMedia('(pointer: coarse)').matches; state.settings.quality = coarse ? ((navigator.deviceMemory || 4) <= 2 ? 'low' : 'medium') : 'high'; }

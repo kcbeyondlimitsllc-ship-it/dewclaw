@@ -1,4 +1,4 @@
-/* KC: Open Trail channel test (Playwright + Chromium): js/channel.js and the two faces of js/store.js.
+/* KC: Open Trail channel test (Playwright + Chromium): js/channel.js and the faces of js/store.js (web, Play, iOS).
      NODE_PATH=$(npm root -g) node tests/play.test.js [screenshot-folder]
    Run from site/games/kc-open-trail. Google Play's Digital Goods API and Payment Request sheet are faked in the page.
    It proves:
@@ -13,6 +13,8 @@
         wrong / pending / refunded / foreign tokens grant nothing, the device limit holds, restore works through listPurchases
      6. PLAY channel without the Digital Goods API: every item says "Coming soon" and nothing can be bought
      7. PLAY channel against the REAL worker code (worker/dewclaw-worker.js run locally, Google faked): buy, replay, restore
+     8. IOS channel (?src=ios or the flag the iOS shell injects): like PLAY with billing off, for good: no store, no price,
+        no word of buying elsewhere, even with Google Play Billing switched on in the config and in the test double
    Exits non-zero if any check fails. */
 const http = require('http'), fs = require('fs'), path = require('path');
 const { chromium } = require('playwright');
@@ -134,6 +136,20 @@ const MONEY = /[$€£¥]|\bUSD\b|\bdollars?\b/i, ELSEWHERE = /\bStripe\b|[Cc]he
     eq('a later launch of the installed app (no query, no referrer, not a tab) is still the Play app', detectChannel(win({ local: store({ [CHANNEL_KEY]: 'play' }), tab: false })), 'play');
     eq('Chrome on the same phone shares storage with the app but is a browser tab: the web', detectChannel(win({ local: store({ [CHANNEL_KEY]: 'play' }), tab: true })), 'web');
     eq('an installed web app that was never the Play app is the web', detectChannel(win({ tab: false })), 'web');
+    /* the iOS app (ios/kc-open-trail): the injected flag, ?src=ios, and remembering */
+    { const local = store(), w = { ...win({ local, tab: false }), KC_IOS_APP: true }; eq('the flag the iOS shell injects is the iOS app', detectChannel(w), 'ios'); eq('... remembered for the session and for later launches', [w.sessionStorage.getItem(CHANNEL_KEY), local.getItem(CHANNEL_KEY)], ['ios', 'ios']);
+      eq('... a later launch with no flag and no query (not a tab) is still the iOS app', detectChannel(win({ local, tab: false })), 'ios');
+      eq('... but a browser tab sharing that storage is the web', detectChannel(win({ local, tab: true })), 'web'); }
+    eq('the injected flag wins even in what looks like a browser tab', detectChannel({ ...win({ tab: true }), KC_IOS_APP: true }), 'ios');
+    eq('the Dewclaw iOS app\'s flag also counts as an App Store app', detectChannel({ ...win(), DEWCLAW_IOS_APP: true }), 'ios');
+    eq('a flag that is not exactly true does not count', ['1', 'true', 1, {}].map(v => detectChannel({ ...win(), KC_IOS_APP: v })), ['web', 'web', 'web', 'web']);
+    { const w = win({ search: '?src=ios', tab: false }); eq('?src=ios in the installed app is the iOS app, remembered', [detectChannel(w), w.sessionStorage.getItem(CHANNEL_KEY), w.localStorage.getItem(CHANNEL_KEY)], ['ios', 'ios', 'ios']); }
+    { const local = store(), w = win({ search: '?src=ios', local }); eq('?src=ios in a browser tab: the iOS app for that tab only', [detectChannel(w), w.sessionStorage.getItem(CHANNEL_KEY), local.getItem(CHANNEL_KEY)], ['ios', 'ios', null]); }
+    eq('?src=IOS and ?src=iphone are the web', ['?src=IOS', '?src=iphone', '?source=ios'].map(s => detectChannel(win({ search: s }))), ['web', 'web', 'web']);
+    eq('a reload in the same tab stays the iOS app', detectChannel(win({ session: store({ [CHANNEL_KEY]: 'ios' }) })), 'ios');
+    { const w = { ...win({ session: store({ [CHANNEL_KEY]: 'play' }), local: store({ [CHANNEL_KEY]: 'play' }), tab: false }), KC_IOS_APP: true };
+      eq('the iOS flag wins over a remembered Play app, and replaces what is remembered', [detectChannel(w), w.sessionStorage.getItem(CHANNEL_KEY), w.localStorage.getItem(CHANNEL_KEY)], ['ios', 'ios', 'ios']); }
+    eq('blocked storage with ?src=ios still gives the iOS app', detectChannel({ location: { search: '?src=ios' }, document: {}, get sessionStorage() { throw new Error('blocked'); }, get localStorage() { throw new Error('blocked'); } }), 'ios');
     const broken = { location: { search: '?src=play' }, document: {}, get sessionStorage() { throw new Error('blocked'); }, get localStorage() { throw new Error('blocked'); } };
     eq('blocked storage and no matchMedia do not break it', [detectChannel(broken), detectChannel({})], ['play', 'web']); }
 
@@ -245,6 +261,30 @@ const MONEY = /[$€£¥]|\bUSD\b|\bdollars?\b/i, ELSEWHERE = /\bStripe\b|[Cc]he
     eq('play (test mode, billing off): no store', await o.page.evaluate(() => [__ot.game.modules.store.hasStore, __ot.game.shop.tabs.some(t => t.id === 'store')]), [false, false]); await o.ctx.close();
     const n = await open(browser, { query: '?src=play&debug=1&nosw=1', play: {} });
     eq('play (shipped): no test hooks on the store', await n.page.evaluate(() => 'debug' in __ot.game.modules.store), false); await n.ctx.close(); }
+
+  /* ---------- 8. the iOS channel: like the Play app with billing off, for good ---------- */
+  { const shipped = fs.readFileSync(path.join(ROOT, 'js/store-config.js'), 'utf8');
+    const filled = shipped.replace("export const WORKER_URL = 'OWNER_FILLS_IN';", "export const WORKER_URL = 'https://worker.invalid';").replace("export const PLAY_BILLING = 'off';", "export const PLAY_BILLING = 'on';");
+    ok('the iOS test config switches Google Play Billing on and fills in a worker', filled.includes("PLAY_BILLING = 'on'") && filled.includes('worker.invalid'));
+    for (const [how, query, flag, cfg] of [['?src=ios', '?src=ios&debug=1&nosw=1', false, null], ['the injected flag', '?debug=1&nosw=1', true, null], ['the injected flag, billing on in the config', '?debug=1&nosw=1', true, filled], ['?src=ios, test double', '?src=ios&debug=1&nosw=1&mock=1', false, null]]) {
+      configOverride = cfg;
+      const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, serviceWorkers: 'block' });
+      await ctx.addInitScript(fakePlay, { skus: SKUS, prefix: 'mockplay' });
+      if (flag) await ctx.addInitScript(() => { window.KC_IOS_APP = true; });
+      const o = await open(browser, { ctx, query }), { page } = o;
+      const a = await page.evaluate(() => { const g = __ot.game, st = g.modules.store; return { ch: g.channel, ot: __ot.channel, st: st.channel, has: st.hasStore, pb: st.playBilling, usd: g.showUsd, tabs: g.shop.tabs.map(t => t.id), off: g.grownUp.storeOff, sw: g.grownUp.showSwitch, real: g.modules.merch.realGear, any: st.catalog.some(c => st.sellable(c.sku)), prices: st.catalog.map(c => st.price(c.sku)).join('') }; });
+      eq(`ios (${how}): the channel is ios, no store, nothing sellable, no price, no dollar hint`, [a.ch, a.ot, a.st, a.has, a.pb, a.usd, a.off, a.any, a.prices], ['ios', 'ios', 'ios', false, false, false, true, false, '']);
+      ok(`ios (${how}): no Store tab; the Trail Journal and the KC Gear tab are there; no switch; no real-gear shelf`, !a.tabs.includes('store') && a.tabs.includes('journal') && a.tabs.includes('merch') && a.sw === false && a.real === false, JSON.stringify(a));
+      eq(`ios (${how}): open(), buy(), restore(), the limit screen and setLimit all refuse, with no gate shown`, await page.evaluate(async () => { const st = __ot.game.modules.store; return [await st.open(), await st.buy('ot_gems_80'), await st.restore(), await st.limitScreen(), await st.setLimit(1000), !!__ot.game.ui.current]; }), [false, false, false, false, false, false]);
+      const text = await allText(page), SELL = /grown-?up|\bcan also buy\b|real (KC )?gear|real thing|website|\bclaim|Beyond Limits|kcbeyondlimits|\btwins?\b|Google Play|Real-money|Restore purchases/i;
+      const bad = Object.entries(text).filter(([, t]) => MONEY.test(t) || ELSEWHERE.test(t) || SELL.test(t)).map(([k, t]) => k + ': ' + ((t.match(MONEY) || t.match(ELSEWHERE) || t.match(SELL) || [''])[0]));
+      ok(`ios (${how}): no money sign, no Stripe, no Google Play, no buying elsewhere, no grown-ups shelf in any Shop tab or in Settings`, bad.length === 0, bad.join('; '));
+      ok(`ios (${how}): Settings has the privacy policy, opening in the same window`, /Privacy policy/.test(text.settings) && await page.evaluate(() => { __ot.game.ui.settings(); const l = document.querySelector('[data-set="privacy"]'); const r = l && l.getAttribute('href') === '/kc-open-trail/privacy.html' && l.target === ''; __ot.game.ui.closeAll(); return r; }));
+      eq(`ios (${how}): the real-gear list, a product page and the claim screen do not open`, await page.evaluate(async () => { const m = __ot.game.modules.merch; return [await m.openReal(), await m.openProduct('34341309'), await m.openClaim(), !!__ot.game.ui.current]; }), [false, false, false, false]);
+      eq(`ios (${how}): Google Play was never asked, nothing left the game, no console errors`, [await page.evaluate(() => [__dg.service, __dg.details, __dg.lists, __dg.shown.length].join()), o.outside(), o.errors], ['0,0,0,0', [], []]);
+      if (how === '?src=ios') { await o.boot('?debug=1&nosw=1'); eq('ios: a reload without ?src=ios in the same tab is still the iOS app with no store', await page.evaluate(() => [__ot.game.channel, __ot.game.modules.store.hasStore]), ['ios', false]); }
+      if (how.startsWith('the injected flag') && !cfg) { await page.evaluate(() => __ot.game.ui.settings()); await page.screenshot({ path: path.join(OUT, 'ios-settings-390.png') }); }
+      configOverride = null; await ctx.close(); } }
 
   /* ---------- 5. the Play channel with Google Play Billing on (pretend worker) ---------- */
   { const HELD = ['ot_gems_7000', 'ot_tip_3'];   /* two items Google Play does not return */

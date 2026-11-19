@@ -7,16 +7,28 @@ the Android app from Google Play does. When you update the website, the iPhone
 app shows the new version the next time it opens. You only need a new iOS build
 when something in this folder changes.
 
-It is based on Microsoft's open-source PWABuilder iOS template (MIT licence,
-see `LICENSE`), adjusted for Dewclaw.
+It is based on Microsoft's open-source PWABuilder iOS template (its licence
+text is in `LICENSE`), adjusted for Dewclaw.
 
-**Important: nobody has built or run this project yet.** It was prepared on a
-Linux computer, where Apple's tools do not exist. The files have been checked
-as far as that allows, but the first real test is the first run of the GitHub
-workflow below. Expect that the first run or two may need a fix. See
-"What has not been tested" at the end.
+There is a second iOS app next to this one: **KC: Open Trail**, in
+`ios/kc-open-trail` (its own short README points back here). Both apps live in
+the same Apple developer account and use the same GitHub secrets. The steps
+below cover both; where something differs for the game, it says so.
+
+**What has been proven so far:** both apps compile. On 19 November 2026 the
+GitHub workflow **iOS build check** built Dewclaw and KC Open Trail on a
+GitHub Mac with Xcode 26.6, for the iPhone simulator and for real iPhones and
+iPads, with signing switched off. Both builds passed:
+<https://github.com/kcbeyondlimitsllc-ship-it/dewclaw/actions/runs/44593274408>
+That workflow runs again by itself whenever anything under `ios/` changes,
+and needs no Apple account or secrets.
+
+**What has not been proven:** signing, uploading to TestFlight, and running
+on a real iPhone. Those need your Apple membership and the four secrets
+below. See "What has not been tested" at the end.
 
 You do not need a Mac. GitHub rents one for the few minutes each build takes.
+This repository is public, so GitHub does not charge for those minutes.
 
 ---
 
@@ -32,23 +44,30 @@ You do not need a Mac. GitHub rents one for the few minutes each build takes.
    individual is quicker but shows your personal name as the seller.
 3. Wait for Apple's email saying the membership is active.
 
-### 2. Register the app's identifier
+### 2. Register the apps' identifiers
+
+Do this once for each app you want to send to TestFlight.
 
 1. Go to <https://developer.apple.com/account/resources/identifiers/list>.
 2. Press **+**, choose **App IDs**, then **App**.
-3. Description: `Dewclaw`. Bundle ID: choose **Explicit** and type exactly
-   `com.kcbeyondlimits.dewclaw`
-4. In the list of capabilities, tick **Associated Domains**. Leave the rest
-   alone. Press **Continue**, then **Register**.
+3. For Dewclaw: Description `Dewclaw`. Bundle ID: choose **Explicit** and
+   type exactly `com.kcbeyondlimits.dewclaw`. In the list of capabilities,
+   tick **Associated Domains**.
+4. For the game: Description `KC Open Trail`. Bundle ID: **Explicit**,
+   exactly `com.kcbeyondlimits.kcopentrail`. Tick no capabilities.
+5. Press **Continue**, then **Register**.
 
-### 3. Create the app record in App Store Connect
+### 3. Create the app records in App Store Connect
 
 1. Go to <https://appstoreconnect.apple.com/apps>.
 2. Press **+**, then **New App**.
-3. Platform: **iOS**. Name: `Dewclaw` (if Apple says the name is taken, pick a
-   variation such as `Dewclaw: Pet Care`). Primary language: English (U.S.).
-   Bundle ID: pick `com.kcbeyondlimits.dewclaw` from the list.
-   SKU: anything, for example `dewclaw-ios`. User access: Full Access.
+3. Platform: **iOS**. Primary language: English (U.S.).
+   User access: Full Access.
+   - Dewclaw: Name `Dewclaw` (if Apple says the name is taken, pick a
+     variation such as `Dewclaw: Pet Care`). Bundle ID
+     `com.kcbeyondlimits.dewclaw`. SKU: for example `dewclaw-ios`.
+   - The game: Name `KC: Open Trail` (or `KC Open Trail`). Bundle ID
+     `com.kcbeyondlimits.kcopentrail`. SKU: for example `kc-open-trail-ios`.
 4. Press **Create**.
 
 ### 4. Create an App Store Connect API key
@@ -71,6 +90,8 @@ This is the "password" GitHub uses to sign the app and upload it for you.
 
 ### 5. Add four secrets to GitHub
 
+You add these once. Both apps use them.
+
 In the Dewclaw repository on GitHub: **Settings**, then **Secrets and
 variables**, then **Actions**, then **New repository secret**. Add these four,
 with the names typed exactly:
@@ -89,12 +110,15 @@ repository's main branch for the button to appear.
 
 1. On GitHub open the **Actions** tab.
 2. In the list on the left choose **iOS TestFlight**.
-3. Press **Run workflow**, leave the two boxes empty, press the green
-   **Run workflow** button.
+3. Press **Run workflow**. In **Which app to build and upload** pick
+   `dewclaw` or `kc-open-trail`. Leave the other two boxes empty and press
+   the green **Run workflow** button. To send both apps, run it twice, once
+   for each.
 4. It takes roughly 10 to 20 minutes. A green tick means the app was uploaded.
    A red cross means something failed: open the run, open the failed step and
    read the last lines, or download **ios-build-logs** at the bottom of the
-   run page and send it to whoever is helping you.
+   run page (it is called **ios-build-logs-dewclaw** or
+   **ios-build-logs-kc-open-trail**) and send it to whoever is helping you.
 
 Each run uses its run number as the build number, so every upload is newer
 than the last. To release a new version later (say 1.0.1), type it in the
@@ -102,12 +126,13 @@ than the last. To release a new version later (say 1.0.1), type it in the
 
 ### 7. Find the build in TestFlight
 
-1. Go to <https://appstoreconnect.apple.com/apps>, open **Dewclaw**, then the
-   **TestFlight** tab. The build shows as "Processing" for 5 to 30 minutes.
+1. Go to <https://appstoreconnect.apple.com/apps>, open **Dewclaw** (or
+   **KC: Open Trail**), then the **TestFlight** tab. The build shows as "Processing" for 5 to 30 minutes.
 2. Under **Internal Testing**, press **+** to make a group, add yourself (you
    must be listed under Users and Access), and add the build to the group.
 3. On your iPhone install the **TestFlight** app from the App Store, sign in
-   with the same Apple ID, and install Dewclaw from there.
+   with the same Apple ID, and install the app from there. Internal testers
+   (people on your App Store Connect team, up to 100) need no Apple review.
 4. Test everything on a real phone before going further: the list in "What
    has not been tested" below is your checklist.
 
@@ -146,20 +171,31 @@ to be sold through Apple's in-app purchase. Dewclaw Plus, Plus for life, gift
 years and bone packs are digital, and the web app sells them through Stripe and
 PayPal.
 
-**As the website stands today, the iPhone app will show the Stripe and PayPal
-purchase buttons.** The website decides whether to show them, and on an iPhone
-it currently does. That is very likely to be rejected. It is also broken in
-practice: checkout opens in a Safari sheet on top of the app, and when the
-payment finishes, the "welcome back" page loads in that sheet, not in the app,
-so the app itself does not unlock.
+**What the website does today inside the iOS app.** The code at the top of
+this branch already hides the Stripe and PayPal checkout inside the iOS app
+(`webBilling()` is off when `window.DEWCLAW_IOS_APP` is set). The real risk is
+different: on an **iPad** (and Apple reviews on iPad, because this build
+targets iPhone and iPad), WKWebView sends a desktop-style browser identity, and
+before the latest change the site then still showed the Plus prices
+($2.99/$11.99) and the line "Plus is sold in the Dewclaw app on Google Play".
+Apple rejects that: guideline 3.1.1 (prices for digital goods without in-app
+purchase) and guideline 2.3.10 (no names of other app stores or platforms).
+
+The fix is the iOS change in `site/index.html` on this branch: inside the iOS
+app there is no paywall at all, no price, no Google Play wording, and
+everything is unlocked. It only reaches the app once the branch is merged and
+Netlify has deployed it, because the app loads the live website. After that,
+check on **both an iPhone and an iPad** that no price, purchase button, "Google
+Play" text or "buy elsewhere" wording appears anywhere (Plus, Pocket Pup's Get
+bones tab, Settings).
 
 Before submitting for review, one of these has to happen:
 
-- **Simplest:** change the website so that inside the iOS app it hides every
-  purchase button and price, and does not tell people to buy elsewhere. The
-  iOS app makes this easy to detect: it sets `window.DEWCLAW_IOS_APP = true`
-  on every page, and a cookie `app-platform=iOS App Store`. This is a change
-  in `site/index.html`, not in this folder, and it has not been made.
+- **Simplest (done on this branch, needs deploying):** the website hides
+  every purchase button and price inside the iOS app and does not tell people
+  to buy elsewhere. It detects the app from `window.DEWCLAW_IOS_APP = true`,
+  which the app sets on every page before any script runs, with the cookie
+  `app-platform=iOS App Store` as a backup.
 - **Or** sell Plus through Apple's in-app purchase on iOS. That is real native
   development (StoreKit), plus server work, and Apple takes a commission.
 - **Or** rely on the rules that allow links to outside payment in some
@@ -168,9 +204,15 @@ Before submitting for review, one of these has to happen:
   rules; check them on Apple's site, or with a lawyer, before depending on
   them.** They are specific to each country's App Store.
 
-People who already bought Plus on the web also need a way to use it in the iOS
-app (for example by entering their code). Check that this works and that the
-wording does not steer people to buy outside the app.
+**Do not add a code or licence-key unlock for Plus in the iOS app.** Guideline
+3.1.1 says apps "may not use their own mechanisms to unlock content or
+functionality, such as license keys", and guideline 3.1.3(b) only lets an app
+unlock something bought on the web if the same thing is also sold as an Apple
+in-app purchase inside the app. Dewclaw has no in-app purchase, so a code entry
+or "restore web purchase" screen would be rejected. The iOS app does not need
+one anyway: inside it, Plus features are unlocked for everyone. If you ever
+want a paid Plus on iPhone, add StoreKit in-app purchase first; after that a
+"Restore purchases" and web-account sign-in become allowed.
 
 ### Privacy policy and privacy answers
 
@@ -198,8 +240,9 @@ wording does not steer people to buy outside the app.
   cards give animal-health information. Keep the "not a substitute for a vet"
   wording visible; reviewers look for it.
 - **Sign-in to review.** There is no account, which is good: the reviewer can
-  use everything straight away. If Plus features are locked, give the reviewer
-  a way to see them (a code) in the review notes.
+  use everything straight away. In the iOS app Plus features are already
+  unlocked, so the reviewer needs no code. Do not put a code in the review
+  notes (see guideline 3.1.1 above).
 - **iPad.** The build runs on iPad as well, so Apple asks for iPad screenshots
   and reviews it on an iPad. If you would rather ship iPhone-only, ask a
   developer to change `TARGETED_DEVICE_FAMILY` from `"1,2"` to `"1"` in the
@@ -236,7 +279,9 @@ navigation policy in `WebView.swift` is rewritten so that every main-frame
 navigation outside the allowed host leaves the web view (the template let
 script-driven ones through, where App-Bound Domains then blocked them); a
 camera-permission delegate, a privacy manifest and a photo-library usage
-string are added; `NSAllowsArbitraryLoads` is removed.
+string are added; `NSAllowsArbitraryLoads` is removed; the required device
+capability is `arm64` (the template said `armv7`); the launch image set keeps
+only the 1x, 2x and 3x pictures (Xcode ignores 4x and 8x).
 
 ### Optional: links that open the app
 
@@ -251,13 +296,18 @@ Nothing breaks without it; links simply open in Safari as they do now.
 
 ## What has not been tested
 
-Nothing here has been compiled, signed, or run. Specifically unverified:
+Tested: both projects compile with Xcode 26.6 for the simulator and for
+iPhone and iPad hardware, without signing (the **iOS build check** run linked
+at the top). The built apps carry the right bundle id, version 1.0.0, the
+icons and the privacy manifest.
 
-1. **That the project compiles** with a current Xcode. The Swift files were
-   checked for syntax only; the template is a few years old and newer Xcode
-   versions may raise errors that need small code fixes.
-2. **That the GitHub workflow works.** It has never run. The likely trouble
-   spots:
+Nothing has been signed, uploaded, or run on an iPhone or in a simulator.
+Specifically unverified:
+
+1. **Signing and archiving** with your Apple team. This only happens in the
+   **iOS TestFlight** workflow, which needs the four secrets.
+2. **That the TestFlight workflow works.** It has never run. The likely
+   trouble spots:
    - **Signing.** The workflow lets Xcode create certificates and profiles
      automatically using your API key. If the archive or export step fails
      with a message about certificates, profiles or permissions, two things

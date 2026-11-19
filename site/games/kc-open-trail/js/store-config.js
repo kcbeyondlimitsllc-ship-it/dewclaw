@@ -16,7 +16,8 @@
                     active in Play Console with ids equal to the names below, (2) the worker is deployed with
                     OT_PLAY_PACKAGE and the Google service account (GOOGLE_SA_EMAIL, GOOGLE_SA_KEY), and (3) WORKER_URL
                     above is filled in. The Android app already has Play Billing built in (twa-manifest.json).
-   PLAY_REAL_GEAR   only matters inside the Google Play app. 'off' (the default): the Play app shows the bones-only KC gear
+   PLAY_BILLING never affects the iOS app (js/channel.js 'ios'): it has no real-money store in this version.
+   PLAY_REAL_GEAR   only matters inside the Google Play app and the iOS app (one setting for both app builds). 'off' (the default): the Play app shows the bones-only KC gear
                     and nothing about the real products, the shop website or claiming a twin, and has no link out of the
                     game. 'on': the grown-ups' real-gear shelf, its link to the shop website and the claim screen work in
                     the Play app as they do on the web (behind the Settings switch and the grown-up gate). Read

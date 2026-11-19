@@ -5,7 +5,7 @@
    player on their next load, with no VERSION bump, and a device can never stay stuck on old price ids or an old worker address.
    The real-product thumbnails (the merch pictures under img/) are deliberately NOT in SHELL: they load only when a grown-up opens the
    real-gear list (spec 5.5) and are then kept by the runtime cache below. */
-const VERSION = "kc-open-trail-v10";
+const VERSION = "kc-open-trail-v11";
 const PREFIX = "kc-open-trail-";
 const SHELL = ["./", "./index.html", "./style.css", "./manifest.webmanifest",
   "./vendor/three/three.module.min.js",
