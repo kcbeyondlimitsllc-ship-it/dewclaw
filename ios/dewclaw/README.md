@@ -171,22 +171,31 @@ to be sold through Apple's in-app purchase. Dewclaw Plus, Plus for life, gift
 years and bone packs are digital, and the web app sells them through Stripe and
 PayPal.
 
-**As the website stands today, the iPhone app will show the Stripe and PayPal
-purchase buttons.** The website decides whether to show them, and on an iPhone
-it currently does. That is very likely to be rejected. It is also broken in
-practice: checkout opens in a Safari sheet on top of the app, and when the
-payment finishes, the "welcome back" page loads in that sheet, not in the app,
-so the app itself does not unlock.
+**What the website does today inside the iOS app.** The code at the top of
+this branch already hides the Stripe and PayPal checkout inside the iOS app
+(`webBilling()` is off when `window.DEWCLAW_IOS_APP` is set). The real risk is
+different: on an **iPad** (and Apple reviews on iPad, because this build
+targets iPhone and iPad), WKWebView sends a desktop-style browser identity, and
+before the latest change the site then still showed the Plus prices
+($2.99/$11.99) and the line "Plus is sold in the Dewclaw app on Google Play".
+Apple rejects that: guideline 3.1.1 (prices for digital goods without in-app
+purchase) and guideline 2.3.10 (no names of other app stores or platforms).
+
+The fix is the iOS change in `site/index.html` on this branch: inside the iOS
+app there is no paywall at all, no price, no Google Play wording, and
+everything is unlocked. It only reaches the app once the branch is merged and
+Netlify has deployed it, because the app loads the live website. After that,
+check on **both an iPhone and an iPad** that no price, purchase button, "Google
+Play" text or "buy elsewhere" wording appears anywhere (Plus, Pocket Pup's Get
+bones tab, Settings).
 
 Before submitting for review, one of these has to happen:
 
-- **Simplest:** change the website so that inside the iOS app it hides every
-  purchase button and price, and does not tell people to buy elsewhere. The
-  iOS app makes this easy to detect: it sets `window.DEWCLAW_IOS_APP = true`
-  on every page, and a cookie `app-platform=iOS App Store`. This is a change
-  in `site/index.html`, not in this folder. It was being worked on separately
-  when this README was updated; check on an iPhone that no price or purchase
-  button shows before you submit.
+- **Simplest (done on this branch, needs deploying):** the website hides
+  every purchase button and price inside the iOS app and does not tell people
+  to buy elsewhere. It detects the app from `window.DEWCLAW_IOS_APP = true`,
+  which the app sets on every page before any script runs, with the cookie
+  `app-platform=iOS App Store` as a backup.
 - **Or** sell Plus through Apple's in-app purchase on iOS. That is real native
   development (StoreKit), plus server work, and Apple takes a commission.
 - **Or** rely on the rules that allow links to outside payment in some
@@ -195,9 +204,15 @@ Before submitting for review, one of these has to happen:
   rules; check them on Apple's site, or with a lawyer, before depending on
   them.** They are specific to each country's App Store.
 
-People who already bought Plus on the web also need a way to use it in the iOS
-app (for example by entering their code). Check that this works and that the
-wording does not steer people to buy outside the app.
+**Do not add a code or licence-key unlock for Plus in the iOS app.** Guideline
+3.1.1 says apps "may not use their own mechanisms to unlock content or
+functionality, such as license keys", and guideline 3.1.3(b) only lets an app
+unlock something bought on the web if the same thing is also sold as an Apple
+in-app purchase inside the app. Dewclaw has no in-app purchase, so a code entry
+or "restore web purchase" screen would be rejected. The iOS app does not need
+one anyway: inside it, Plus features are unlocked for everyone. If you ever
+want a paid Plus on iPhone, add StoreKit in-app purchase first; after that a
+"Restore purchases" and web-account sign-in become allowed.
 
 ### Privacy policy and privacy answers
 
@@ -225,8 +240,9 @@ wording does not steer people to buy outside the app.
   cards give animal-health information. Keep the "not a substitute for a vet"
   wording visible; reviewers look for it.
 - **Sign-in to review.** There is no account, which is good: the reviewer can
-  use everything straight away. If Plus features are locked, give the reviewer
-  a way to see them (a code) in the review notes.
+  use everything straight away. In the iOS app Plus features are already
+  unlocked, so the reviewer needs no code. Do not put a code in the review
+  notes (see guideline 3.1.1 above).
 - **iPad.** The build runs on iPad as well, so Apple asks for iPad screenshots
   and reviews it on an iPad. If you would rather ship iPhone-only, ask a
   developer to change `TARGETED_DEVICE_FAMILY` from `"1,2"` to `"1"` in the
