@@ -17,8 +17,15 @@ Each app is one HTML file with no build step.
 
 ## Put it online
 
-In Netlify: Add new site → Import this repository → Base directory `studio`,
-Publish directory `studio`, no build command.
+GitHub Pages, free for this public repo:
+
+1. Repo Settings → Pages → Source: **GitHub Actions** (one time).
+2. Every push to `main` that touches `studio/` publishes it, through
+   `.github/workflows/studio-pages.yml`. To publish by hand: Actions →
+   "Publish studio to GitHub Pages" → Run workflow.
+
+The site is at `https://kcbeyondlimitsllc-ship-it.github.io/dewclaw/`, with
+the game at `.../dewclaw/kc-dash/`.
 
 ## Settings
 
