@@ -5842,14 +5842,18 @@ const isPlayApp = () => {
   if (/^android-app:\/\//.test(document.referrer || "")) { try { sessionStorage.setItem("dewclaw.play", "1"); } catch {} return true; }
   return false;
 };
-/* The App Store build (ios/dewclaw) sets this flag before the page runs.
+/* The App Store build (ios/dewclaw) sets window.DEWCLAW_IOS_APP before any
+   page script runs (a WKUserScript at document start) and also sets the
+   cookie app-platform=iOS App Store; either one counts.
    Apple does not allow a Stripe checkout for a digital subscription inside
-   an app, and a checkout opened from there could not hand its result back,
-   so web billing is off in that build. With no billing on iOS the paywall
-   is off too (see paywallOn), exactly as in Safari without web billing. */
-const isIOSApp = () => !!self.DEWCLAW_IOS_APP;
+   an app (App Review 3.1.1), and a checkout opened from there could not hand
+   its result back, so web billing is off in that build. With no billing on
+   iOS the paywall is off too (see paywallOn): everything is unlocked, and no
+   price, plan, checkout or "buy it elsewhere" line is shown. This holds even
+   if the user agent doesn't look like an iPhone (iPad desktop mode). */
+const isIOSApp = () => { if (self.DEWCLAW_IOS_APP) return true; try { return /(?:^|;\s*)app-platform=iOS(?:%20|\s)App(?:%20|\s)Store(?:;|$)/.test(document.cookie || ""); } catch { return false; } };
 const webBilling = () => !!(PLUS_CFG.webBilling && plusCloud() && !self.PETLIFE_SANDBOX && !isPlayApp() && !isIOSApp());
-const paywallOn = () => NATIVE && (!!self.PETLIFE_SANDBOX || (!!plusCloud() && (!isIOS() || webBilling())));
+const paywallOn = () => NATIVE && !isIOSApp() && (!!self.PETLIFE_SANDBOX || (!!plusCloud() && (!isIOS() || webBilling())));
 const isWebToken = t => typeof t === "string" && t.startsWith("w1.");
 /* The price line under the Plus offer. config.js's offerCopy is written for
    Google Play; in a browser the buyer pays through Stripe and cancels here. */
@@ -5987,7 +5991,7 @@ async function plusBuy(sku) {
   } catch (e) { try { await res.complete("fail"); } catch {} throw e; }
 }
 const PLUS_API = {
-  on: paywallOn, active: plusActive, state: plusState, billing: plusBilling, buy: plusBuy, refresh: plusRefresh,
+  on: paywallOn, ios: isIOSApp, active: plusActive, state: plusState, billing: plusBilling, buy: plusBuy, refresh: plusRefresh,
   details: () => PLUS.details, config: PLUS_CFG, cloud: plusCloud,
   token: () => plusState().token || "", sku: () => plusState().sku || "",
   web: webBilling, webPrices, webCheckout, cloudPost, isWebToken, grants: () => LS.json(WEB_GRANTS, []) || [],
@@ -6286,6 +6290,7 @@ const here = () => {
   const p = raw.split("?")[0];
   const r = ROUTES.includes(p) || VIEWS[p] ? p : "/";
   if (NATIVE && r === "/nearby/chat") return "/nearby";   /* the chat room needs a server too */
+  if (NATIVE && r === "/plus" && isIOSApp()) return "/app";   /* the App Store build sells nothing, so it has no Plus screen */
   return NATIVE && HOSTED_ONLY.includes(r) ? "/app" : r;
 };
 /* Tokens arrive in the query string on both routers. */
@@ -12641,6 +12646,7 @@ self.GeoWorld = { mount, STORES, NPCS };
      host.prices(skus)    -> Promise<{ [sku]: "$0.99" }>   (store prices, local currency)
      host.realMoney()     -> bool    (can real-money products be sold here?)
      host.plusActive()    -> bool    (Dewclaw Plus perks)
+     host.storeless()     -> bool    (optional: never mention Plus, packs or app stores)
      host.walks()         -> [{ id, start, mins }]   (real dog walks logged in Dewclaw)
      host.geopetMetres()  -> number  (Geopet lifetime metres)
      host.go(path)        -> navigate inside the host app (optional)
@@ -13064,6 +13070,7 @@ function mount(root, host = {}) {
   const pup = () => W.pups[W.active] || W.pups[0];
   const owns = id => W.owned.includes(id);
   const has = id => owns(id) || (host.plusActive() && itemById(id)?.plus);
+  const storeless = () => !!(host.storeless && host.storeless());
   const age = p => (Date.now() - p.born) / DAY;
   const timers = [];
   let ui = { sel: -1, mode: "home", modeT: null, frame: 0, game: null, pick: null, tab: "pup", shopTab: "food", prices: {}, busy: false };
@@ -13403,7 +13410,7 @@ function mount(root, host = {}) {
     const n = W.pantry[it.id] || 0;
     const on = Object.values(W.equip).includes(it.id);
     return `<div class="pp-card${!isPantry && has(it.id) ? " owned" : ""}${on ? " on" : ""}">${previewOf(it)}<b>${esc(it.name)}</b>
-      <small>${esc(it.blurb || "")}${isPantry && n ? ` · ${n} in the pantry` : ""}${it.plus && !owns(it.id) ? (host.plusActive() ? " · Free with Plus" : " · Free with Dewclaw Plus") : ""}</small>${priceBtn(it)}</div>`;
+      <small>${esc(it.blurb || "")}${isPantry && n ? ` · ${n} in the pantry` : ""}${it.plus && !owns(it.id) && !storeless() ? (host.plusActive() ? " · Free with Plus" : " · Free with Dewclaw Plus") : ""}</small>${priceBtn(it)}</div>`;
   }
   function moneyCard(pr) {
     const done = pr.once && (W.once.includes(pr.sku) || (pr.items || []).length > 0 && pr.items.every(id => has(id)));
@@ -13425,10 +13432,10 @@ function mount(root, host = {}) {
     if (t === "play") body = `<p>Each toy is a new game under Play. Wins earn bones, up to ${EARN.gameCap} a day.</p><div class="pp-grid">${SHOP.toys.map(itemCard).join("")}</div>`;
     if (t === "upgrades") body = `<p>Upgrades look after your pup while you're away. All of them can be earned with bones.</p><div class="pp-grid">${SHOP.upgrades.map(itemCard).join("")}</div>`;
     if (t === "bones") {
-      const money = host.realMoney();
+      const money = host.realMoney() && !storeless();
       body = `${money ? `<div class="pp-grid">${PRODUCTS.filter(productVisible).filter(p => p.consumable || p.bones || !(p.items || []).some(id => has(id))).map(moneyCard).join("")}</div>
           <div class="pp-row"><button class="pp-buy ghost" data-restore>Restore purchases</button></div>
-          <p class="pp-fine">Paid securely by card or PayPal on the web, or by Google Play in the Android app. Bones are for Pocket Pup only and have no cash value. <a href="terms.html" target="_blank" rel="noopener noreferrer">Terms</a> · <a href="privacy.html" target="_blank" rel="noopener noreferrer">Privacy</a></p>` : `<p>Bone packs come with the Dewclaw app on Google Play. Until then, every item can be earned.</p>`}
+          <p class="pp-fine">Paid securely by card or PayPal on the web, or by Google Play in the Android app. Bones are for Pocket Pup only and have no cash value. <a href="terms.html" target="_blank" rel="noopener noreferrer">Terms</a> · <a href="privacy.html" target="_blank" rel="noopener noreferrer">Privacy</a></p>` : storeless() ? `<p>Every item can be earned with bones.</p>` : `<p>Bone packs come with the Dewclaw app on Google Play. Until then, every item can be earned.</p>`}
         <h3 style="font-size:15px; margin-top:14px">Free ways to earn bones</h3>
         <ul class="pp-earn">
           <li><span>Daily check-in</span><b>${EARN.login}, ${EARN.streak7} on day 7</b></li>
@@ -13437,10 +13444,10 @@ function mount(root, host = {}) {
           <li><span>Real walks with your dog, logged in Dewclaw</span><b>1 a minute, up to ${EARN.walkCap} a walk</b></li>
           <li><span>Geopet walks</span><b>${EARN.geopetPerKm} per km</b></li>
           <li><span>Growing up</span><b>${EARN.levelUp} each stage</b></li>
-          <li><span>Dewclaw Plus</span><b>${fmt(EARN.plusMonthly)} a month, 10% off, all screens</b></li>
+          ${storeless() ? "" : `<li><span>Dewclaw Plus</span><b>${fmt(EARN.plusMonthly)} a month, 10% off, all screens</b></li>`}
           ${boosted() ? `<li><span>Double bones boost</span><b>on for ${Math.ceil((W.boostUntil - Date.now()) / 86400e3)} more day${Math.ceil((W.boostUntil - Date.now()) / 86400e3) === 1 ? "" : "s"}</b></li>` : ""}
         </ul>
-        ${host.go ? `<div class="pp-row"><button class="pp-buy" data-go-host="/care/walks">Log a real walk</button>${host.plusActive() ? "" : `<button class="pp-buy ghost" data-go-host="/plus">See Dewclaw Plus</button>`}</div>` : ""}`;
+        ${host.go ? `<div class="pp-row"><button class="pp-buy" data-go-host="/care/walks">Log a real walk</button>${host.plusActive() || storeless() ? "" : `<button class="pp-buy ghost" data-go-host="/plus">See Dewclaw Plus</button>`}</div>` : ""}`;
     }
     return `<div class="pp-pills">${SHOP_TABS.map(([k, l]) => `<button data-shop-tab="${k}" aria-current="${ui.shopTab === k}">${l}</button>`).join("")}</div>${body}
       <p class="pp-fine"><a href="https://www.kcbeyondlimits.com" target="_blank" rel="noopener noreferrer">Real bandanas for your real dog, from KC Beyond Limits</a></p>`;
@@ -13621,6 +13628,8 @@ async function redeem(sku, token) {
 }
 const host = {
   realMoney, plusActive, walks, geopetMetres,
+  /* inside the App Store build: no bone packs, and no Plus or store wording */
+  storeless: () => A.plus.ios(),
   go: path => A.go(path),
   toast: msg => A.toast(msg),
   async prices(skus) {
