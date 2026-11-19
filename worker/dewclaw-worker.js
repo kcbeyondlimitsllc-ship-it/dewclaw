@@ -309,9 +309,17 @@ async function webCheck(env, deps, token, force) {
 }
 async function handleStripeCheckout(env, deps, req) {
   if (!stripeOn(env)) throw new HttpError(503, "Web payments aren't switched on yet. Plus is sold in the Dewclaw app on Google Play.");
-  const { sku, back, install } = await readJson(req);
+  const { sku, back, install, channel } = await readJson(req);
   const price = own(stripePrices(env), sku);
-  if (typeof sku === "string" && Object.hasOwn(OT_GRANTS, sku)) return otCheckout(env, deps, sku, price, install);
+  if (typeof sku === "string" && Object.hasOwn(OT_GRANTS, sku)) {
+    /* the Play app never sells through Stripe (Google Play's payments policy); it uses /ot/play-claim. The game does not call this
+       route on that channel at all: this is a second lock in case a build ever did. */
+    if (channel === "play") throw new HttpError(403, "The Google Play version of the game doesn't use this payment page.");
+    /* owner decision (2026-11-19): KC: Open Trail is sold through Google Play Billing only. No Stripe checkout is made for an
+       ot_ SKU unless OT_STRIPE is "on", and it is not set in wrangler.toml. Checked before any Stripe call. */
+    if (String(env.OT_STRIPE || "").trim() !== "on") throw new HttpError(403, "KC: Open Trail is sold through Google Play only.");
+    return otCheckout(env, deps, sku, price, install);
+  }
   const w = own(WEB_PRODUCTS, sku), g = own(PP_GRANTS, sku);
   if (!price || !(w || g)) throw new HttpError(400, "That isn't something Dewclaw sells on the web.");
   const origin = String(env.APP_ORIGIN || "").replace(/\/+$/, "");
@@ -527,6 +535,97 @@ async function handleOtRestore(env, deps, req) {
   if (!rec || !Array.isArray(rec.skus)) throw new HttpError(404, "That Trail Key isn't on record. Check it and try again.");
   const skus = rec.skus.filter(k => Object.hasOwn(OT_GRANTS, k) && !OT_GRANTS[k].consumable);
   return { kind: "restore", key: c, skus, grants: skus.map(k => ({ sku: k, grant: { ...otGrant(OT_GRANTS[k]), gems: 0 }, once: !!OT_GRANTS[k].once })) };
+}
+/* ------------------------------------------- KC: Open Trail on Google Play
+   Inside the Play app (a Trusted Web Activity) the game sells the same 16 ot_
+   SKUs through Google Play Billing, never through Stripe. The game sends the
+   purchase token here; this route asks the Play Developer API about it
+   (purchases.products.get), grants once per token, then consumes it (gems,
+   treats, tips) or acknowledges it (everything permanent). Google refunds a
+   purchase that is not acknowledged within three days.
+
+   Settings: OT_PLAY_PACKAGE, the game's own Android package name. It is
+   separate from PLAY_PACKAGE (Dewclaw), which is left exactly as it was. The
+   service account (GOOGLE_SA_EMAIL / GOOGLE_SA_KEY) is shared and must be
+   given access to the game's app in Play Console.
+
+   One record per purchase token (otplay:<hash> in KV), so a replay never
+   grants twice. A consumable belongs to the device that claimed it. A
+   permanent item can be claimed again on another device signed in to the same
+   Google account (the game finds it with listPurchases): Google is asked
+   again, and the items come back without the gems, like a Trail Key restore.
+   Refunds made after a claim are not watched for (no Voided Purchases poll).
+
+   Known limits, to close BEFORE PLAY_BILLING is switched on (none is reachable while OT_PLAY_PACKAGE is unset):
+   - serial() below is a lock inside one worker instance. Two instances handling the same used-up token at the same
+     instant can both grant it (KV has no atomic "write if absent"). The fix is a Durable Object per token, or granting
+     only to the request whose :consume call Google accepts.
+   - one paid permanent token restores its items (never its gems) on any number of devices: Google accounts cannot be told apart here.
+   - there is no rate limit on this route: each junk token costs one Google API call. */
+const OT_PACKAGE = /^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$/;
+const otPlayPackage = env => { const p = String(env.OT_PLAY_PACKAGE || "").trim(); return OT_PACKAGE.test(p) ? p : ""; };
+const otPlayOn = env => !!(env.GOOGLE_SA_EMAIL && env.GOOGLE_SA_KEY && otPlayPackage(env));
+const otPlayUrl = (env, sku, token) => `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${encodeURIComponent(otPlayPackage(env))}/purchases/products/${encodeURIComponent(sku)}/tokens/${encodeURIComponent(token)}`;
+/* asks Google about one purchase of one ot_ SKU in the game's package; throws unless it is paid for and is that SKU */
+async function otPlayGet(env, deps, sku, token) {
+  const bearer = await googleToken(env, deps);
+  const r = await deps.fetch(otPlayUrl(env, sku, token), { headers: { authorization: `Bearer ${bearer}` } });
+  if (r.status === 404 || r.status === 400) throw new HttpError(402, "Google Play doesn't know that purchase.");
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new HttpError(502, "Google Play couldn't confirm the purchase yet. Try Restore purchases in a minute.");
+  /* Google must NAME the product, and it must be this one. The address alone proves nothing: Google answers for a token
+     even when the address names another product, so an answer without productId could turn a $0.99 token into the $24.99
+     bundle. No name, no grant. (If real answers ever leave productId out, switch to purchases.productsv2, which is asked
+     by token only and always returns the product: see android/kc-open-trail/README.md.) */
+  if (typeof j.productId !== "string" || !j.productId) throw new HttpError(502, "Google Play didn't say which item that purchase is for, so nothing was granted. Try Restore purchases in a minute.");
+  if (j.productId !== sku) throw new HttpError(409, "That purchase is for a different item, so nothing was granted.");
+  if (j.purchaseState === 2) throw new HttpError(402, "That purchase is still pending with Google Play. It will be added once the payment goes through.");
+  if (j.purchaseState !== 0) throw new HttpError(402, "That purchase was cancelled or refunded.");
+  return { j, bearer };
+}
+/* consume (used-up items) or acknowledge (permanent items); true when Google has it on record */
+async function otPlaySettle(env, deps, sku, token, consumable, j, bearer) {
+  if (consumable ? j.consumptionState === 1 : j.acknowledgementState === 1) return true;
+  for (let i = 0; i < 2; i++) {
+    try { const r = await deps.fetch(otPlayUrl(env, sku, token) + (consumable ? ":consume" : ":acknowledge"), { method: "POST", headers: { authorization: `Bearer ${bearer}`, "content-type": "application/json" }, body: "{}" }); if (r.ok) return true; } catch { /* tried again below, and again on the next claim of this token */ }
+  }
+  return false;
+}
+const otPlayPublic = rec => { const { install: _i, order: _o, ...pub } = rec; return pub; };
+async function handleOtPlayClaim(env, deps, req) {
+  const { sku, token, install, key: trailKey, package: pkg } = await readJson(req);
+  if (typeof sku !== "string" || !Object.hasOwn(OT_GRANTS, sku)) throw new HttpError(400, "That isn't something the game sells.");
+  if (typeof token !== "string" || token.length < 10 || token.length > 4000 || /\s/.test(token)) throw new HttpError(400, "A purchase token is required.");
+  const ih = await otInstallHash(install);
+  if (!ih) throw new HttpError(400, "The game didn't send its install id.");
+  if (!otPlayPackage(env)) throw new HttpError(503, "OT_PLAY_PACKAGE isn't set on the server, so Google Play purchases can't be checked yet.");
+  if (pkg != null && pkg !== otPlayPackage(env)) throw new HttpError(400, "That purchase is for a different app.");
+  const key = "otplay:" + await sha256(token);
+  return serial(key, () => otPlayClaim(env, deps, sku, token, ih, trailKey, key));
+}
+async function otPlayClaim(env, deps, sku, token, ih, trailKey, key) {
+  const g = OT_GRANTS[sku], seen = await env.DEWCLAW.get(key, "json");
+  if (seen) {
+    if (seen.sku !== sku) throw new HttpError(409, "That purchase is for a different item, so nothing was granted.");
+    if (seen.install === ih) {
+      /* the same device asking again (its first answer was lost, or Google had not taken the consume / acknowledge yet) */
+      if (!seen.settled) { try { const { j, bearer } = await otPlayGet(env, deps, sku, token); if (await otPlaySettle(env, deps, sku, token, !!g.consumable, j, bearer)) { seen.settled = true; await env.DEWCLAW.put(key, JSON.stringify(seen)); } } catch { /* the grant on record stands */ } }
+      return { ...otPlayPublic(seen), already: true };
+    }
+    if (g.consumable) throw new HttpError(403, "That purchase has already been used on another device.");
+    /* a permanent item on another device of the same Google account: it must still be paid for; the gems are not given again */
+    await otPlayGet(env, deps, sku, token);
+    return { kind: "grant", sku, grant: { ...otGrant(g), gems: 0 }, consumable: false, once: !!g.once, channel: "play", ...(seen.key ? { key: seen.key } : {}), settled: !!seen.settled, restored: true, already: true };
+  }
+  const { j, bearer } = await otPlayGet(env, deps, sku, token);
+  /* a used-up item that Google says was consumed, with no record here, was spent somewhere else: it is not granted again */
+  if (g.consumable && j.consumptionState === 1) throw new HttpError(409, "That purchase has already been used.");
+  const out = { kind: "grant", sku, grant: otGrant(g), consumable: !!g.consumable, once: !!g.once, channel: "play", at: deps.now(), install: ih, order: typeof j.orderId === "string" ? j.orderId.slice(0, 80) : "", settled: false };
+  if (!g.consumable) out.key = await otKeyAdd(env, trailKey, sku, "play:" + key);
+  /* written down before Google is told, so a failure after this line can never lead to a second grant */
+  await env.DEWCLAW.put(key, JSON.stringify(out));
+  if (await otPlaySettle(env, deps, sku, token, !!g.consumable, j, bearer)) { out.settled = true; await env.DEWCLAW.put(key, JSON.stringify(out)); }
+  return { ...otPlayPublic(out), already: false };
 }
 /* an owner's check, not used by the game: does every ot_ SKU have a Stripe price of the right amount? */
 async function handleOtPrices(env, deps) {
@@ -823,7 +922,7 @@ export async function handle(req, env, deps = { fetch: globalThis.fetch.bind(glo
   try {
     if (req.method === "GET" && (path === "/" || path === "/health")) {
       const c = cfg(env);
-      return json({ ok: true, model: env.ANTHROPIC_API_KEY ? c.MODEL : (env.AI ? c.AI_MODEL : null), ai: env.ANTHROPIC_API_KEY ? "claude" : (env.AI ? "workers-ai" : false), play: !!(env.GOOGLE_SA_EMAIL && env.GOOGLE_SA_KEY && env.PLAY_PACKAGE), claude: !!env.ANTHROPIC_API_KEY,
+      return json({ ok: true, model: env.ANTHROPIC_API_KEY ? c.MODEL : (env.AI ? c.AI_MODEL : null), ai: env.ANTHROPIC_API_KEY ? "claude" : (env.AI ? "workers-ai" : false), play: !!(env.GOOGLE_SA_EMAIL && env.GOOGLE_SA_KEY && env.PLAY_PACKAGE), otPlay: otPlayOn(env), claude: !!env.ANTHROPIC_API_KEY,
                     stripe: stripeOn(env), tax: ["auto", "managed"].includes(String(env.STRIPE_TAX || "").toLowerCase()) ? String(env.STRIPE_TAX).toLowerCase() : "off", paypal: paypalOn(env) ? (paypalLive(env) ? "live" : "sandbox") : false, monthlyAsks: c.MONTHLY_ASKS, dailyAsksTotal: c.DAILY_ASKS_TOTAL }, 200, h);
     }
     if (req.method === "GET" && path === "/stripe/prices") return json(await handleStripePrices(env, deps), 200, { ...h, "cache-control": "public, max-age=300" });
@@ -837,6 +936,7 @@ export async function handle(req, env, deps = { fetch: globalThis.fetch.bind(glo
     if (path === "/stripe/restore") return json(await handleStripeRestore(env, deps, req), 200, h);
     if (path === "/stripe/portal") return json(await handleStripePortal(env, deps, req), 200, h);
     if (path === "/ot/restore") return json(await handleOtRestore(env, deps, req), 200, h);
+    if (path === "/ot/play-claim") return json(await handleOtPlayClaim(env, deps, req), 200, h);
     if (path === "/paypal/checkout") return json(await handlePaypalCheckout(env, deps, req), 200, h);
     if (path === "/paypal/claim") return json(await handlePaypalClaim(env, deps, req), 200, h);
     throw new HttpError(404, "Not found.");

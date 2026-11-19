@@ -186,6 +186,7 @@ const I = {
   shake: '<path d="M4 8c2-3 4-3 6 0s4 3 6 0 3-2 4 0M4 15c2-3 4-3 6 0s4 3 6 0 3-2 4 0" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>',
   hand: '<path d="M8 11V5a1.5 1.5 0 0 1 3 0v5h1V4a1.5 1.5 0 0 1 3 0v6h1V6a1.5 1.5 0 0 1 3 0v9c0 4-3 6-6.5 6S6 19 5 16l-2-5a1.6 1.6 0 0 1 3-1z"/>',
   gear: '<path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7zm9 3.5l-2.2-.8a7 7 0 0 0-.7-1.7l1-2.1-1.5-1.5-2.1 1a7 7 0 0 0-1.7-.7L13 4h-2l-.8 2.2a7 7 0 0 0-1.7.7l-2.1-1-1.5 1.5 1 2.1a7 7 0 0 0-.7 1.7L3 12v2l2.2.8c.2.6.4 1.2.7 1.7l-1 2.1 1.5 1.5 2.1-1c.5.3 1.1.5 1.7.7L11 22h2l.8-2.2c.6-.2 1.2-.4 1.7-.7l2.1 1 1.5-1.5-1-2.1c.3-.5.5-1.1.7-1.7L21 14z" fill-rule="evenodd"/>',
+  more: '<circle cx="5" cy="12" r="2.6"/><circle cx="12" cy="12" r="2.6"/><circle cx="19" cy="12" r="2.6"/>',
   close: '<path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="3" stroke-linecap="round" fill="none"/>',
   ball: '<circle cx="12" cy="12" r="9"/><path d="M4.5 7.5c4 2 4 7 0 9M19.5 7.5c-4 2-4 7 0 9" fill="none" stroke="rgba(255,255,255,.8)" stroke-width="1.6"/>',
   whistle: '<path d="M3 9h11l3-3 2 2-2.2 2.2A5.5 5.5 0 1 1 8 14.5V12H3z"/>',

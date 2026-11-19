@@ -16,7 +16,15 @@
 
    Network: this file makes ONE request, for the game's own ./merch.json (same origin, cached by the service worker).
    Pictures are local files in ./img/merch/ and are only requested when a grown-up opens the real-gear list.
-   merch.json and the pictures are made by tools/sync-merch.js, which the owner runs; players' browsers never run it. */
+   merch.json and the pictures are made by tools/sync-merch.js, which the owner runs; players' browsers never run it.
+
+   The Google Play app (game.channel === 'play'): everything in "What a grown-up sees" and "The claim" above is OFF unless the
+   owner sets PLAY_REAL_GEAR = 'on' in js/store-config.js. Off (the default) the Play app shows the bones-only items and
+   nothing else: no word about real products, a shop, a website, a claim or asking a grown-up, no winter shelf, no Settings
+   switch from this module, and openReal / openProduct / openClaim refuse without showing a gate. Reason: Google Play's
+   Families policy on commercial content shown to children. */
+
+import * as CFG from './store-config.js';
 
 const SHOP_HOME = 'https://kcbeyondlimits.com';
 const SHOP_NAME = 'KC Beyond Limits';
@@ -70,7 +78,9 @@ export const looksLikeOrder = s => { const t = String(s || '').trim(); return t.
 
 export function init(game) {
   const ui = game.ui, el = ui.el, P = game.place, C = game.cosmetics, eco = game.economy;
-  const DEBUG = /[?&]debug=1(&|$)/.test(location.search);
+  /* is the real-gear side (real products, the outside link, the claim) part of this build? Always on the web; in the Play app only if the owner says so */
+  const REAL = game.channel !== 'play' || CFG.PLAY_REAL_GEAR === 'on';
+  const DEBUG = game.debug === true;   /* ?debug=1 on localhost only (js/main.js) */
   const asset = rel => new URL('../' + rel, import.meta.url).href;
 
   /* this module's stylesheet */
@@ -133,10 +143,10 @@ export function init(game) {
   function twinCard(t) {
     const owned = eco.owns(t.id), claimed = !!D.claimed[t.id], o = { id: t.id, title: t.name, text: t.text, swatch: t.swatch, swatch2: t.swatch2 };
     if (isDecor(t)) { const U = den(), on = !!(U && U.decorOn && U.decorOn(t.id));
-      if (owned) { o.tag = on ? 'Out by the den' : claimed ? 'Yours (real gear)' : 'In den storage'; o.on = on; o.button = { label: on ? 'Put away' : 'Put out', primary: false, onClick: () => denToggle(t) }; }
+      if (owned) { o.tag = on ? 'Out by the den' : claimed && REAL ? 'Yours (real gear)' : 'In den storage'; o.on = on; o.button = { label: on ? 'Put away' : 'Put out', primary: false, onClick: () => denToggle(t) }; }
       else { o.price = { bones: price(t.bones) }; o.button = { label: 'Get', onClick: () => buyTwin(t.id) }; }
     } else { const on = C.equipped(t.slot) === t.id; o.onPreview = () => { C.preview(t.id); const S = game.modules.shop; if (S && S.peek) S.peek(); };
-      if (owned) { const paint = isPaint(t); o.tag = on ? (paint ? 'Painted on' : 'Wearing') : claimed ? 'Yours (real gear)' : 'Owned'; o.on = on; o.button = { label: on ? (paint ? 'Back to plain' : 'Take off') : paint ? 'Use this paint' : 'Wear', primary: !on, onClick: () => wear(t, !on) }; }
+      if (owned) { const paint = isPaint(t); o.tag = on ? (paint ? 'Painted on' : 'Wearing') : claimed && REAL ? 'Yours (real gear)' : 'Owned'; o.on = on; o.button = { label: on ? (paint ? 'Back to plain' : 'Take off') : paint ? 'Use this paint' : 'Wear', primary: !on, onClick: () => wear(t, !on) }; }
       else { o.price = { bones: price(t.bones) }; o.button = { label: 'Get', onClick: () => buyTwin(t.id) }; } }
     return ui.item(o);
   }
@@ -144,12 +154,13 @@ export function init(game) {
   /* ---------- the grown-up side ----------
      `unlocked` is true only while the real-gear list is open after a passed gate; closing the list locks it again. */
   let unlocked = false, focusShelf = null;
-  const SPEND_OFF = 'The real-money shop is off on this device. A grown-up can turn it on in Settings.';
+  const SPEND_OFF = game.grownUp.storeOff ? 'The grown-ups\' real gear shelf is off on this device. A grown-up can turn it on in Settings.' : 'The real-money shop is off on this device. A grown-up can turn it on in Settings.';
   const bigBtn = (label, onClick, cls = 'alt') => { const b = el('button', { type: 'button', class: 'btn ' + cls + ' mbig' }); b.textContent = label; b.addEventListener('click', () => { game.audio.sfx('ui'); onClick(); }); return b; };
 
   /* one gate for the real-gear side. With the real-money switch off nothing here opens and nothing here turns it on: a grown-up
      does that in Settings (spec 4.4, 1), so "having a look" can never leave the device able to spend. */
   async function pass(reason) {
+    if (!REAL) return false;
     if (unlocked) return true;
     if (!game.grownUp.spending) { say(SPEND_OFF, 'warn'); return false; }
     return ui.gate({ reason });
@@ -193,6 +204,7 @@ export function init(game) {
 
   /* "You are leaving the game": the last step before the new tab. id null = the shop's home page. */
   function leave(id) {
+    if (!REAL) return Promise.resolve(false);
     const p = id ? product(id) : null, href = id ? productUrl(id) : SHOP_HOME + '/'; if (!href || (id && (!p || p.retired))) return Promise.resolve(false);
     const go = (url, fin) => { const a = el('a', { href: url, target: '_blank', rel: 'noopener noreferrer' }); a.style.display = 'none'; document.body.appendChild(a); a.click(); a.remove(); game.emit('external', { host: new URL(url).hostname, product: url === href ? id || null : null }); fin(true); };
     return new Promise(res => { let done = false; const fin = v => { if (!done) { done = true; res(v); } };
@@ -207,6 +219,7 @@ export function init(game) {
   }
   /* a product page, from a card or from code: never without the switch, the gate and the leaving screen */
   async function openProduct(id) {
+    if (!REAL) return false;
     await ready; const p = product(id); if (!p || p.retired) return false;
     if (!game.grownUp.spending && !unlocked) { say(SPEND_OFF, 'warn'); return false; }
     if (!unlocked && !(await ui.gate({ reason: `This opens the ${SHOP_NAME} shop, a separate website where things cost real money.` }))) return false;
@@ -248,6 +261,7 @@ export function init(game) {
     return h;
   }
   async function openClaim(preset) {
+    if (!REAL) return false;
     if (!unlocked && !(await ui.gate({ reason: 'Claiming a twin is for the grown-up who placed a real order.' }))) return false;
     await ready; showClaim(preset); return true;
   }
@@ -255,15 +269,16 @@ export function init(game) {
   /* ---------- the Shop tab ---------- */
   function renderTab(pane) {
     pane.classList.add('merch');
-    pane.appendChild(ui.heading('KC gear twins', 'In-game versions of real KC gear. Bones only: tap a picture to try one on.'));
+    pane.appendChild(REAL ? ui.heading('KC gear twins', 'In-game versions of real KC gear. Bones only: tap a picture to try one on.') : ui.heading('KC gear', 'Caps, collars, harnesses and den things. Bones only: tap a picture to try one on.'));
     const live = TWINS.filter(t => !retired(t)), gone = TWINS.filter(t => retired(t));
     let focusEl = null;
-    for (const s of SHELVES) { const list = live.filter(t => t.shelf === s.id), winter = s.seasonal; if (winter ? !winterOpen() : !list.length) continue;
+    for (const s of SHELVES) { const list = live.filter(t => t.shelf === s.id), winter = s.seasonal; if (winter ? !REAL || !winterOpen() : !list.length) continue;
       const h = ui.heading(s.title, s.where); h.dataset.shelf = s.id; pane.appendChild(h); if (s.id === focusShelf) focusEl = h;
       if (list.length) pane.appendChild(ui.grid(list.map(twinCard)));
       if (winter) { pane.appendChild(ui.note('The winter shelf holds real ornaments and gift things. They are real-world items, so they are on the grown-ups side.')); pane.appendChild(game.grownUp.spending ? bigBtn('Grown-ups: see the winter shelf', () => openReal('winter')) : ui.note('Ask a grown-up to turn on the shop. ' + SPEND_OFF)); } }
     if (gone.length) { pane.appendChild(ui.heading('Retired designs', 'Still here for bones, at the same price')); pane.appendChild(ui.grid(gone.map(twinCard))); }
-    pane.appendChild(ui.note('Twins are inspired by the real designs and drawn in the game\'s own style. They belong to this save and cannot be traded.'));
+    pane.appendChild(ui.note(REAL ? 'Twins are inspired by the real designs and drawn in the game\'s own style. They belong to this save and cannot be traded.' : 'Everything here is paid for with bones earned by playing. It belongs to this save and cannot be traded.'));
+    if (!REAL) { if (focusEl) { const f = focusEl; requestAnimationFrame(() => { try { f.scrollIntoView({ block: 'start' }); } catch (e) { /* ignore */ } }); } return; }   /* the Play app: no grown-ups section, no claim */
 
     const gh = ui.heading('For grown-ups', `Real KC gear from the ${SHOP_NAME} shop, a separate website`); gh.dataset.shelf = 'grownups'; pane.appendChild(gh);
     const box = el('div', { class: 'mgrown' });
@@ -295,7 +310,7 @@ export function init(game) {
   }
   /* the winter stall is only out in season (by the device's date) */
   function syncWinter() {
-    const s = shelfById.get('winter'), id = 'merch:shelf:winter', have = !!P.get(id), want = winterOpen();
+    const s = shelfById.get('winter'), id = 'merch:shelf:winter', have = !!P.get(id), want = REAL && winterOpen();   /* the winter shelf holds real things only */
     if (want && !have) { const st = P.stall('Wool & Whistle', 0) || P.stall('Clay Paws', 0); if (!st) return; const b = st.stall, ry = b.ry || 0, ax = Math.cos(ry), az = -Math.sin(ry);
       const at = firstFree([-12, 60, -24, 72].map(d => ({ x: b.x + ax * d, z: b.z + az * d, ry }))); if (!at) return;
       P.stand({ id, kind: 'stall', x: at.x, z: at.z, ry: at.ry, name: s.sign, col: s.col, prompt: s.prompt, icon: 'paw', onInteract: () => open('winter'), marker: { label: 'KC gear: winter shelf', color: '#4fd0c0', icon: 'paw' } });
@@ -305,10 +320,10 @@ export function init(game) {
   try { build(); } catch (e) { console.error('[merch] shelves', e); }
   offs.push(game.on('shopTabOpen', e => { if (e && e.id === 'merch') { try { syncWinter(); } catch (err) { /* ignore */ } } }));
 
-  if (!game.grownUp.showSwitch) game.grownUp.showSwitch = true;   /* the store module sets this too: the Settings row for the real-money switch */
+  if (REAL && !game.grownUp.showSwitch) game.grownUp.showSwitch = true;   /* the store module sets this too when it sells something: the Settings row for the real-money switch */
 
   const api = {
-    twins: TWINS, shelves: SHELVES, shopHome: SHOP_HOME, ready,
+    twins: TWINS, shelves: SHELVES, shopHome: SHOP_HOME, ready, realGear: REAL,   /* realGear: false in the Play app unless PLAY_REAL_GEAR is 'on' */
     products: () => products().map(p => ({ ...p })), product: id => { const p = product(id); return p ? { ...p } : null; },
     twin: id => twinById.get(id) || null, twinFor: productId => twinByProduct.get(String(productId)) || null,
     url: productUrl, priceLine, winterOpen, looksLikeOrder,

@@ -1,0 +1,50 @@
+{
+  "packageId": "com.kcbeyondlimits.kcopentrail",
+  "host": "dewclaw-app.netlify.app",
+  "name": "KC: Open Trail",
+  "launcherName": "KC Open Trail",
+  "display": "fullscreen",
+  "themeColor": "#12261E",
+  "themeColorDark": "#12261E",
+  "navigationColor": "#12261E",
+  "navigationColorDark": "#12261E",
+  "navigationDividerColor": "#12261E",
+  "navigationDividerColorDark": "#12261E",
+  "backgroundColor": "#12261E",
+  "enableNotifications": false,
+  "startUrl": "/games/kc-open-trail/?src=play",
+  "iconUrl": "https://dewclaw-app.netlify.app/games/kc-open-trail/icons/icon-512.png",
+  "maskableIconUrl": "https://dewclaw-app.netlify.app/games/kc-open-trail/icons/maskable-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./kc-open-trail-upload.keystore",
+    "alias": "kcopentrail"
+  },
+  "appVersionName": "1.0.0",
+  "appVersionCode": 1,
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-core",
+  "webManifestUrl": "https://dewclaw-app.netlify.app/games/kc-open-trail/manifest.webmanifest",
+  "fallbackType": "customtabs",
+  "features": {
+    "playBilling": {
+      "enabled": true
+    }
+  },
+  "alphaDependencies": {
+    "enabled": true
+  },
+  "enableSiteSettingsShortcut": false,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://dewclaw-app.netlify.app/games/kc-open-trail/",
+  "minSdkVersion": 24,
+  "orientation": "any",
+  "fingerprints": [],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "protocolHandlers": [],
+  "fileHandlers": [],
+  "launchHandlerClientMode": "",
+  "displayOverride": []
+}

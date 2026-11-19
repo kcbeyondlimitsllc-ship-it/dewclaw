@@ -40,15 +40,19 @@ store a pretend payment page for tests, but only when the game is served from
 | --- | --- | --- | --- |
 | Move | W A S D or arrows | left thumb stick (anywhere on the left half) | left stick |
 | Look | drag with the mouse, wheel to zoom, Q / E | drag on the other half; pinch with two fingers to zoom | right stick |
-| Zoomies (sprint, uses stamina) | Shift | Zoom (hold) | right trigger / bumper |
+| Zoomies (sprint, uses stamina) | Shift | Run (hold) | right trigger / bumper |
 | Jump (ollie on a skateboard) | Space | Jump | A |
-| Paw: sniff, pick up, talk, hop on / off | F or Enter | Paw, or tap the prompt | X |
-| Bark / Sit / Dig / Shake | B / C / G / X | buttons | B / Y / d-pad down / d-pad up |
-| Map / Photo mode / Pause | M / K / Esc or P | HUD buttons | Back / LB / Start |
+| Paw: sniff, pick up, talk, hop on / off | F or Enter | Paw (shows up only when there is something to use, with words saying what) | X |
+| Bark / Sit / Dig / Shake | B / C / G / X | Bark; Sit, Dig and Shake behind the ... (Tricks) button | B / Y / d-pad down / d-pad up |
+| Map / Photo mode / Pause | M / K / Esc or P | Map and Pause top right (or tap the minimap); Photo mode is on the pause menu's first row | Back / LB / Start |
 
 Settings: graphics quality (with automatic step-down), mute, sound and music
 volume, invert camera, left-handed touch layout, rain, and the Fog Bell
-Festival dressing. A mute button sits in the HUD.
+Festival dressing. Sound on / off is also on the pause menu.
+
+On touch screens the pad shows only Jump, Run, Bark and the ... button; Paw
+appears when KC can use something, and the word under each button fades once
+it has been used three times (counted in `settings.hints`, kept on the device).
 
 ## What is in the core
 
@@ -145,15 +149,55 @@ contract between them and the core, and each module's public API, are in
 - Money never buys bones or anything that changes how KC plays. It buys gems
   (cosmetics only) and cosmetic sets. Everything that affects play is earned
   with bones. Nothing is random, nothing has a countdown.
-- **Nothing is live.** `js/store-config.js` holds placeholders, so every
-  store item says "Coming soon" and no checkout can start. The owner's
-  steps (Stripe products, worker settings, wording for a lawyer) are in
-  `marketing/kc-open-trail/MONETIZATION.md`. The worker side is
-  `worker/dewclaw-worker.js`, tested by `worker/test.js`.
+- **Google Play Billing only (owner decision, 2026-11-19).** Stripe is not
+  used for this game anywhere. On the web (any browser) there is no
+  real-money store at all: no Store tab, no price, no "about $X" hints, and
+  a Stripe return link is ignored, whatever `js/store-config.js` says. Inside
+  the Google Play app (`?src=play`, see `js/channel.js`) the store is absent
+  while `PLAY_BILLING = 'off'` (the default) and sells the 16 items through
+  Google Play Billing once the owner sets it to `'on'`, with prices read from
+  Google Play. The worker refuses a Stripe checkout for the game unless
+  `OT_STRIPE` is "on" (not set). The Stripe code in `js/store.js` only runs
+  in the localhost test double used by `tests/store.test.js`.
+- The real-gear shelf (physical products on a separate shop website) is on
+  the web, behind the switch, the gate and a "leaving the game" screen. In
+  the Play app it is not shown at all while `PLAY_REAL_GEAR = 'off'` (the
+  default).
+- **Nothing is live.** Steps to publish the Play app and then to turn on
+  purchases are in `marketing/kc-open-trail/PLAY-STORE-LAUNCH.md`. The worker
+  side is `worker/dewclaw-worker.js`, tested by `worker/test.js`.
 - The merch claim ("bought the real one, get the twin") is local and on
   trust; no order number is stored or sent.
 - Before each release and around each shop sale, refresh the product list:
   `node tools/sync-merch.js --live --accept` (`--check` verifies it).
+
+## The Google Play app
+
+The Play app is a Trusted Web Activity: an Android shell that opens this
+same folder full screen. What it needs from the game is already here:
+
+- Start URL `/games/kc-open-trail/?src=play`. That query is how the game
+  knows it is the Play app (the web sells nothing, so a mistake here shows
+  no store rather than a wrong one).
+- `manifest.webmanifest` (name, icons including a maskable one, fullscreen,
+  any orientation, colours) and `sw.js` (the game starts with no network).
+- The game's own package name and its two SHA-256 fingerprints (upload key
+  and Play app signing key) in `site/.well-known/assetlinks.json`.
+- A privacy policy inside the app: Settings, "Privacy policy", which opens
+  `/kc-open-trail/privacy.html` on the same site.
+
+As shipped the Play app sells nothing (`PLAY_BILLING = 'off'`): no store, no
+prices, no ads, no accounts, no requests to anyone. To sell there later:
+create the 16 products in Play Console with ids equal to the `ot_` names in
+`js/store-config.js`, set `OT_PLAY_PACKAGE` and the Google service account on
+the worker, fill in `WORKER_URL`, then set `PLAY_BILLING = 'on'`. The details
+are in ARCHITECTURE.md, "Channels" and "`game.modules.store`".
+
+To see the Play channel on a computer: `http://localhost:8931/?src=play`
+(the store is absent). With `?src=play&debug=1&mock=1` the store is there,
+but an ordinary browser has no Google Play in it, so every item says
+"Coming soon"; `tests/play.test.js` puts a pretend Google Play in the page.
+Close the tab to go back to the web channel.
 
 ## Files
 
@@ -182,15 +226,16 @@ js/economy.js              price table: ladders, items, ECON_SCALE, free gems, d
 js/upgrades.js             what the ladders do: den, buddies, businesses, funds, trail markers
 js/shop.js                 six Shop tabs and the shop-door prompts
 js/missions.js, js/activities.js   story missions, festival activities, journal, weekly tasks, ferry
-js/store.js, js/store-config.js    real-money store, Trail Journal; the config is placeholders until the owner fills it in
+js/channel.js              'play' (the Google Play app) or 'web'; sets game.channel
+js/store.js, js/store-config.js    real-money store (Google Play Billing in the Play app only; none on the web), Trail Journal; the config is placeholders until the owner fills it in
 js/merch.js                KC shelves, twins, real products behind the gate, leaving screen, claim
 js/guide.js                first steps for a new player
 css/economy.css, css/missions.css, css/store.css, css/merch.css   the modules' styles (each injected by its module)
 merch.json, img/merch/     the 54 real products and their 240 px thumbnails (made by tools/sync-merch.js)
 tools/make-icons.js        regenerates icons/ (dev only, needs Playwright)
 tools/sync-merch.js        rebuilds merch.json and the thumbnails from the shop (owner tool, run by hand)
-tests/smoke.js             the single test entry point (Playwright); also runs the five suites below
-tests/economy.test.js, tests/missions.test.js, tests/store.test.js, tests/merch.test.js   the module suites
+tests/smoke.js             the single test entry point (Playwright); also runs the suites below
+tests/economy.test.js, tests/missions.test.js, tests/store.test.js, tests/merch.test.js, tests/play.test.js   the module suites
 ```
 
 When you change any shipped file, bump `VERSION` in `sw.js`
@@ -230,7 +275,8 @@ NODE_PATH=$(npm root -g) node tests/smoke.js /tmp/kc-shots
    and the gate, pause / settings / map, frame time, save and reload.
 4. A damaged save, "Start over", and the offline reload from the service worker.
 5. **The suites**, each as its own process: `tests/economy.test.js`,
-   `tests/missions.test.js`, `tests/store.test.js`, `tests/merch.test.js` and
+   `tests/missions.test.js`, `tests/store.test.js`, `tests/merch.test.js`,
+   `tests/play.test.js` (both channels, Google Play faked in the page) and
    `worker/test.js`. Each can also be run by itself the same way.
 
 It fails on any console error or off-origin request. Screenshots go to the

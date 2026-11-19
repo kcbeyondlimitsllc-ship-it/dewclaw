@@ -1,8 +1,14 @@
 # KC: Open Trail store: what the owner has to do
 
+> **Owner decision, 2026-11-19: payments are Google Play Billing only. No Stripe for KC: Open Trail anywhere.** The website version of the game sells nothing. Wherever this file talks about Stripe, Stripe Checkout, Stripe price ids or the web store, that part is NOT USED. The steps that apply now are in `PLAY-STORE-LAUNCH.md` (get the app live, then "Turn on purchases").
+
 **Nothing is live.** No Stripe product exists for this game, the store settings in the game are placeholders, and the worker changes have not been deployed. In the game as it stands today every store item says "Coming soon", no payment can be started, and the game sends nothing to any server. Nothing in this folder turns that on by itself. Each step below is something only the owner can do.
 
-Written 2026-11-16. The design this follows is `MONETIZATION-EXPANSION-SPEC.md`, sections 4 and 6.
+Written 2026-11-16, updated 2026-11-17. The design this follows is `MONETIZATION-EXPANSION-SPEC.md`, sections 4 and 6.
+
+**To switch Stripe on, follow `GO-LIVE-STRIPE.md` in this folder.** It is the numbered, do-this-then-that version of section 3 below, and it uses a script (`tools/stripe-setup-open-trail.mjs`) that creates the 16 Stripe items and fills in the settings files for you. This file stays as the reference: what was built, the price table, the full test list, refunds, and the wording for a lawyer.
+
+**Stripe is for the website version only.** The Google Play app never opens Stripe (Google's payments policy forbids it for gems and cosmetics); the game and the worker both block it there. The Play app is covered in `android/kc-open-trail/README.md`.
 
 ---
 
@@ -14,6 +20,9 @@ Written 2026-11-16. The design this follows is `MONETIZATION-EXPANSION-SPEC.md`,
 | Store settings (worker address, price ids, support contact) | `site/games/kc-open-trail/js/store-config.js` | Placeholders (`OWNER_FILLS_IN`). You fill these in. |
 | Server side: the 16 items, what each grants, price checks, Trail Key | `worker/dewclaw-worker.js` | Written and tested with Stripe faked. **Not deployed.** |
 | Tests | `worker/test.js`, `site/games/kc-open-trail/tests/store.test.js` | Pass on the build machine. No real Stripe call has ever been made. |
+| Stripe setup script | `tools/stripe-setup-open-trail.mjs` (tests: `tools/stripe-setup-open-trail.test.mjs`) | Creates the 16 products and prices and writes the ids into the two settings files. Tested against a pretend Stripe only. **Never run against the real Stripe.** |
+| Test worker settings | `worker/wrangler.toml`, the `[env.test]` block | A separate test worker (`dewclaw-ot-test`) with its own storage and test price ids. Not deployed. Its storage id is still a placeholder. |
+| Privacy policy, terms and refunds | `site/kc-open-trail/privacy.html`, `site/kc-open-trail/terms.html` | Written in plain English. **Not reviewed by a lawyer.** The contact line still says `OWNER_FILLS_IN`. |
 
 How the store behaves, in short:
 
@@ -61,17 +70,21 @@ The worker refuses to sell or grant an item whose Stripe price is not exactly th
 
 ### 3.1 Create the 16 products in Stripe (test mode first)
 
-1. Sign in to the Stripe Dashboard. Switch to **test mode** (the toggle at the top). Do everything in test mode first.
+**The quick way is the script**, described step by step in `GO-LIVE-STRIPE.md`, Part A: `node tools/stripe-setup-open-trail.mjs` makes all 16 with the right names, amounts, tax code and a lookup key equal to the SKU, and `--write` does section 3.2 as well. It can be run again safely: it reuses what exists, and it stops without changing anything if an existing price has the wrong amount. The steps below are the same job by hand, if you prefer the Dashboard. Do not mix the two: items made by hand have no lookup key, so the script would not see them and would make a second set.
+
+1. Sign in to the Stripe Dashboard. Switch to the test side: a **Sandbox** on newer accounts (the account menu), or the **Test mode** switch on older ones. Do everything on the test side first.
 2. For each row in the table: Product catalogue, Add product.
    - Name: something a buyer will recognise on a receipt, for example "KC: Open Trail, 500 gems".
    - Price: the exact amount in the table, **USD**, **one-off** (not recurring).
-   - Tax code, if you use Stripe Tax: a digital-goods code. Ask your accountant which one fits in-game items.
+   - Tax code, if you use Stripe Tax: a digital-goods code. The script uses `txcd_10201000` (downloaded video games), the code Stripe's own documentation uses for an in-game coin bundle (read 2026-11-17). Ask your accountant whether it fits gems, the sets and the tip.
 3. Open each product's price and copy its id. It starts with `price_`. You will have 16 of them.
 4. Keep a private note of which id belongs to which SKU. Test-mode ids and live-mode ids are different: you will do this twice.
 
 ### 3.2 Put the ids in two places
 
-**The worker** (it decides what is charged). In `worker/wrangler.toml` the `STRIPE_PRICES` line is one JSON object. Add the 16 pairs to it, for example `"ot_gems_80":"price_..."`, and leave the Dewclaw Plus and Pocket Pup entries exactly as they are. Price ids are not secret.
+The script's `--write` option does all of this section; by hand it is as follows.
+
+**The worker** (it decides what is charged). In `worker/wrangler.toml` the `STRIPE_PRICES` line under `[vars]` is one JSON object (the test worker has its own line under `[env.test.vars]`). Add the 16 pairs to it, for example `"ot_gems_80":"price_..."`, and leave the Dewclaw Plus and Pocket Pup entries exactly as they are. Price ids are not secret.
 
 **The game** (it decides which Buy buttons are switched on). In `site/games/kc-open-trail/js/store-config.js`:
 
@@ -89,7 +102,7 @@ An item whose id is left as `OWNER_FILLS_IN` in `store-config.js` shows "Coming 
 
 The worker changes add the game's items next to Dewclaw Plus and Pocket Pup. The existing flows were left as they were and their tests still pass, but this is the same worker your live app uses, so deploy with care.
 
-1. Safest: deploy a **separate test copy** first, with its own name and the Stripe **test** secret key, so the live app is not touched. From the `worker` folder, something like `npx wrangler deploy --name dewclaw-ot-test`, then set its secret with `npx wrangler secret put STRIPE_SECRET_KEY --name dewclaw-ot-test`. I have not run these commands; check them against Cloudflare's current documentation.
+1. Safest: deploy the **separate test worker** first, with the Stripe **test** secret key, so the live app is not touched. `worker/wrangler.toml` has an `[env.test]` block for it (`dewclaw-ot-test`, its own storage, its own price ids). From the `worker` folder: `npx wrangler deploy --env test`, then `npx wrangler secret put STRIPE_SECRET_KEY --env test` and `npx wrangler secret put TOKEN_SECRET --env test`. The exact order, including creating its storage, is in `GO-LIVE-STRIPE.md` Part B. Do **not** use `npx wrangler deploy --name dewclaw-ot-test`, which an earlier version of this file suggested: that would give the test copy the live app's storage and live price ids. The settings were checked with wrangler's dry run (4.164); nothing has been deployed. The live worker is deployed with `npx wrangler deploy --env="" --keep-vars`.
 2. Settings the game needs on the worker:
    - `STRIPE_PRICES`: now includes the 16 `ot_` ids.
    - `ALLOWED_ORIGIN`: must include the site the game is served from. It is a comma-separated list.
@@ -99,9 +112,9 @@ The worker changes add the game's items next to Dewclaw Plus and Pocket Pup. The
 
 ### 3.5 Test with Stripe test mode
 
-Do this on a phone and on a computer.
+Do this on a computer. The test store is never published: the test worker only answers a copy of the game served on your own computer, so nobody else can reach a store where Stripe's public test card works. The phone check is the one real purchase in `GO-LIVE-STRIPE.md` step 30.
 
-1. Publish the game with the test worker's address and the test price ids in `store-config.js`, to a preview address if you can.
+1. With the test worker's address and the test price ids in `store-config.js` (do not publish the site while they are there), run `node tools/serve-site.mjs` and open `http://localhost:8788/games/kc-open-trail/`.
 2. In the game: Pause, Settings, turn on "Real-money shop", answer the question. Open Shop, Store.
 3. Buy the 80-gem pack with Stripe's test card `4242 4242 4242 4242`, any future date, any CVC. You should come back to the game, see a thank-you screen, 80 more gems, and one line in the purchase journal.
 4. Reload the page. The gems must not be added twice.
@@ -110,14 +123,15 @@ Do this on a phone and on a computer.
 7. Copy the return address from step 3 (with `?cs=...` in it) into the other browser. Nothing should be granted there.
 8. Press Buy, then cancel on Stripe's page. Nothing should be granted and the game should say nothing was charged.
 9. Try a declined card (`4000 0000 0000 0002`). Nothing should be granted.
-10. Check the receipt email Stripe sends, and the product name on it.
+10. Check the receipt email and the product name on it. Stripe does not send receipt emails by itself on the test side: in the Dashboard open the test payment and use "Send receipt", or check this on the one real purchase in `GO-LIVE-STRIPE.md` step 30.
 11. **Home-screen app on an iPhone.** Install the game to the home screen and buy from there. On some iOS versions a home-screen app and Safari keep separate storage. If Stripe returns you to Safari instead of the app, the purchase lands in a browser that did not start it and the game will refuse it. This has not been tested on a real device. If it happens, tell the developer before going live.
 12. Refund one test payment in the Stripe Dashboard so you know where the button is.
 
-Only when all of that works: repeat 3.1 in **live mode**, put the live ids in both places, set the live secret key on the live worker, and deploy.
+Only when all of that works: repeat 3.1 on the **live** side (`node tools/stripe-setup-open-trail.mjs --live --write`), which puts the live ids in both places, and deploy the live worker. The live worker already has its live Stripe key from Dewclaw; do not change it or add `TOKEN_SECRET` on the live worker as part of this (the note in `wrangler.toml` says why). `GO-LIVE-STRIPE.md` Part D has the order.
 
 ### 3.6 Running the automated tests
 
+- `node --test tools/stripe-setup-open-trail.test.mjs` runs the setup script against a pretend Stripe on your own computer: creating, running twice, a wrong amount, the live-key guard and `--write`.
 - `node worker/test.js` runs the worker tests with Stripe faked: every SKU, replays, unknown SKUs, tampered amounts, the device check and the Trail Key.
 - From `site/games/kc-open-trail`: `NODE_PATH=$(npm root -g) node tests/store.test.js` runs the game in a real browser, including one section against the real worker code with Stripe faked.
 - A developer can try the whole store without Stripe by opening the game with `?debug=1&mock=1` at the end of the address. The screen then says "TEST MODE" and no money moves. This mode exists only when the game is served from a developer's own machine (`localhost` or `127.0.0.1`); on the live site the two words do nothing, so a player cannot reach it.
@@ -129,7 +143,7 @@ Only when all of that works: repeat 3.1 in **live mode**, put the live ids in bo
 There is no automatic link between Stripe and a player's save. Refunds are done by hand in the Stripe Dashboard.
 
 - The store screen promises: **unused gems are refunded on request within 14 days of purchase.** The game has no server-side balance, so you cannot check whether the gems were used. In practice you take the buyer's word. Decide whether you are comfortable with that; for these amounts it is usually cheaper than arguing.
-- **Currency.** The worker asks Stripe to charge in US dollars only (`adaptive_pricing[enabled]=false` on the checkout) and the claim accepts nothing but the catalogue price in US dollars. This was tested against a pretend Stripe, not the real one: before opening the store, make one real test-mode purchase from a non-US card or address and check that the item arrives. If Stripe still shows a local-currency price, also turn Adaptive Pricing off in the Stripe dashboard.
+- **Currency.** The worker asks Stripe to charge in US dollars only (`adaptive_pricing[enabled]=false` on the checkout) and the claim accepts nothing but the catalogue price in US dollars. This was tested against a pretend Stripe, not the real one: before opening the store, make one real test-mode purchase from a non-US card or address and check that the item arrives. If Stripe still shows a local-currency price, also turn Adaptive Pricing off in the Stripe dashboard. (Stripe's documentation, read 2026-11-17, says a checkout keeps its amounts in US dollars even when Adaptive Pricing shows a local price, so the worker's check should pass either way. That has not been tried.)
 - **A payment whose return link opens somewhere else** (another browser, a private window, an in-app browser): nothing is added there. The game that started the payment has written the payment's id down, so the grown-up opens the game where Pay was pressed, then Store, "Finish adding it". If that browser's data was wiped in between, the item cannot be added by the game: refund the payment in Stripe.
 - **Trail Keys cannot be switched off from the game.** A key works on any number of devices. After a refund or a leaked key, delete the record `otkey:<KEY>` in the worker's KV store by hand; devices that already restored keep their items.
 - **Two requests at the same moment.** Cloudflare KV has no transactions. The worker now handles claims of one payment, and restore tries from one address, one at a time inside a running copy of itself, and a Trail Key is worked out from the payment (not drawn at random), so a double claim gives one key. Two separate copies of the worker could still each count a restore try; the 20-a-day limit is a brake, not a wall.
@@ -187,3 +201,7 @@ Ask: is a deterrent of this kind acceptable for a game children play, in the pla
 5. The den lamps and signs in the four sets appear only if the den feature lists them. Check each set in the game before selling it.
 6. Stripe promotion codes are switched off for game items, because a 100%-off code would fail the worker's amount check. Say so if you want coupons and the check can be reworked.
 7. Gift codes, a membership and a gem allowance are not built. The spec explains why.
+8. The privacy policy and the terms (`site/kc-open-trail/privacy.html`, `terms.html`): fill in the contact line, confirm you will honour the refund promises as written, and have a lawyer read both.
+9. Stripe Dashboard settings and the Stripe Tax decision: `GO-LIVE-STRIPE.md` Part C. In particular turn off payment methods that take days to clear; the game only hands over an item when Stripe says "paid" at once.
+10. Worker changes not made yet, none of which stops a first sale: a statement-descriptor suffix naming the game, the refund line and "purchase by an adult" on Stripe's payment page, a server-side block on slow payment methods, a pinned Stripe API version, and a signed webhook so refunds and disputes can cancel a Trail Key automatically.
+11. The live worker signs web Plus tokens with the Stripe key itself unless `TOKEN_SECRET` is set. Moving the live worker to a restricted Stripe key (Stripe recommends one) therefore needs a plan from a developer first, or web Plus buyers are signed out.

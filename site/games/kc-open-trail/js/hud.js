@@ -5,6 +5,8 @@ import { icon, el, clamp, angDiff, TAU } from './util.js';
 import { EXT, HALF, DISTRICT_LABELS, PHOTO_SPOTS, SIGNPOSTS } from './data.js';
 import { createUiKit } from './uikit.js';
 import { createPhotoKit } from './photo.js';
+/* the game's privacy policy: a page of the same website, outside the game's folder */
+const PRIVACY_URL = '/kc-open-trail/privacy.html';
 
 const $ = id => document.getElementById(id);
 
@@ -86,11 +88,14 @@ export function createHud(game) {
     ui.openModal({ id: 'pause', title: 'Paused', render: b => {
       const menu = el('div', { class: 'menu two' });
       const add = (label, ic, fn, go) => { const x = el('button', { type: 'button', class: 'btn ' + (go ? 'go' : 'alt') }, icon(ic, 20) + `<span>${label}</span>`); x.addEventListener('click', () => { sfx(); fn(); }); menu.appendChild(x); return x; };
-      add('Resume', 'paw', () => ui.closeModal('pause'), true).style.gridColumn = '1 / -1';
-      add('Map', 'map', () => ui.map()); add('Photo mode', 'camera', () => { ui.closeAll(); ui.photoMode(true); });
+      /* the first row: Resume and Photo mode (the camera lives here, not on the HUD); then the map and the sound switch */
+      add('Resume', 'paw', () => ui.closeModal('pause'), true);
+      add('Photo mode', 'camera', () => { ui.closeAll(); ui.photoMode(true); }).dataset.menu = 'photo';
+      add('Map', 'map', () => ui.map());
+      const mute = add(state.settings.muted ? 'Sound: off' : 'Sound: on', 'bark', () => { ui.setMuted(!state.settings.muted); mute.lastChild.textContent = state.settings.muted ? 'Sound: off' : 'Sound: on'; mute.setAttribute('aria-pressed', state.settings.muted ? 'true' : 'false'); });
+      mute.dataset.menu = 'sound'; mute.setAttribute('aria-pressed', state.settings.muted ? 'true' : 'false');
       if (game.shop.tabs.length) add('Shop', 'bone', () => ui.shop());
       for (const it of ui.menuItems) add(it.label, it.icon || 'star', () => it.onSelect && it.onSelect());
-      const mute = add(state.settings.muted ? 'Sound: off' : 'Sound: on', 'bark', () => { ui.setMuted(!state.settings.muted); mute.lastChild.textContent = state.settings.muted ? 'Sound: off' : 'Sound: on'; });
       add('Settings', 'gear', () => ui.settings()); add('How to play', 'flag', () => ui.help());
       b.appendChild(menu);
       b.appendChild(el('div', { class: 'stats' }, `<span>Day <b>${game.world.day}</b></span><span>Distance <b>${(s.distance / 1000).toFixed(2)} km</b></span><span>Bones found <b>${s.bones}</b></span><span>Golden balls <b>${c.balls}/${c.ballsTotal}</b></span><span>Photo spots <b>${c.photos}/${c.photosTotal}</b></span><span>Signs read <b>${c.signs}/${c.signsTotal}</b></span><span>Places found <b>${c.zones}/${game.api.districts.length}</b></span><span>Pats <b>${s.pets}</b></span>`));
@@ -102,17 +107,18 @@ export function createHud(game) {
     const touchRows = `<h3 class="helph">Touch</h3><div class="keys">
       ${k('', 'Left thumb')}<span>Drag anywhere on the ${state.settings.leftHanded ? 'right' : 'left'} half to move. The ring follows your thumb.</span>
       ${k('', 'Other thumb')}<span>Drag the other half to look around. Pinch with two fingers to zoom.</span>
-      ${k('bolt', 'Zoom')}<span>Hold for zoomies: sprint while stamina lasts</span>
+      ${k('bolt', 'Run')}<span>Hold for zoomies: run fast while stamina lasts</span>
       ${k('jump', 'Jump')}<span>Jump (on a skateboard: ollie)</span>
-      ${k('paw', 'Paw')}<span>Sniff, pick up, talk, hop on or off rides. The orange prompt does the same.</span>
-      ${k('bark', 'Bark')}<span>Bark</span>${k('sit', 'Sit')}<span>Sit (sit by a person for a pat)</span>
-      ${k('dig', 'Dig')}<span>Dig</span>${k('shake', 'Shake')}<span>Shake off</span>
-      ${k('map', 'Map')}<span>Top right, or tap the little map</span>${k('camera', 'Photo')}<span>Photo mode</span>${k('pause', 'Pause')}<span>Pause, settings and this help</span></div>`;
+      ${k('paw', 'Paw')}<span>Shows up only when KC can do something close by, and says what: sniff, pick up, talk, shop, take a job, hop on or off a ride</span>
+      ${k('bark', 'Bark')}<span>Bark</span>
+      ${k('more', 'Tricks')}<span>Opens Sit (sit by a person for a pat), Dig and Shake. Tap one, or tap anywhere else to fold them away</span>
+      ${k('map', 'Map')}<span>Top right, or tap the little map</span>${k('pause', 'Pause')}<span>Photo mode, sound on or off, settings and this help</span></div>
+      <p class="helpnote">The words under the buttons fade once you have used each one a few times.</p>`;
     const keyRows = `<h3 class="helph">Keyboard and mouse</h3><div class="keys"><kbd>W A S D</kbd><span>Move</span><kbd>Mouse drag</kbd><span>Look around (Q / E also turn, wheel zooms)</span><kbd>Shift</kbd><span>Zoomies! Sprint while stamina lasts</span><kbd>Space</kbd><span>Jump (on a skateboard: ollie)</span>
-      <kbd>F</kbd><span>Paw: sniff, pick up, talk, hop on or off rides</span><kbd>B</kbd><span>Bark</span><kbd>C</kbd><span>Sit (sit by a person for a pat)</span><kbd>G</kbd><span>Dig</span><kbd>X</kbd><span>Shake</span><kbd>M</kbd><span>Map</span><kbd>K</kbd><span>Photo mode</span><kbd>Esc</kbd><span>Pause</span></div>`;
+      <kbd>F</kbd><span>Paw: sniff, pick up, talk, hop on or off rides</span><kbd>B</kbd><span>Bark</span><kbd>C</kbd><span>Sit (sit by a person for a pat)</span><kbd>G</kbd><span>Dig</span><kbd>X</kbd><span>Shake</span><kbd>M</kbd><span>Map</span><kbd>K</kbd><span>Photo mode (also in the pause menu)</span><kbd>Esc</kbd><span>Pause: photo mode, sound, settings</span></div>`;
     return ui.openModal({ id: 'help', title: 'How to play', html: `<p>You are KC, loose in St. Helens, Oregon, with Highway 30, Sauvie Island and Portland down the road. Sniff out bones, find golden tennis balls, dig, swim, ride, and say hi to everyone.</p>
     ${touch ? touchRows + keyRows : keyRows + touchRows}
-    <p>Gamepad: left stick move, right stick look, A jump, X paw, B bark, Y sit, right trigger zoomies.</p>
+    <p>Gamepad: left stick move, right stick look, A jump, X paw, B bark, Y sit, d-pad down dig, d-pad up shake, right trigger zoomies, LB photo mode, Back map, Start pause.</p>
     <p>Rides: skateboards roll anywhere dry and ollie with Jump, canoes only float (find them at docks), the camper van likes roads (it crawls on grass), and the Heron Line tram in Portland takes passengers at its two stops.</p>`, actions: [{ label: 'Got it', primary: true }] });
   };
   ui.settings = () => ui.openModal({ id: 'settings', title: 'Settings', render: b => {
@@ -131,11 +137,17 @@ export function createHud(game) {
     check('Rain showers', 'rain');
     { const c = el('input', { type: 'checkbox', 'data-set': 'festival' }); c.checked = !!game.economy.getFlag('festival'); c.addEventListener('change', () => { game.economy.setFlag('festival', c.checked); game.save.save(); }); row('Fog Bell Festival dressing', c); }
     /* rows added by modules (ui.addSetting) and the grown-up switch for the real-money shop (shown once a store module asks for it) */
-    const extra = [...ui.settingRows]; if (game.grownUp.showSwitch) extra.push({ id: 'spending', label: 'Real-money shop (grown-ups only)', type: 'check', get: () => game.grownUp.spending, set: v => game.grownUp.setSpending(v), order: 90 });
+    const extra = [...ui.settingRows]; if (game.grownUp.showSwitch) extra.push({ id: 'spending', label: game.grownUp.switchLabel || 'Real-money shop (grown-ups only)', type: 'check', get: () => game.grownUp.spending, set: v => game.grownUp.setSpending(v), order: 90 });
     for (const r of extra.sort((a, c) => (a.order ?? 50) - (c.order ?? 50))) {
       if (r.type === 'button') { const x = el('button', { type: 'button', class: 'btn alt', 'data-set': r.id }); x.textContent = r.button || 'Open'; x.addEventListener('click', () => { sfx(); r.onClick && r.onClick(); }); row(r.label, x); }
       else { const c = el('input', { type: 'checkbox', 'data-set': r.id }); c.checked = !!(r.get && r.get()); c.addEventListener('change', async () => { const want = c.checked; let ok = true; try { ok = (await (r.set && r.set(want))) !== false; } catch (e) { console.error(e); ok = false; } const now = r.get ? !!r.get() : ok ? want : !want; const live = document.querySelector(`[data-set="${r.id}"]`); if (live) live.checked = now; game.save.save(); }); row(r.label, c); }
     }
+    /* the privacy policy: a page of this same website, so it stays inside the Play app with no address bar. No gate: it sells nothing.
+       In a browser tab it opens beside the game; in the installed app it takes the game's place and Back returns. */
+    { const a = el('a', { class: 'btn alt', href: PRIVACY_URL, 'data-set': 'privacy' }); a.textContent = 'Read';
+      let tab = true; try { tab = matchMedia('(display-mode: browser)').matches; } catch (e) { /* treated as a tab */ }
+      if (tab && game.channel !== 'play') { a.target = '_blank'; a.rel = 'noopener'; }
+      a.addEventListener('click', e => { sfx(); game.save.save(); if (navigator.onLine === false) { e.preventDefault(); ui.toast('The privacy policy needs an internet connection. Try again when this device is online.', { icon: 'hand', ms: 5000 }); } }); row('Privacy policy', a); }
     const reset = el('button', { type: 'button', class: 'btn danger', style: 'margin-top:12px;width:100%' }); reset.textContent = 'Start over (erase save)';
     reset.addEventListener('click', async () => {
       /* modules that keep something through a reset say so here (ui.resetNotes: [() => ({ text, gate }) | null]); anything bought with real money puts the grown-up gate first */
@@ -146,7 +158,8 @@ export function createHud(game) {
     b.appendChild(reset);
   }, actions: [{ label: 'Done', primary: true }] });
 
-  ui.setMuted = v => { state.settings.muted = !!v; game.audio.applyVolume(); const b = $('btnMute'); if (b) { b.classList.toggle('off', !!v); b.setAttribute('aria-pressed', v ? 'true' : 'false'); b.setAttribute('aria-label', v ? 'Sound is off. Turn sound on' : 'Sound is on. Mute'); } game.save.save(); };
+  /* sound on / off: the switch is in the pause menu and in Settings (M is the map, so there is no key for it) */
+  ui.setMuted = v => { state.settings.muted = !!v; game.audio.applyVolume(); game.save.save(); };
   /* Shop shell: one screen with a scrolling strip of tabs (game.shop.registerTab); the open tab draws its own body with render(pane, game, handle).
      The strip stays pinned while the body scrolls, the balance sits in the header, and the last tab is remembered. */
   ui.shop = id => { const tabs = game.shop.tabs; if (!tabs.length) return null; if (id && tabs.some(t => t.id === id)) ui.shopTab = id;
@@ -238,15 +251,27 @@ export function createHud(game) {
 
   /* ---------- buttons ---------- */
   $('btnPause').addEventListener('click', () => { sfx(); ui.pause(); }); $('btnMap').addEventListener('click', () => { sfx(); ui.map(); }); $('minimapBtn').addEventListener('click', () => { sfx(); ui.map(); });
-  $('btnPhoto').addEventListener('click', () => { sfx(); ui.photoMode(true); });
-  $('btnMute').addEventListener('click', () => { ui.setMuted(!state.settings.muted); sfx(); }); $('btnMute').classList.toggle('off', !!state.settings.muted);
   $('prompt').addEventListener('click', () => game.input.press('interact'));
-  document.querySelectorAll('#pad button').forEach(b => {
-    const name = b.dataset.btn, set = d => { b.classList.toggle('down', d); game.input.setButton(name, d); };
-    b.addEventListener('pointerdown', e => { e.preventDefault(); try { b.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ } set(true); });
+  /* touch pad. Each button's word fades once it has been used 3 times (counted in settings.hints, so it lasts and survives Start over).
+     Paw has no fixed word: it shows what it will do, so its label never fades. */
+  const H = () => state.settings.hints, LEARN = 3, pad = $('pad'), tricks = $('tricks'), more = $('btnMore');
+  const learned = () => { pad.querySelectorAll('button').forEach(b => { const h = b.dataset.hint || b.dataset.btn; if (h in H()) b.classList.toggle('learned', H()[h] >= LEARN); }); $('stick').classList.toggle('learned', H().move >= LEARN); };
+  const used = h => { const n = H(); if (!(h in n) || n[h] >= LEARN) return; n[h]++; if (n[h] >= LEARN) { learned(); game.save.save(); } };
+  ui.hintsLearned = learned;
+  /* the tricks fan: ... opens Sit, Dig and Shake; it folds away after one is used, on a second tap of ..., or on a tap anywhere else */
+  const fan = open => { open = !!open; if (open === !tricks.hidden) return; tricks.hidden = !open; pad.classList.toggle('open', open); more.classList.toggle('down', open); };
+  ui.tricks = fan;
+  more.addEventListener('pointerdown', e => { e.preventDefault(); used('more'); sfx(); fan(tricks.hidden); });
+  more.addEventListener('contextmenu', e => e.preventDefault());
+  document.addEventListener('pointerdown', e => { if (!tricks.hidden && !tricks.contains(e.target) && !more.contains(e.target)) fan(false); }, true);
+  pad.querySelectorAll('button[data-btn]').forEach(b => {
+    const name = b.dataset.btn, inFan = tricks.contains(b); let isDown = false;
+    const set = d => { if (d === isDown) return; isDown = d; b.classList.toggle('down', d); game.input.setButton(name, d); if (!d && inFan) fan(false); };
+    b.addEventListener('pointerdown', e => { e.preventDefault(); try { b.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ } used(name); set(true); });
     for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) b.addEventListener(ev, () => set(false));
     b.addEventListener('contextmenu', e => e.preventDefault());
   });
+  learned();
   $('titleSettings').addEventListener('click', () => { sfx(); ui.settings(); }); $('titleHelp').addEventListener('click', () => { sfx(); ui.help(); });
   ui.start = () => { ui.started = true; $('title').hidden = true; hud.hidden = false; document.body.classList.toggle('lefty', !!state.settings.leftHanded); $('game').focus({ preventScroll: true }); tlb(); coachStart(); bus.emit('start', {}); };
   /* the toasts hang under the minimap / place name / clock column: publish where that column ends */
@@ -276,6 +301,7 @@ export function createHud(game) {
   ui.objPos = objPos;
   /* the run timer chip under the compass: ui.setTimer('Paper round  0:42', { warn: true }) ; ui.setTimer(null) hides it */
   let timerText = null; ui.setTimer = (text, o = {}) => { const e = $('runTimer'); if (text == null) { if (timerText != null) { e.hidden = true; timerText = null; rows(); } return; } if (text !== timerText) { const was = e.hidden; e.textContent = timerText = text; e.hidden = false; if (was) { rows(); ui._clearBanner(); } } e.classList.toggle('warn', !!o.warn); };
+  const pawBtn = pad.querySelector('[data-btn="interact"]'); let pawIc = 'paw';
   let lastPrompt = '', clockT = 0, frame = 0, lastStam = -1, lastLow = null, stickWas = false;
   const stam = $('stamina'), stamBar = stam.querySelector('.bar i'), stickEl = $('stick'), knob = stickEl.firstChild;
   ui.update = dt => {
@@ -283,9 +309,12 @@ export function createHud(game) {
     const f = kc.stamina / kc.staminaMax, fq = Math.round(f * 200), low = kc.exhausted || f < 0.25; if (fq !== lastStam) { lastStam = fq; stamBar.style.transform = `scaleX(${(fq / 200).toFixed(3)})`; stam.setAttribute('aria-valuenow', Math.round(f * 100)); } if (low !== lastLow) { lastLow = low; stam.classList.toggle('low', low); }
     if (coachOn) coachTick(dt);
     const p = api.prompt, key = p ? p.label : '';
-    if (key !== lastPrompt) { lastPrompt = key; const pe = $('prompt'); pe.hidden = !p; if (p) pe.innerHTML = icon(p.icon || 'paw', 20) + `<span></span><kbd>${game.input.lastDevice === 'gamepad' ? 'X' : 'F'}</kbd>`, pe.children[1].textContent = p.label; }
+    if (key !== lastPrompt) { lastPrompt = key; const pe = $('prompt'); pe.hidden = !p; if (p) pe.innerHTML = icon(p.icon || 'paw', 20) + `<span></span><kbd>${game.input.lastDevice === 'gamepad' ? 'X' : 'F'}</kbd>`, pe.children[1].textContent = p.label;
+      /* the touch Paw button appears only while there is something to use, with the same icon and words as the prompt */
+      if (pawIc !== (p && (p.icon || 'paw'))) { pawIc = p && (p.icon || 'paw'); if (pawIc) pawBtn.firstChild.innerHTML = icon(pawIc, 28); }
+      pawBtn.hidden = !p; pawBtn.lastChild.textContent = p ? p.label : ''; if (!p && pawBtn.classList.contains('down')) pawBtn.dispatchEvent(new Event('pointercancel')); }
     clockT -= dt; if (clockT <= 0) { clockT = 1; const t = world.time, h = Math.floor(t), m = Math.floor((t - h) * 6) * 10, h12 = ((h + 11) % 12) + 1; $('clock').textContent = `Day ${world.day}  ·  ${h12}:${String(m).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}${world.rain > 0.2 ? '  ·  rain' : ''}`; wallet(); }
-    const s = game.input.stick; if (s.active) { if (!stickWas) { stickWas = true; stickEl.classList.add('on'); stickEl.style.bottom = stickEl.style.right = 'auto'; } stickEl.style.left = (s.ox - 56) + 'px'; stickEl.style.top = (s.oy - 56) + 'px'; knob.style.transform = `translate(${s.x * 30}px, ${s.y * 30}px)`; } else if (stickWas) { stickWas = false; stickEl.classList.remove('on'); stickEl.style.left = stickEl.style.top = stickEl.style.bottom = stickEl.style.right = ''; knob.style.transform = ''; }
+    const s = game.input.stick; if (s.active) { if (!stickWas) { stickWas = true; used('move'); stickEl.classList.add('on'); stickEl.style.bottom = stickEl.style.right = 'auto'; } stickEl.style.left = (s.ox - 56) + 'px'; stickEl.style.top = (s.oy - 56) + 'px'; knob.style.transform = `translate(${s.x * 30}px, ${s.y * 30}px)`; } else if (stickWas) { stickWas = false; stickEl.classList.remove('on'); stickEl.style.left = stickEl.style.top = stickEl.style.bottom = stickEl.style.right = ''; knob.style.transform = ''; }
     if (api.objective && frame % 10 === 0) { const o = api.objective, q = objPos(), oe = $('objective'); oe.textContent = o.label ? o.label + ' ' : ''; const tail = o.progress != null ? String(o.progress) : q ? Math.round(Math.hypot(q.x - kc.pos.x, q.z - kc.pos.z)) + ' m' : ''; if (tail) { const bb = document.createElement('b'); bb.textContent = tail; oe.appendChild(bb); } }
     /* minimap (north up) */
     if (frame % 2 === 0) {
