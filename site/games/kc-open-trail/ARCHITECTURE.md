@@ -406,7 +406,9 @@ What follows `game.channel === 'play'`:
   dollar price from its own catalogue. The worker also refuses `/stripe/checkout` for an `ot_` SKU when the body says
   `channel: 'play'` (a second lock; the worker cannot tell the app from a browser by itself).
 - With `PLAY_BILLING` off: no Store tab, no pass column or pass price in the Trail Journal, no limit / restore rows in Settings,
-  `game.grownUp.storeOff = true`, and the switch in Settings reads "Real KC gear shelf (grown-ups only)".
+  `game.grownUp.storeOff = true`, and Settings has no grown-ups switch at all (unless the owner sets `PLAY_REAL_GEAR = 'on'`,
+  when it reads "Real KC gear shelf (grown-ups only)"). On the web `storeOff` is also true and the switch reads the same,
+  because the web has no store but does have the real-gear shelf.
 - With `PLAY_BILLING` on: see `game.modules.store` below.
 
 Settings has a "Privacy policy" row in both channels: a plain link to `/kc-open-trail/privacy.html` on the same origin (so it
