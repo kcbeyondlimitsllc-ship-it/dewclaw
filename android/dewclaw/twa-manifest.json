@@ -20,8 +20,8 @@
     "path": "./dewclaw-upload.keystore",
     "alias": "dewclaw"
   },
-  "appVersionName": "1.0.0",
-  "appVersionCode": 1,
+  "appVersionName": "1.0.1",
+  "appVersionCode": 2,
   "shortcuts": [],
   "generatorApp": "bubblewrap-core",
   "webManifestUrl": "https://dewclaw-app.netlify.app/manifest.webmanifest",
@@ -49,6 +49,5 @@
   "protocolHandlers": [],
   "fileHandlers": [],
   "launchHandlerClientMode": "",
-  "displayOverride": [],
-  "appVersion": "1.0.0"
+  "displayOverride": []
 }

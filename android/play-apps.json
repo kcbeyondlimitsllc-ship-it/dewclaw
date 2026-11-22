@@ -1,0 +1,15 @@
+{
+  "_about": "Apps the 'Android Play upload' workflow can ship. uploadKeySha256 is the SHA-256 of each app's upload key certificate (public; also in site/.well-known/assetlinks.json). The workflow refuses to upload a bundle signed with any other key.",
+  "dewclaw": {
+    "dir": "android/dewclaw",
+    "packageId": "com.kcbeyondlimits.dewclaw",
+    "secretPrefix": "DEWCLAW",
+    "uploadKeySha256": "09:F8:09:8A:0A:1C:81:5A:83:69:1E:4B:A1:40:F1:7B:72:07:AB:79:6C:FE:6F:34:41:CE:D1:D9:68:5E:91:B1"
+  },
+  "kc-open-trail": {
+    "dir": "android/kc-open-trail",
+    "packageId": "com.kcbeyondlimits.kcopentrail",
+    "secretPrefix": "KCOPENTRAIL",
+    "uploadKeySha256": "F7:BD:DD:4C:C2:9F:68:43:97:6E:8E:BA:0C:16:30:42:DA:58:AA:A6:6E:BA:65:84:03:E7:FB:D8:E4:57:5F:63"
+  }
+}

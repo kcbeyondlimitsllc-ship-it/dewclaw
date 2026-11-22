@@ -1,0 +1,10 @@
+{
+  "name": "kc-android-twa",
+  "private": true,
+  "description": "Build tools for the Trusted Web Activity Play apps in this folder (generate.js in each app folder).",
+  "license": "UNLICENSED",
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "@bubblewrap/core": "1.27.0"
+  }
+}

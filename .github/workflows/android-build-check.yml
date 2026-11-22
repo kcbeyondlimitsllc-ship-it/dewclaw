@@ -1,0 +1,115 @@
+# Builds both Android Play apps with a throwaway signing key and checks what is inside.
+# Uses no secrets and uploads nothing anywhere: it only proves the build still works.
+name: Android build check
+
+on:
+  push:
+    branches: [ccr-85e5f805-cd3f9x]
+    paths:
+      - 'android/**'
+      - 'tools/android/**'
+      - 'tools/play/**'
+      - 'site/manifest.webmanifest'
+      - 'site/icons/**'
+      - 'site/games/kc-open-trail/manifest.webmanifest'
+      - 'site/games/kc-open-trail/icons/**'
+      - '.github/workflows/android-build-check.yml'
+      - '.github/workflows/android-play.yml'
+  pull_request:
+    paths:
+      - 'android/**'
+      - 'tools/android/**'
+      - 'tools/play/**'
+      - '.github/workflows/android-build-check.yml'
+      - '.github/workflows/android-play.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-build-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Play upload logic (dry run, no credentials)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Unit tests (versionCode choice, release status, keystore handling, bundle checks)
+        run: node --test tools/android/*.test.mjs tools/play/*.test.mjs
+
+  build:
+    name: Build ${{ matrix.app }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [dewclaw, kc-open-trail]
+    env:
+      APP: ${{ matrix.app }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: JDK 17
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Android SDK (platform 36, build-tools 35.0.0)
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          for p in "platforms;android-36" "build-tools;35.0.0"; do
+            if [ -d "$ANDROID_HOME/${p//;//}" ]; then echo "have $p"; else yes | "$SDKM" "$p" > /dev/null; echo "installed $p"; fi
+          done
+
+      - name: Bubblewrap (npm ci)
+        working-directory: android
+        run: npm ci --no-audit --no-fund
+
+      - name: Throwaway signing key (not the upload key)
+        run: |
+          PASS="$(openssl rand -hex 24)"
+          echo "::add-mask::$PASS"
+          echo "KC_KEYSTORE_PASS=$PASS" >> "$GITHUB_ENV"
+          export KC_KEYSTORE_PASS="$PASS"
+          keytool -genkeypair -keystore "$RUNNER_TEMP/throwaway.keystore" -storetype PKCS12 \
+            -storepass:env KC_KEYSTORE_PASS -keypass:env KC_KEYSTORE_PASS -alias ci \
+            -keyalg RSA -keysize 2048 -validity 2 -dname "CN=throwaway build check" 2> /dev/null
+
+      - name: Build, sign and check the bundle
+        env:
+          KC_KEY_ALIAS: ci
+          KC_VERSION_CODE: ${{ github.run_number }}
+        run: |
+          ./android/$APP/build.sh "$RUNNER_TEMP/throwaway.keystore" "$RUNNER_TEMP/out"
+
+      - name: The upload guard refuses a bundle not signed with the app's upload key
+        env:
+          KC_VERSION_CODE: ${{ github.run_number }}
+        run: |
+          EXPECT="$(node -p "require('./android/play-apps.json')[process.env.APP].uploadKeySha256")"
+          BUNDLETOOL="$(ls "$HOME"/.cache/kc-android/bundletool-all-*.jar)"; export BUNDLETOOL
+          AAB="$(ls "$RUNNER_TEMP"/out/*.aab)"
+          if node tools/android/check-aab.mjs "$AAB" "android/$APP/twa-manifest.json" --expect-sha256 "$EXPECT" > "$RUNNER_TEMP/guard.log" 2>&1; then
+            cat "$RUNNER_TEMP/guard.log"; echo "the guard let a throwaway-signed bundle through"; exit 1
+          fi
+          grep "but this app's upload key is" "$RUNNER_TEMP/guard.log"
+          echo "guard works: a bundle signed with another key would not be uploaded"
+
+      - name: Remove the throwaway key
+        if: always()
+        run: |
+          bash tools/play/keystore.sh remove "$RUNNER_TEMP/throwaway.keystore"
+          rm -rf "$RUNNER_TEMP/out"
