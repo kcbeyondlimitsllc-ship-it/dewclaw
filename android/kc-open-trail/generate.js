@@ -3,6 +3,7 @@
  *   node generate.js /path/to/kc-open-trail-upload.keystore [output-folder]
  *
  * Every setting comes from twa-manifest.json beside this file; edit that, not this.
+ * KC_VERSION_CODE / KC_VERSION_NAME in the environment override the version (CI uses them).
  * The icons and the web manifest are read from this repo (site/games/kc-open-trail),
  * through a throwaway server on 127.0.0.1, so the build does not depend on what is
  * currently deployed. Nothing is sent anywhere. */
@@ -32,6 +33,13 @@ function serveSite() {
   const out = path.resolve(process.argv[3] || path.join(__dirname, 'project'));   /* generated, not committed */
 
   const json = JSON.parse(fs.readFileSync(path.join(__dirname, 'twa-manifest.json'), 'utf8'));
+  /* CI sets the version from what Play already has; by hand, twa-manifest.json decides. */
+  if (process.env.KC_VERSION_CODE) {
+    const code = Number(process.env.KC_VERSION_CODE);
+    if (!Number.isInteger(code) || code < 1 || code > 2100000000) throw new Error('KC_VERSION_CODE must be a whole number from 1 to 2100000000');
+    json.appVersionCode = code;
+  }
+  if (process.env.KC_VERSION_NAME) json.appVersionName = process.env.KC_VERSION_NAME;
   json.appVersion = json.appVersionName;            /* bubblewrap reads the name from "appVersion" */
   json.signingKey = { path: path.resolve(keystore), alias: json.signingKey.alias };
 

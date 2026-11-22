@@ -14,22 +14,26 @@ generated Android project, the signing key and the built files are not in the re
 - Permissions in the built app: `INTERNET`, `ACCESS_NETWORK_STATE`, `com.android.vending.BILLING`
 - `?src=play` on the start address is how the game can tell it was opened from the Play app.
 
+**Ship a new version from GitHub:** see [`../PLAY-CI.md`](../PLAY-CI.md)
+(Actions → Android Play upload → Run workflow → app `kc-open-trail`). The very first
+upload has to be done by hand in Play Console; after that, GitHub can do it.
+
 ## Files
 
 | File | What it is |
 |---|---|
 | `twa-manifest.json` | Every setting: package, names, address, colours, version. Edit this. |
 | `generate.js` | Writes the Android project from `twa-manifest.json`. Icons and splash come from `site/games/kc-open-trail/icons` in this repo, not from the live site. |
-| `build.sh` | One command: write the project, build, sign, check. |
+| `build.sh` | One command: write the project, build, sign, check. The same script as in `../dewclaw`. |
 
 ## Build a new version
 
-Needs Node 18+, JDK 17 or 21, Gradle 8.11+, and the Android SDK
-(`platforms;android-36`, `build-tools;35.0.0`) with `ANDROID_HOME` set.
+Needs Node 18+, JDK 17 or 21, and the Android SDK
+(`platforms;android-36`, `build-tools;35.0.0`) with `ANDROID_HOME` set. Gradle comes
+from the project's own wrapper (8.11.1); `GRADLE=gradle` uses an installed one instead.
 
 ```
-cd android/kc-open-trail
-npm install @bubblewrap/core          # once; node_modules is git-ignored
+cd android && npm ci && cd kc-open-trail    # once; node_modules is git-ignored
 ./build.sh /path/to/kc-open-trail-upload.keystore /path/to/output-folder
 ```
 
@@ -39,22 +43,24 @@ It asks for the keystore password (or set `KC_KEYSTORE_PASS`). It writes:
 - `kc-open-trail-<version>-<code>-test.apk`: the same app as one installable file,
   for trying on a phone (`adb install`). Do not upload it.
 
-The script stops with an error if the signature, package name, version or the
-billing permission is not what it should be. Keep the output folder outside the repo.
+The script stops with an error if the signature, package name, version, target SDK,
+the billing permission or `DelegationService` is not what it should be, or if the app
+asks for location, notifications or the advertising ID. Keep the output folder outside the repo.
 
 By hand, the same steps are:
 
 ```
 node generate.js /path/to/kc-open-trail-upload.keystore      # writes ./project
 cd project
-gradle bundleRelease assembleRelease
+./gradlew bundleRelease assembleRelease
 jarsigner -keystore /path/to/kc-open-trail-upload.keystore -sigalg SHA256withRSA -digestalg SHA-256 \
   app/build/outputs/bundle/release/app-release.aab kcopentrail
 ```
 
 ## Raise the version
 
-Before each new upload, edit two lines in `twa-manifest.json`:
+The GitHub workflow picks the version code by itself. For a hand-built upload,
+edit two lines in `twa-manifest.json` first:
 
 - `appVersionCode`: add 1 every time (1, 2, 3 …). Google Play rejects a bundle whose code it has seen.
 - `appVersionName`: what people see, for example `1.0.1`.
