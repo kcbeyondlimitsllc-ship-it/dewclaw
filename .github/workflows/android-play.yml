@@ -144,7 +144,7 @@ jobs:
         run: |
           if [ -n "$NOTES" ]; then
             mkdir -p "$RUNNER_TEMP/whatsnew"
-            printf '%s\n' "$NOTES" > "$RUNNER_TEMP/whatsnew/whatsnew-en-US"
+            printf '%s' "$NOTES" > "$RUNNER_TEMP/whatsnew/whatsnew-en-US"
             echo "dir=$RUNNER_TEMP/whatsnew" >> "$GITHUB_OUTPUT"
           fi
 
